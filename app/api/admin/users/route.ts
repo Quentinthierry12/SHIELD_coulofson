@@ -15,7 +15,7 @@ export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
-    "SELECT id, matricule, codename, clearance, role, status, discord_id IS NOT NULL AS discord_linked, created_at FROM users ORDER BY status DESC, id"
+    "SELECT id, matricule, codename, clearance, role, status, COALESCE(division,'') AS division, discord_id IS NOT NULL AS discord_linked, created_at FROM users ORDER BY status DESC, id"
   );
   return NextResponse.json(rows);
 }
@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Access denied." }, { status: 403 });
-  const { codename, password, clearance, role, matricule } = await req.json();
+  const { codename, password, clearance, role, matricule, division } = await req.json();
   if (!codename?.trim() || !password || password.length < 6) {
     return NextResponse.json({ error: "Codename required and password must be at least 6 characters." }, { status: 400 });
   }
@@ -43,9 +43,9 @@ export async function POST(req: Request) {
     const m = custom || "AG-" + Math.floor(1000 + Math.random() * 9000);
     try {
       const { rows } = await pool.query(
-        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, must_change_password)
-         VALUES ($1, $2, $3, $4, $5, 'active', true) RETURNING id`,
-        [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent"]
+        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, must_change_password, division)
+         VALUES ($1, $2, $3, $4, $5, 'active', true, $6) RETURNING id`,
+        [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim());
       audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${level})`);
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Access denied." }, { status: 403 });
-  const { id, status, clearance, role, new_password } = await req.json();
+  const { id, status, clearance, role, new_password, division } = await req.json();
   if (id === admin.id && (status !== "active" || role !== "admin")) {
     return NextResponse.json({ error: "You cannot demote yourself." }, { status: 400 });
   }
@@ -77,8 +77,8 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: `You can only assign clearances below your own (max level ${admin.clearance - 1}).` }, { status: 403 });
   }
   await pool.query(
-    "UPDATE users SET status = $2, clearance = $3, role = $4 WHERE id = $1",
-    [id, status, level, role === "admin" ? "admin" : "agent"]
+    "UPDATE users SET status = $2, clearance = $3, role = $4, division = $5 WHERE id = $1",
+    [id, status, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null]
   );
   if (new_password) {
     if (new_password.length < 6) return NextResponse.json({ error: "Password: at least 6 characters." }, { status: 400 });

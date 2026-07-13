@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; discord_linked: boolean; created_at: string };
+type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; created_at: string };
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
@@ -40,6 +40,7 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
   const [codename, setCodename] = useState("");
   const [password, setPassword] = useState("");
   const [badge, setBadge] = useState("");
+  const [division, setDivision] = useState("");
   const [clearance, setClearance] = useState(1);
   const [created, setCreated] = useState("");
   const maxLevel = Math.max(1, myClearance - 1); // can only assign below own clearance
@@ -69,12 +70,12 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     setCreated("");
     const res = await fetch("/api/admin/users", {
       method: "POST",
-      body: JSON.stringify({ codename, password, clearance, matricule: badge }),
+      body: JSON.stringify({ codename, password, clearance, matricule: badge, division }),
     });
     const data = await res.json();
     if (!res.ok) return setError(data.error);
     setCreated(`Account created: badge ${data.matricule}. They must change this temporary password at first sign-in. Personnel file generated.`);
-    setCodename(""); setPassword(""); setBadge("");
+    setCodename(""); setPassword(""); setBadge(""); setDivision("");
     load();
   }
 
@@ -90,6 +91,7 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
         <form onSubmit={createAgent} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input placeholder="CODENAME" value={codename} onChange={(e) => setCodename(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
           <input placeholder="BADGE (optional — auto)" value={badge} onChange={(e) => setBadge(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
+          <input placeholder="DIVISION (optional)" value={division} onChange={(e) => setDivision(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
           <input placeholder="TEMPORARY PASSWORD" value={password} onChange={(e) => setPassword(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
           <select value={Math.min(clearance, maxLevel)} onChange={(e) => setClearance(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
             {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Clearance {n}</option>)}
@@ -116,7 +118,7 @@ function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users
   return (
     <table>
       <thead>
-        <tr><th>Badge</th><th>Codename</th><th>Clearance</th><th>Role</th><th>Status</th><th>Discord</th><th>Actions</th></tr>
+        <tr><th>Badge</th><th>Codename</th><th>Division</th><th>Clearance</th><th>Role</th><th>Status</th><th>Discord</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {users.map((u) => {
@@ -126,6 +128,11 @@ function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users
           <tr key={u.id} style={locked ? { opacity: 0.5 } : undefined}>
             <td className="mono">{u.matricule}</td>
             <td>{u.codename}</td>
+            <td>
+              {locked ? <span className="muted">{u.division || "—"}</span> : (
+                <input defaultValue={u.division} placeholder="—" onBlur={(e) => e.target.value !== u.division && onUpdate(u, { division: e.target.value })} style={{ marginBottom: 0, width: 120 }} />
+              )}
+            </td>
             <td>
               {locked ? <span className="mono">Lvl. {u.clearance}</span> : (
                 <select value={u.clearance} onChange={(e) => onUpdate(u, { clearance: +e.target.value })} style={{ marginBottom: 0, width: 90 }}>
@@ -156,7 +163,7 @@ function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users
             </td>
           </tr>
         );})}
-        {users.length === 0 && <tr><td colSpan={7} className="muted">Nobody.</td></tr>}
+        {users.length === 0 && <tr><td colSpan={8} className="muted">Nobody.</td></tr>}
       </tbody>
     </table>
   );
@@ -418,6 +425,7 @@ const ACTION_LABELS: Record<string, string> = {
   password_change: "Changed password", settings_update: "Updated settings",
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
+  doc_public_on: "Enabled public link", doc_public_off: "Disabled public link",
 };
 
 function AuditTab() {

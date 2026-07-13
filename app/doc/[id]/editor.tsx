@@ -5,7 +5,7 @@ declare global {
   interface Window { DocsAPI?: any }
 }
 
-export default function Editor({ dsUrl, config, title, redacted }: { dsUrl: string; config: any; title: string; redacted?: boolean }) {
+export default function Editor({ dsUrl, config, title, redacted, hideNav }: { dsUrl: string; config: any; title: string; redacted?: boolean; hideNav?: boolean }) {
   const editorRef = useRef<any>(null);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function Editor({ dsUrl, config, title, redacted }: { dsUrl: stri
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div className="topbar" style={{ padding: "8px 16px" }}>
         <div className="logo">
-          <a href="/dashboard"><button className="ghost small">← Archives</button></a>
+          {!hideNav && <a href="/dashboard"><button className="ghost small">← Archives</button></a>}
           <span className="badge">{title}</span>
           {redacted && <span className="classif high">REDACTED VIEW — read-only, classified sections hidden</span>}
         </div>

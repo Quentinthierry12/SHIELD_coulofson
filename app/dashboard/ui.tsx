@@ -29,6 +29,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [search, setSearch] = useState("");
   const [createType, setCreateType] = useState<string | null>(null);
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
+  const [publicDoc, setPublicDoc] = useState<Doc | null>(null);
   const [manageFolder, setManageFolder] = useState<Folder | null>(null);
   const [dragOver, setDragOver] = useState<number | "root" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -153,6 +154,7 @@ export default function Dashboard({ session }: { session: Session }) {
         <button className={`rail-btn ${mineOnly ? "active" : ""}`} onClick={() => setMineOnly(!mineOnly)}>
           <span className="rail-label">Mine</span>
         </button>
+        <a href="/roster"><button className="rail-btn"><span className="rail-label">Roster</span></button></a>
         {session.role === "admin" && (
           <a href="/admin"><button className="rail-btn"><span className="rail-label">Command</span></button></a>
         )}
@@ -258,6 +260,7 @@ export default function Dashboard({ session }: { session: Session }) {
                   {(d.mine || session.role === "admin") && (
                     <span className="card-actions" onClick={(e) => e.stopPropagation()}>
                       <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
+                      <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
                       <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
                     </span>
                   )}
@@ -291,6 +294,57 @@ export default function Dashboard({ session }: { session: Session }) {
           onClose={() => { setManageFolder(null); load(); }}
         />
       )}
+      {publicDoc && <PublicLinkModal doc={publicDoc} onClose={() => setPublicDoc(null)} />}
+    </div>
+  );
+}
+
+function PublicLinkModal({ doc, onClose }: { doc: Doc; onClose: () => void }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const url = token ? `${location.origin}/public/${token}` : "";
+
+  useEffect(() => {
+    fetch(`/api/documents/${doc.id}/public`).then((r) => r.json()).then((d) => { setToken(d.token); setLoaded(true); });
+  }, []);
+
+  async function enable() {
+    const r = await fetch(`/api/documents/${doc.id}/public`, { method: "POST" });
+    const d = await r.json();
+    if (r.ok) setToken(d.token);
+  }
+  async function revoke() {
+    await fetch(`/api/documents/${doc.id}/public`, { method: "DELETE" });
+    setToken(null);
+  }
+  function copy() {
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
+        <h2>Public link — “{doc.title}”</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Anyone with the link can view this document read-only, without an account.
+          Classified sections marked <span className="mono">{"[[CLR:n]]"}</span> stay hidden.
+        </p>
+        {!loaded ? <p className="muted">…</p> : token ? (
+          <>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input readOnly value={url} style={{ marginBottom: 0, flex: 1 }} onFocus={(e) => e.target.select()} />
+              <button onClick={copy}>{copied ? "Copied" : "Copy"}</button>
+            </div>
+            <button className="ghost" style={{ width: "100%" }} onClick={revoke}>Disable public link</button>
+          </>
+        ) : (
+          <button style={{ width: "100%" }} onClick={enable}>Create public link</button>
+        )}
+        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }
