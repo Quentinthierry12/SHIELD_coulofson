@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 
@@ -20,6 +20,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [filetype, setFiletype] = useState("docx");
   const [classification, setClassification] = useState(1);
   const [error, setError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
 
   async function load() {
     const res = await fetch("/api/documents");
@@ -35,6 +36,20 @@ export default function Dashboard({ session }: { session: Session }) {
       method: "POST",
       body: JSON.stringify({ title, filetype, classification }),
     });
+    const data = await res.json();
+    if (!res.ok) return setError(data.error);
+    router.push(`/doc/${data.id}`);
+  }
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("classification", String(classification));
+    const res = await fetch("/api/documents/upload", { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) return setError(data.error);
     router.push(`/doc/${data.id}`);
@@ -102,7 +117,10 @@ export default function Dashboard({ session }: { session: Session }) {
               ))}
             </select>
             <button>Créer</button>
+            <button type="button" className="ghost" onClick={() => fileInput.current?.click()}>Importer</button>
           </form>
+          <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
+          <p className="muted" style={{ marginTop: 8 }}>Importer : verse un fichier .docx / .xlsx / .pptx de votre machine aux archives, au niveau de classification sélectionné.</p>
         </div>
         <div className="panel">
           <h2>Archives accessibles — habilitation niveau {session.clearance}</h2>

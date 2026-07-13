@@ -1,0 +1,29 @@
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { DOC_TYPES } from "@/lib/onlyoffice";
+
+const MAX_SIZE = 25 * 1024 * 1024; // 25 Mo
+
+export async function POST(req: Request) {
+  const s = await getSession();
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  const form = await req.formData();
+  const file = form.get("file") as File | null;
+  const classification = Math.min(Math.max(1, parseInt(String(form.get("classification")), 10) || 1), s.clearance);
+  if (!file) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
+  if (file.size > MAX_SIZE) return NextResponse.json({ error: "Fichier trop volumineux (25 Mo max)." }, { status: 400 });
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (!DOC_TYPES[ext]) {
+    return NextResponse.json({ error: "Format non supporté : .docx, .xlsx ou .pptx uniquement." }, { status: 400 });
+  }
+  const title = file.name.replace(/\.[^.]+$/, "");
+  const content = Buffer.from(await file.arrayBuffer());
+  const pool = await db();
+  const { rows } = await pool.query(
+    `INSERT INTO documents (title, filetype, classification, owner_id, content)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [title, ext, classification, s.id, content]
+  );
+  return NextResponse.json({ id: rows[0].id });
+}
