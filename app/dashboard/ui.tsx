@@ -7,7 +7,11 @@ type Doc = { id: number; title: string; filetype: string; classification: number
 type Folder = { id: number; name: string; restricted: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
-const TYPE_LABEL: Record<string, string> = { docx: "📄 Report", xlsx: "📊 Ledger", pptx: "📽 Briefing" };
+const TYPES: Record<string, { label: string; icon: string; cls: string }> = {
+  docx: { label: "Report", icon: "📄", cls: "t-docx" },
+  xlsx: { label: "Ledger", icon: "📊", cls: "t-xlsx" },
+  pptx: { label: "Briefing", icon: "📽", cls: "t-pptx" },
+};
 
 function classifBadge(level: number) {
   const cls = level >= 7 ? "high" : level >= 4 ? "mid" : "low";
@@ -19,12 +23,11 @@ export default function Dashboard({ session }: { session: Session }) {
   const router = useRouter();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [folderFilter, setFolderFilter] = useState<number | "all">("all");
-  const [title, setTitle] = useState("");
-  const [filetype, setFiletype] = useState("docx");
-  const [classification, setClassification] = useState(1);
-  const [folderId, setFolderId] = useState<string>("");
-  const [error, setError] = useState("");
+  const [mineOnly, setMineOnly] = useState(false);
+  const [search, setSearch] = useState("");
+  const [createType, setCreateType] = useState<string | null>(null);
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
   const [manageFolder, setManageFolder] = useState<Folder | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -38,30 +41,17 @@ export default function Dashboard({ session }: { session: Session }) {
   }
   useEffect(() => { load(); }, []);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    const res = await fetch("/api/documents", {
-      method: "POST",
-      body: JSON.stringify({ title, filetype, classification, folder_id: folderId ? +folderId : null }),
-    });
-    const data = await res.json();
-    if (!res.ok) return setError(data.error);
-    router.push(`/doc/${data.id}`);
-  }
-
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setError("");
     const form = new FormData();
     form.append("file", file);
-    form.append("classification", String(classification));
-    if (folderId) form.append("folder_id", folderId);
+    form.append("classification", "1");
+    if (folderFilter !== "all") form.append("folder_id", String(folderFilter));
     const res = await fetch("/api/documents/upload", { method: "POST", body: form });
     const data = await res.json();
-    if (!res.ok) return setError(data.error);
+    if (!res.ok) return alert(`⚠ ${data.error}`);
     router.push(`/doc/${data.id}`);
   }
 
@@ -95,96 +85,148 @@ export default function Dashboard({ session }: { session: Session }) {
     router.push("/");
   }
 
-  const visible = docs.filter((d) => folderFilter === "all" || d.folder_id === folderFilter);
+  const q = search.trim().toLowerCase();
+  const visible = docs.filter((d) =>
+    (typeFilter === "all" || d.filetype === typeFilter) &&
+    (folderFilter === "all" || d.folder_id === folderFilter) &&
+    (!mineOnly || d.mine) &&
+    (!q || d.title.toLowerCase().includes(q) || (d.owner || "").toLowerCase().includes(q))
+  );
+
+  const railApps = [
+    { key: "all", icon: "🏠", label: "Home" },
+    { key: "docx", icon: "📄", label: "Reports" },
+    { key: "xlsx", icon: "📊", label: "Ledgers" },
+    { key: "pptx", icon: "📽", label: "Briefings" },
+  ];
 
   return (
-    <>
-      <div className="topbar">
-        <div className="logo">
-          <img src="/logo.png" alt="" className="logo-img" onError={(e) => (e.currentTarget.style.display = "none")} />
-          <h1>S.H.I.E.L.D.</h1>
-          <span className="badge">CLASSIFIED DOCUMENTS</span>
+    <div className="layout">
+      <nav className="rail">
+        <img src="/logo.png" alt="" className="logo-img rail-logo" onError={(e) => (e.currentTarget.style.display = "none")} />
+        {railApps.map((a) => (
+          <button
+            key={a.key}
+            className={`rail-btn ${typeFilter === a.key && !mineOnly ? "active" : ""}`}
+            title={a.label}
+            onClick={() => { setTypeFilter(a.key); setMineOnly(false); }}
+          >
+            <span className="rail-icon">{a.icon}</span>
+            <span className="rail-label">{a.label}</span>
+          </button>
+        ))}
+        <button className={`rail-btn ${mineOnly ? "active" : ""}`} title="My documents" onClick={() => setMineOnly(!mineOnly)}>
+          <span className="rail-icon">👤</span>
+          <span className="rail-label">Mine</span>
+        </button>
+        {session.role === "admin" && (
+          <a href="/admin">
+            <button className="rail-btn" title="Command">
+              <span className="rail-icon">🦅</span>
+              <span className="rail-label">Command</span>
+            </button>
+          </a>
+        )}
+        <div className="rail-sep" />
+        <div className="rail-rooms">
+          <button className={`rail-btn ${folderFilter === "all" ? "active" : ""}`} title="All rooms" onClick={() => setFolderFilter("all")}>
+            <span className="rail-icon">🗂</span>
+            <span className="rail-label">All rooms</span>
+          </button>
+          {folders.map((f) => (
+            <button
+              key={f.id}
+              className={`rail-btn ${folderFilter === f.id ? "active" : ""}`}
+              title={f.name}
+              onClick={() => setFolderFilter(folderFilter === f.id ? "all" : f.id)}
+              onContextMenu={(e) => { if (session.role === "admin") { e.preventDefault(); setManageFolder(f); } }}
+            >
+              <span className="rail-icon">{f.restricted ? "🔒" : "▪"}</span>
+              <span className="rail-label">{f.name}</span>
+            </button>
+          ))}
+          {session.role === "admin" && (
+            <button className="rail-btn" title="New room" onClick={createFolder}>
+              <span className="rail-icon">＋</span>
+              <span className="rail-label">Room</span>
+            </button>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <span className="badge">{session.matricule} · {session.codename} · CLEARANCE LVL.{session.clearance}</span>
-          {session.role === "admin" && <a href="/admin"><button className="small">Command</button></a>}
-          <a href="/api/auth/discord"><button className="ghost small" title="Link your Discord account to sign in with it and receive transmissions">Link Discord</button></a>
-          <button className="ghost small" onClick={changePassword}>Password</button>
-          <button className="ghost small" onClick={logout}>Sign out</button>
-        </div>
-      </div>
-      <div className="container">
-        <div className="panel">
-          <h2>New document</h2>
-          {error && <p className="error">⚠ {error}</p>}
-          <form onSubmit={create} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 200 }} />
-            <select value={filetype} onChange={(e) => setFiletype(e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-              <option value="docx">📄 Report (Word)</option>
-              <option value="xlsx">📊 Ledger (Excel)</option>
-              <option value="pptx">📽 Briefing (PowerPoint)</option>
-            </select>
-            <select value={classification} onChange={(e) => setClassification(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-              {Array.from({ length: session.clearance }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>Level {n}</option>
-              ))}
-            </select>
-            <select value={folderId} onChange={(e) => setFolderId(e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-              <option value="">— No room —</option>
-              {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
-            <button>Create</button>
-            <button type="button" className="ghost" onClick={() => fileInput.current?.click()}>Import</button>
-          </form>
-          <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
-          <p className="muted" style={{ marginTop: 8 }}>Import: files a .docx / .xlsx / .pptx from your machine into the archives, at the selected level and room.</p>
-        </div>
-        <div className="panel">
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-            <button className={folderFilter === "all" ? "small" : "ghost small"} onClick={() => setFolderFilter("all")}>All</button>
-            {folders.map((f) => (
-              <span key={f.id} style={{ display: "inline-flex", gap: 2 }}>
-                <button className={folderFilter === f.id ? "small" : "ghost small"} onClick={() => setFolderFilter(f.id)}>
-                  {f.restricted ? "🔒" : "🗂"} {f.name}
-                </button>
-                {session.role === "admin" && (
-                  <button className="ghost small" title="Manage access" onClick={() => setManageFolder(f)}>⚙</button>
-                )}
-              </span>
-            ))}
-            {session.role === "admin" && <button className="ghost small" onClick={createFolder}>+ Room</button>}
+      </nav>
+
+      <div className="main">
+        <div className="topbar">
+          <input
+            className="searchbar"
+            placeholder="🔍  Search the archives…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span className="badge">{session.matricule} · {session.codename} · LVL.{session.clearance}</span>
+            <a href="/api/auth/discord"><button className="ghost small" title="Link Discord to sign in with it and receive transmissions">Link Discord</button></a>
+            <button className="ghost small" onClick={changePassword}>Password</button>
+            <button className="ghost small" onClick={logout}>Sign out</button>
           </div>
-          <h2>Accessible archives — clearance level {session.clearance}</h2>
-          <table>
-            <thead>
-              <tr><th>Type</th><th>Title</th><th>Classification</th><th>Room</th><th>Agent</th><th>Last modified</th><th></th></tr>
-            </thead>
-            <tbody>
-              {visible.map((d) => (
-                <tr key={d.id}>
-                  <td>{TYPE_LABEL[d.filetype]}</td>
-                  <td><a href={`/doc/${d.id}`}>{d.title}</a></td>
-                  <td>{classifBadge(d.classification)}</td>
-                  <td className="muted">{folders.find((f) => f.id === d.folder_id)?.name || "—"}</td>
-                  <td className="muted">{d.owner}</td>
-                  <td className="muted">{new Date(d.updated_at).toLocaleString("en-US")}</td>
-                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    {(d.mine || session.role === "admin") && (
-                      <>
-                        <button className="ghost small" onClick={() => setShareDoc(d)}>Share</button>{" "}
-                        <button className="ghost small" onClick={() => destroy(d)} title="Destroy">✕</button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {visible.length === 0 && (
-                <tr><td colSpan={7} className="muted">No documents here at your clearance level.</td></tr>
-              )}
-            </tbody>
-          </table>
+        </div>
+
+        <div className="content">
+          <h2>Create</h2>
+          <div className="tiles">
+            {Object.entries(TYPES).map(([ext, t]) => (
+              <button key={ext} className={`tile ${t.cls}`} onClick={() => setCreateType(ext)}>
+                <span className="tile-icon">{t.icon}</span>
+                <span>New {t.label}</span>
+              </button>
+            ))}
+            <button className="tile t-import" onClick={() => fileInput.current?.click()}>
+              <span className="tile-icon">⬆</span>
+              <span>Import file</span>
+            </button>
+            <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
+          </div>
+
+          <h2 style={{ marginTop: 26 }}>
+            {mineOnly ? "My documents" : typeFilter === "all" ? "Recent" : `${TYPES[typeFilter].label}s`}
+            {folderFilter !== "all" && ` — ${folders.find((f) => f.id === folderFilter)?.name}`}
+            <span className="muted" style={{ marginLeft: 8, textTransform: "none" }}>({visible.length})</span>
+          </h2>
+          <div className="cards">
+            {visible.map((d) => (
+              <div key={d.id} className={`card ${TYPES[d.filetype].cls}`} onClick={() => router.push(`/doc/${d.id}`)}>
+                <div className="card-top">
+                  <span className="card-icon">{TYPES[d.filetype].icon}</span>
+                  {(d.mine || session.role === "admin") && (
+                    <span className="card-actions" onClick={(e) => e.stopPropagation()}>
+                      <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>⤴</button>
+                      <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
+                    </span>
+                  )}
+                </div>
+                <div className="card-title">{d.title}</div>
+                <div className="card-meta">
+                  {classifBadge(d.classification)}
+                  <span className="muted">{folders.find((f) => f.id === d.folder_id)?.name || ""}</span>
+                </div>
+                <div className="card-meta muted">
+                  {d.owner} · {new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+            ))}
+            {visible.length === 0 && <p className="muted">No documents here at your clearance level.</p>}
+          </div>
         </div>
       </div>
+
+      {createType && (
+        <CreateModal
+          filetype={createType}
+          folders={folders}
+          maxLevel={session.clearance}
+          defaultFolder={folderFilter === "all" ? "" : String(folderFilter)}
+          onClose={() => setCreateType(null)}
+        />
+      )}
       {shareDoc && (
         <AccessModal
           title={`Share “${shareDoc.title}”`}
@@ -202,7 +244,53 @@ export default function Dashboard({ session }: { session: Session }) {
           onClose={() => { setManageFolder(null); load(); }}
         />
       )}
-    </>
+    </div>
+  );
+}
+
+function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
+  filetype: string; folders: Folder[]; maxLevel: number; defaultFolder: string; onClose: () => void;
+}) {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [classification, setClassification] = useState(1);
+  const [folderId, setFolderId] = useState(defaultFolder);
+  const [error, setError] = useState("");
+  const t = TYPES[filetype];
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, filetype, classification, folder_id: folderId ? +folderId : null }),
+    });
+    const data = await res.json();
+    if (!res.ok) return setError(data.error);
+    router.push(`/doc/${data.id}`);
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
+        <h2>{t.icon} New {t.label}</h2>
+        {error && <p className="error">⚠ {error}</p>}
+        <form onSubmit={create}>
+          <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>Classification level {n}</option>
+            ))}
+          </select>
+          <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+            <option value="">— No room —</option>
+            {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <button style={{ width: "100%" }}>Create</button>
+        </form>
+        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Cancel</button>
+      </div>
+    </div>
   );
 }
 
@@ -247,12 +335,7 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
         <h2>{title}</h2>
         {note && <p className="muted" style={{ marginBottom: 10 }}>{note}</p>}
-        <input
-          autoFocus
-          placeholder="Type a codename or badge number…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <input autoFocus placeholder="Type a codename or badge number…" value={q} onChange={(e) => setQ(e.target.value)} />
         {results.length > 0 && (
           <div className="results">
             {results.map((a) => (
