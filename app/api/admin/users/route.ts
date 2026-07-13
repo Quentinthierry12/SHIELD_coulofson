@@ -32,6 +32,11 @@ export async function POST(req: Request) {
   if (custom && !MATRICULE_RE.test(custom)) {
     return NextResponse.json({ error: "Badge number: 3-20 characters, letters/digits/dashes only." }, { status: 400 });
   }
+  const level = Math.min(10, Math.max(1, clearance || 1));
+  // An officer may only create accounts at a clearance strictly below their own.
+  if (level >= admin.clearance) {
+    return NextResponse.json({ error: `You can only create accounts below your own clearance (max level ${admin.clearance - 1}).` }, { status: 403 });
+  }
   const pool = await db();
   const hash = await bcrypt.hash(password, 10);
   for (let i = 0; i < 5; i++) {
@@ -40,10 +45,10 @@ export async function POST(req: Request) {
       const { rows } = await pool.query(
         `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, must_change_password)
          VALUES ($1, $2, $3, $4, $5, 'active', true) RETURNING id`,
-        [m, codename.trim(), hash, Math.min(10, Math.max(1, clearance || 1)), role === "admin" ? "admin" : "agent"]
+        [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent"]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim());
-      audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${Math.min(10, Math.max(1, clearance || 1))})`);
+      audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${level})`);
       return NextResponse.json({ matricule: m });
     } catch (e: any) {
       if (e.code !== "23505") throw e;
@@ -61,10 +66,19 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "You cannot demote yourself." }, { status: 400 });
   }
   const pool = await db();
-  const { rows: before } = await pool.query("SELECT status FROM users WHERE id = $1", [id]);
+  const { rows: before } = await pool.query("SELECT status, clearance FROM users WHERE id = $1", [id]);
+  if (!before[0]) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
+  const level = Math.min(10, Math.max(1, clearance));
+  // Officers can neither manage agents at/above their own clearance nor raise anyone to it.
+  if (id !== admin.id && before[0].clearance >= admin.clearance) {
+    return NextResponse.json({ error: "You cannot manage an agent at or above your own clearance." }, { status: 403 });
+  }
+  if (id !== admin.id && level >= admin.clearance) {
+    return NextResponse.json({ error: `You can only assign clearances below your own (max level ${admin.clearance - 1}).` }, { status: 403 });
+  }
   await pool.query(
     "UPDATE users SET status = $2, clearance = $3, role = $4 WHERE id = $1",
-    [id, status, Math.min(10, Math.max(1, clearance)), role === "admin" ? "admin" : "agent"]
+    [id, status, level, role === "admin" ? "admin" : "agent"]
   );
   if (new_password) {
     if (new_password.length < 6) return NextResponse.json({ error: "Password: at least 6 characters." }, { status: 400 });

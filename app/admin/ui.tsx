@@ -5,7 +5,7 @@ type User = { id: number; matricule: string; codename: string; clearance: number
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
 
-export default function AdminUI() {
+export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
   const [tab, setTab] = useState<"agents" | "settings" | "audit">("agents");
   return (
     <>
@@ -21,7 +21,7 @@ export default function AdminUI() {
         </div>
       </div>
       <div className="container">
-        {tab === "agents" && <AgentsTab />}
+        {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
         {tab === "settings" && <SettingsTab />}
         {tab === "audit" && <AuditTab />}
       </div>
@@ -30,7 +30,7 @@ export default function AdminUI() {
 }
 
 // ---------------- Agents ----------------
-function AgentsTab() {
+function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number }) {
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState("");
   const [codename, setCodename] = useState("");
@@ -38,6 +38,7 @@ function AgentsTab() {
   const [badge, setBadge] = useState("");
   const [clearance, setClearance] = useState(1);
   const [created, setCreated] = useState("");
+  const maxLevel = Math.max(1, myClearance - 1); // can only assign below own clearance
 
   async function load() {
     const res = await fetch("/api/admin/users");
@@ -86,47 +87,55 @@ function AgentsTab() {
           <input placeholder="CODENAME" value={codename} onChange={(e) => setCodename(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
           <input placeholder="BADGE (optional — auto)" value={badge} onChange={(e) => setBadge(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
           <input placeholder="TEMPORARY PASSWORD" value={password} onChange={(e) => setPassword(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
-          <select value={clearance} onChange={(e) => setClearance(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Clearance {n}</option>)}
+          <select value={Math.min(clearance, maxLevel)} onChange={(e) => setClearance(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Clearance {n}</option>)}
           </select>
           <button>Create account</button>
         </form>
+        <p className="muted" style={{ marginTop: 8 }}>You can assign clearances up to level {maxLevel} (below your own).</p>
       </div>
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} />
+          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} />
+        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
 }
 
-function UserTable({ users, onUpdate, onResetPassword }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void }) {
+function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; maxLevel: number; myId: number }) {
   return (
     <table>
       <thead>
         <tr><th>Badge</th><th>Codename</th><th>Clearance</th><th>Role</th><th>Status</th><th>Discord</th><th>Actions</th></tr>
       </thead>
       <tbody>
-        {users.map((u) => (
-          <tr key={u.id}>
+        {users.map((u) => {
+          // maxLevel = own clearance - 1. An agent at/above the officer's clearance is off-limits (except self).
+          const locked = u.id !== myId && u.clearance > maxLevel;
+          return (
+          <tr key={u.id} style={locked ? { opacity: 0.5 } : undefined}>
             <td className="mono">{u.matricule}</td>
             <td>{u.codename}</td>
             <td>
-              <select value={u.clearance} onChange={(e) => onUpdate(u, { clearance: +e.target.value })} style={{ marginBottom: 0, width: 90 }}>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Lvl. {n}</option>)}
-              </select>
+              {locked ? <span className="mono">Lvl. {u.clearance}</span> : (
+                <select value={u.clearance} onChange={(e) => onUpdate(u, { clearance: +e.target.value })} style={{ marginBottom: 0, width: 90 }}>
+                  {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Lvl. {n}</option>)}
+                </select>
+              )}
             </td>
             <td>
-              <select value={u.role} onChange={(e) => onUpdate(u, { role: e.target.value })} style={{ marginBottom: 0, width: 110 }}>
-                <option value="agent">Agent</option>
-                <option value="admin">Officer</option>
-              </select>
+              {locked ? <span className="muted">{u.role === "admin" ? "Officer" : "Agent"}</span> : (
+                <select value={u.role} onChange={(e) => onUpdate(u, { role: e.target.value })} style={{ marginBottom: 0, width: 110 }}>
+                  <option value="agent">Agent</option>
+                  <option value="admin">Officer</option>
+                </select>
+              )}
             </td>
             <td>
               <span className={`classif ${u.status === "active" ? "low" : u.status === "pending" ? "mid" : "high"}`}>
@@ -135,12 +144,14 @@ function UserTable({ users, onUpdate, onResetPassword }: { users: User[]; onUpda
             </td>
             <td className="muted">{u.discord_linked ? "linked" : "—"}</td>
             <td style={{ display: "flex", gap: 6 }}>
-              {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
-              {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}
-              <button className="ghost small" onClick={() => onResetPassword(u)}>Reset pwd</button>
+              {locked ? <span className="muted">Above your clearance</span> : <>
+                {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
+                {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}
+                <button className="ghost small" onClick={() => onResetPassword(u)}>Reset pwd</button>
+              </>}
             </td>
           </tr>
-        ))}
+        );})}
         {users.length === 0 && <tr><td colSpan={7} className="muted">Nobody.</td></tr>}
       </tbody>
     </table>

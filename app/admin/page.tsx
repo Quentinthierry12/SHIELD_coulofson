@@ -7,5 +7,5 @@ export default async function AdminPage() {
   if (!session) redirect("/");
   if (session.mustChangePassword) redirect("/change-password");
   if (session.role !== "admin") redirect("/dashboard");
-  return <AdminUI />;
+  return <AdminUI myClearance={session.clearance} myId={session.id} />;
 }
