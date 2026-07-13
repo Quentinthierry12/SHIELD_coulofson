@@ -10,10 +10,13 @@ export async function GET() {
   if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const pool = await db();
   const { rows } = await pool.query(
-    `SELECT d.id, d.title, d.filetype, d.classification, d.updated_at, u.codename AS owner
+    `SELECT d.id, d.title, d.filetype, d.classification, d.updated_at, u.codename AS owner,
+            (d.owner_id = $2) AS mine
      FROM documents d LEFT JOIN users u ON u.id = d.owner_id
-     WHERE d.classification <= $1 ORDER BY d.updated_at DESC`,
-    [s.clearance]
+     WHERE d.classification <= $1 OR d.owner_id = $2 OR $3 = 'admin'
+        OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2)
+     ORDER BY d.updated_at DESC`,
+    [s.clearance, s.id, s.role]
   );
   return NextResponse.json(rows);
 }

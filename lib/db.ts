@@ -18,6 +18,11 @@ async function migrate() {
       must_change_password BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS document_shares (
+      doc_id INT NOT NULL,
+      user_id INT NOT NULL,
+      PRIMARY KEY (doc_id, user_id)
+    );
     CREATE TABLE IF NOT EXISTS documents (
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
@@ -45,4 +50,16 @@ export async function db(): Promise<Pool> {
   if (!ready) ready = migrate();
   await ready;
   return pool;
+}
+
+// Accès à un document : niveau d'habilitation suffisant, propriétaire, admin, ou partage explicite.
+export async function getAccessibleDoc(docId: number, clearance: number, userId: number, role: string) {
+  const p = await db();
+  const { rows } = await p.query(
+    `SELECT d.* FROM documents d
+     WHERE d.id = $1 AND (d.classification <= $2 OR d.owner_id = $3 OR $4 = 'admin'
+       OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $3))`,
+    [docId, clearance, userId, role]
+  );
+  return rows[0] || null;
 }

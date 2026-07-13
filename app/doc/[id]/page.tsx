@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { redirect } from "next/navigation";
+import { getAccessibleDoc } from "@/lib/db";
 import { getSession, signFileToken } from "@/lib/session";
 import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig } from "@/lib/onlyoffice";
 import Editor from "./editor";
@@ -8,11 +8,8 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
   const session = await getSession();
   if (!session) redirect("/");
   const id = parseInt((await params).id, 10);
-  const pool = await db();
-  const { rows } = await pool.query("SELECT id, title, filetype, classification, version FROM documents WHERE id = $1", [id]);
-  const doc = rows[0];
-  if (!doc) notFound();
-  if (doc.classification > session.clearance) redirect("/dashboard");
+  const doc = await getAccessibleDoc(id, session.clearance, session.id, session.role);
+  if (!doc) redirect("/dashboard");
 
   const t = await signFileToken(doc.id);
   const config: any = {

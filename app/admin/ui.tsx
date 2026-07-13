@@ -13,7 +13,7 @@ export default function AdminUI() {
   }
   useEffect(() => { load(); }, []);
 
-  async function update(u: User, patch: Partial<User>) {
+  async function update(u: User, patch: Partial<User> & { new_password?: string }) {
     setError("");
     const res = await fetch("/api/admin/users", {
       method: "PATCH",
@@ -22,6 +22,11 @@ export default function AdminUI() {
     const data = await res.json();
     if (!res.ok) setError(data.error);
     load();
+  }
+
+  function resetPassword(u: User) {
+    const pwd = window.prompt(`Nouveau mot de passe provisoire pour ${u.matricule} (${u.codename}) :`);
+    if (pwd) update(u, { new_password: pwd });
   }
 
   const pending = users.filter((u) => u.status === "pending");
@@ -42,19 +47,19 @@ export default function AdminUI() {
         {pending.length > 0 && (
           <div className="panel" style={{ borderColor: "#665520" }}>
             <h2>⏳ Recrues en attente de validation ({pending.length})</h2>
-            <UserTable users={pending} onUpdate={update} />
+            <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} />
           </div>
         )}
         <div className="panel">
           <h2>Agents enregistrés</h2>
-          <UserTable users={others} onUpdate={update} />
+          <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} />
         </div>
       </div>
     </>
   );
 }
 
-function UserTable({ users, onUpdate }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void }) {
+function UserTable({ users, onUpdate, onResetPassword }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void }) {
   return (
     <table>
       <thead>
@@ -84,6 +89,7 @@ function UserTable({ users, onUpdate }: { users: User[]; onUpdate: (u: User, p: 
             <td style={{ display: "flex", gap: 6 }}>
               {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Valider</button>}
               {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Révoquer</button>}
+              <button className="ghost small" onClick={() => onResetPassword(u)}>Réinit. mdp</button>
             </td>
           </tr>
         ))}
