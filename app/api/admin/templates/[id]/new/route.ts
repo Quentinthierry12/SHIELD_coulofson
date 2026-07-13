@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { buildDocx, fillVariables } from "@/lib/docxgen";
+import { buildDocx, fillVariables, systemValues } from "@/lib/docxgen";
 
 // Create a document from a template. Text templates fill their {{variables}} and
 // render a fresh .docx; file templates copy their stored content verbatim.
@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!t[0]) return NextResponse.json({ error: "Template not found." }, { status: 404 });
   const level = Math.min(Math.max(1, classification || 1), s.clearance);
   const content: Buffer = t[0].body != null
-    ? await buildDocx(fillVariables(t[0].body, vars || {}))
+    ? await buildDocx(fillVariables(t[0].body, { ...(vars || {}), ...systemValues(s) }))
     : t[0].content;
   const filetype = t[0].body != null ? "docx" : t[0].filetype;
   const { rows } = await pool.query(

@@ -120,6 +120,9 @@ tr:hover td { background: #0f1826; }
 }
 .crumb:hover { background: #101a2a; }
 .crumb-sep { color: var(--muted); }
+.card[draggable="true"] { cursor: grab; }
+.card[draggable="true"]:active { cursor: grabbing; }
+.drop-hot { outline: 2px dashed var(--accent); outline-offset: 2px; background: #101f33 !important; }
 .rail-rooms { display: flex; flex-direction: column; gap: 2px; }
 .main { flex: 1; min-width: 0; }
 .main .topbar { position: sticky; top: 0; z-index: 10; gap: 16px; }

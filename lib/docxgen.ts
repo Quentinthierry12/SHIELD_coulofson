@@ -4,6 +4,15 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 export const VAR_RE = /\{\{\s*([\w -]+?)\s*\}\}/g;
 
+// System variables are filled automatically at creation time — never prompted.
+export const SYSTEM_VARS = ["date", "officer", "officer badge"] as const;
+
+// Suggested custom fields the author can insert (prompted when creating a document).
+export const SUGGESTED_VARS = [
+  "agent", "codename", "badge", "clearance", "division", "duty station",
+  "mission code", "objective", "location", "target", "status", "priority",
+] as const;
+
 // Distinct variable names used in a template body, in order of appearance.
 export function extractVariables(body: string): string[] {
   const seen: string[] = [];
@@ -11,6 +20,19 @@ export function extractVariables(body: string): string[] {
   VAR_RE.lastIndex = 0;
   while ((m = VAR_RE.exec(body))) if (!seen.includes(m[1])) seen.push(m[1]);
   return seen;
+}
+
+// Variables the user must fill in (everything except the auto-filled system ones).
+export function promptableVariables(body: string): string[] {
+  return extractVariables(body).filter((v) => !SYSTEM_VARS.includes(v as any));
+}
+
+export function systemValues(officer: { codename: string; matricule: string }): Record<string, string> {
+  return {
+    date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    officer: officer.codename,
+    "officer badge": officer.matricule,
+  };
 }
 
 export function fillVariables(body: string, vars: Record<string, string>): string {

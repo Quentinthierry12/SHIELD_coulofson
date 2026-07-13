@@ -30,6 +30,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [createType, setCreateType] = useState<string | null>(null);
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
   const [manageFolder, setManageFolder] = useState<Folder | null>(null);
+  const [dragOver, setDragOver] = useState<number | "root" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -61,6 +62,21 @@ export default function Dashboard({ session }: { session: Session }) {
     const res = await fetch("/api/folders", { method: "POST", body: JSON.stringify({ name, parent_id: cwd }) });
     if (!res.ok) return alert(`⚠ ${(await res.json()).error}`);
     load();
+  }
+
+  async function moveDoc(docId: number, folderId: number | null) {
+    const res = await fetch(`/api/documents/${docId}`, { method: "PATCH", body: JSON.stringify({ folder_id: folderId }) });
+    if (!res.ok) alert(`⚠ ${(await res.json()).error}`);
+    load();
+  }
+
+  function onDropTo(folderId: number | null) {
+    return (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(null);
+      const docId = parseInt(e.dataTransfer.getData("text/doc-id"), 10);
+      if (docId) moveDoc(docId, folderId);
+    };
   }
 
   async function deleteFolder(f: Folder) {
@@ -176,11 +192,23 @@ export default function Dashboard({ session }: { session: Session }) {
             </h2>
           ) : (
             <div className="crumbs" style={{ marginTop: 26 }}>
-              <button className="crumb" onClick={() => setCwd(null)}>Drive</button>
+              <button
+                className={`crumb ${dragOver === "root" ? "drop-hot" : ""}`}
+                onClick={() => setCwd(null)}
+                onDragOver={(e) => { e.preventDefault(); setDragOver("root"); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={onDropTo(null)}
+              >Drive</button>
               {breadcrumb(cwd).map((f) => (
                 <span key={f.id}>
                   <span className="crumb-sep">/</span>
-                  <button className="crumb" onClick={() => setCwd(f.id)}>{f.restricted ? "🔒 " : ""}{f.name}</button>
+                  <button
+                    className={`crumb ${dragOver === f.id ? "drop-hot" : ""}`}
+                    onClick={() => setCwd(f.id)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(f.id); }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={onDropTo(f.id)}
+                  >{f.restricted ? "🔒 " : ""}{f.name}</button>
                 </span>
               ))}
             </div>
@@ -190,7 +218,14 @@ export default function Dashboard({ session }: { session: Session }) {
           {!flatMode && childFolders.length > 0 && (
             <div className="cards" style={{ marginBottom: 18 }}>
               {childFolders.map((f) => (
-                <div key={f.id} className="card card-folder" onDoubleClick={() => setCwd(f.id)} onClick={() => setCwd(f.id)}>
+                <div
+                  key={f.id}
+                  className={`card card-folder ${dragOver === f.id ? "drop-hot" : ""}`}
+                  onClick={() => setCwd(f.id)}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(f.id); }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={onDropTo(f.id)}
+                >
                   <div className="card-top">
                     <span className="tag t-folder">DIR</span>
                     {(f.mine || session.role === "admin") && (
@@ -210,7 +245,14 @@ export default function Dashboard({ session }: { session: Session }) {
           {/* Documents */}
           <div className="cards">
             {shownDocs.map((d) => (
-              <div key={d.id} className={`card ${TYPES[d.filetype].cls}`} onClick={() => router.push(`/doc/${d.id}`)}>
+              <div
+                key={d.id}
+                className={`card ${TYPES[d.filetype].cls}`}
+                onClick={() => router.push(`/doc/${d.id}`)}
+                draggable={d.mine || session.role === "admin"}
+                onDragStart={(e) => { e.dataTransfer.setData("text/doc-id", String(d.id)); e.dataTransfer.effectAllowed = "move"; }}
+                title={(d.mine || session.role === "admin") ? "Drag onto a folder to move" : undefined}
+              >
                 <div className="card-top">
                   <span className={`tag ${TYPES[d.filetype].cls}`}>{TYPES[d.filetype].tag}</span>
                   {(d.mine || session.role === "admin") && (

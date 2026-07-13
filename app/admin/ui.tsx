@@ -164,6 +164,9 @@ function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users
 
 // ---------------- Templates ----------------
 const TPL_TAG: Record<string, string> = { docx: "DOC", xlsx: "XLS", pptx: "PPT" };
+// Kept in sync with lib/docxgen.ts (SYSTEM_VARS / SUGGESTED_VARS).
+const SYSTEM_VARS = ["date", "officer", "officer badge"];
+const SUGGESTED_VARS = ["agent", "codename", "badge", "clearance", "division", "duty station", "mission code", "objective", "location", "target", "status", "priority"];
 
 function TemplatesTab({ myClearance }: { myClearance: number }) {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -174,6 +177,17 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
   const [saved, setSaved] = useState("");
   const [useTpl, setUseTpl] = useState<Template | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  function insertVar(name: string) {
+    const ta = bodyRef.current;
+    const token = `{{${name}}}`;
+    if (!ta) { setBody(body + token); return; }
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const next = body.slice(0, start) + token + body.slice(end);
+    setBody(next);
+    requestAnimationFrame(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = start + token.length; });
+  }
 
   async function load() {
     const res = await fetch("/api/admin/templates");
@@ -228,17 +242,32 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
           Insert fill-in fields with <span className="mono">{"{{double braces}}"}</span> — e.g. <span className="mono">{"{{agent name}}"}</span>,
           <span className="mono"> {"{{mission code}}"}</span>. You'll be prompted for each when creating a document.
         </p>
+        <div style={{ marginBottom: 10 }}>
+          <p className="muted" style={{ marginBottom: 4 }}>Auto-filled at creation (click to insert):</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+            {SYSTEM_VARS.map((v) => (
+              <button type="button" key={v} className="tag t-xlsx" style={{ cursor: "pointer", border: "none" }} onClick={() => insertVar(v)}>{v}</button>
+            ))}
+          </div>
+          <p className="muted" style={{ marginBottom: 4 }}>Fill-in fields (prompted at creation):</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {SUGGESTED_VARS.map((v) => (
+              <button type="button" key={v} className="tag t-folder" style={{ cursor: "pointer", border: "none" }} onClick={() => insertVar(v)}>{v}</button>
+            ))}
+          </div>
+        </div>
         <form onSubmit={saveText}>
           <input placeholder="TEMPLATE NAME" value={name} onChange={(e) => setName(e.target.value)} />
           <textarea
-            placeholder={"# MISSION ORDER\n\nAgent: {{agent name}}\nBadge: {{badge}}\nObjective: {{objective}}\n\nAuthorized by: {{officer}}"}
+            ref={bodyRef}
+            placeholder={"# MISSION ORDER\n\nAgent: {{agent}}\nBadge: {{badge}}\nObjective: {{objective}}\n\nAuthorized by: {{officer}}\nDate: {{date}}"}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={10}
             style={{ width: "100%", padding: "10px 12px", background: "#0a101a", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", fontFamily: "Consolas, monospace", marginBottom: 10 }}
           />
           {detectedVars.length > 0 && (
-            <p className="muted" style={{ marginBottom: 10 }}>Detected fields: {detectedVars.map((v) => <span key={v} className="tag t-folder" style={{ marginRight: 6 }}>{v}</span>)}</p>
+            <p className="muted" style={{ marginBottom: 10 }}>Detected fields: {detectedVars.map((v) => <span key={v} className={`tag ${SYSTEM_VARS.includes(v) ? "t-xlsx" : "t-folder"}`} style={{ marginRight: 6 }}>{v}</span>)}</p>
           )}
           {saved && <p className="success">✓ {saved}</p>}
           <button>Save template</button>
@@ -388,7 +417,7 @@ const ACTION_LABELS: Record<string, string> = {
   account_create: "Created account", account_update: "Updated account", password_reset: "Reset password",
   password_change: "Changed password", settings_update: "Updated settings",
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
-  folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)",
+  folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
 };
 
 function AuditTab() {

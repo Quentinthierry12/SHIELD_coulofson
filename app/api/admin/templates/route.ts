@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { DOC_TYPES } from "@/lib/onlyoffice";
-import { extractVariables } from "@/lib/docxgen";
+import { promptableVariables } from "@/lib/docxgen";
 
 const MAX_SIZE = 25 * 1024 * 1024;
 
@@ -15,7 +15,7 @@ export async function GET() {
     rows.map((r: any) => ({
       id: r.id, name: r.name, filetype: r.filetype, created_at: r.created_at,
       editable: r.body != null,
-      variables: r.body ? extractVariables(r.body) : [],
+      variables: r.body ? promptableVariables(r.body) : [],
     }))
   );
 }
