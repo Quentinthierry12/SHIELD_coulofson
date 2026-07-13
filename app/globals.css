@@ -79,6 +79,16 @@ tr:hover td { background: #0f1826; }
 .logo-img { filter: invert(1); mix-blend-mode: screen; }
 .topbar .logo-img { height: 34px; }
 
+.overlay {
+  position: fixed; inset: 0; background: rgba(2, 6, 12, 0.75);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.modal { width: 440px; max-width: 92vw; }
+.results { border: 1px solid var(--border); border-radius: 4px; margin-bottom: 10px; }
+.result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #101a2a; }
+.result-item:last-child { border-bottom: none; }
+.result-item:hover { background: var(--accent-dim); }
+
 .login-wrap {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
   background: radial-gradient(ellipse at center, #0c1524 0%, var(--bg) 70%);

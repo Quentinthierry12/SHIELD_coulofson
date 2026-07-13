@@ -18,6 +18,10 @@ async function migrate() {
       must_change_password BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS folders (
+      id SERIAL PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS document_shares (
       doc_id INT NOT NULL,
       user_id INT NOT NULL,
@@ -34,6 +38,7 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id INT;
   `);
   const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
   if (rows[0].n === 0) {

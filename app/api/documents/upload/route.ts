@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const classification = Math.min(Math.max(1, parseInt(String(form.get("classification")), 10) || 1), s.clearance);
+  const folderId = parseInt(String(form.get("folder_id")), 10) || null;
   if (!file) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
   if (file.size > MAX_SIZE) return NextResponse.json({ error: "Fichier trop volumineux (25 Mo max)." }, { status: 400 });
   const ext = (file.name.split(".").pop() || "").toLowerCase();
@@ -21,9 +22,9 @@ export async function POST(req: Request) {
   const content = Buffer.from(await file.arrayBuffer());
   const pool = await db();
   const { rows } = await pool.query(
-    `INSERT INTO documents (title, filetype, classification, owner_id, content)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [title, ext, classification, s.id, content]
+    `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+    [title, ext, classification, s.id, content, folderId]
   );
   return NextResponse.json({ id: rows[0].id });
 }
