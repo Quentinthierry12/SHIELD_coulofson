@@ -32,7 +32,8 @@ export default function AdminUI() {
       <div className="topbar">
         <div className="logo">
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
-          <h1>🦅 Commandement</h1>
+          <img src="/logo.png" alt="" className="logo-img" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          <h1>Commandement</h1>
           <span className="badge">GESTION DES AGENTS</span>
         </div>
       </div>

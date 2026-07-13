@@ -42,7 +42,10 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <div className="login-box">
-        <div className="eagle">🦅</div>
+        <div className="eagle">
+          <img src="/logo.png" alt="S.H.I.E.L.D." className="logo-img" style={{ height: 110 }}
+               onError={(e) => { e.currentTarget.outerHTML = "🦅"; }} />
+        </div>
         <h1 style={{ textAlign: "center", marginBottom: 4 }}>S.H.I.E.L.D.</h1>
         <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>
           Système Documentaire Central — Accès restreint

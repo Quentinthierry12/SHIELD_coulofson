@@ -74,6 +74,11 @@ tr:hover td { background: #0f1826; }
 .classif.mid { background: #33290e; color: #e8c25a; }
 .classif.high { background: #331010; color: var(--danger); }
 
+/* Le logo source est noir sur fond blanc : invert le passe en blanc,
+   screen fait disparaître le fond devenu noir sur nos panneaux sombres. */
+.logo-img { filter: invert(1); mix-blend-mode: screen; }
+.topbar .logo-img { height: 34px; }
+
 .login-wrap {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
   background: radial-gradient(ellipse at center, #0c1524 0%, var(--bg) 70%);

@@ -32,7 +32,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
         uiTheme: "theme-dark",
         compactHeader: true,
         hideRightMenu: true,
-        logo: { image: "", url: `${PORTAL_URL()}/dashboard` },
+        logo: { image: `${PORTAL_URL()}/logo.png`, url: `${PORTAL_URL()}/dashboard` },
       },
     },
   };

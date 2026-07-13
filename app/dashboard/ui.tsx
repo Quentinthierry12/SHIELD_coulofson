@@ -49,7 +49,8 @@ export default function Dashboard({ session }: { session: Session }) {
     <>
       <div className="topbar">
         <div className="logo">
-          <h1>🦅 S.H.I.E.L.D.</h1>
+          <img src="/logo.png" alt="" className="logo-img" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          <h1>S.H.I.E.L.D.</h1>
           <span className="badge">DOCUMENTS CLASSIFIÉS</span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
