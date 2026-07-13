@@ -5,7 +5,7 @@ declare global {
   interface Window { DocsAPI?: any }
 }
 
-export default function Editor({ dsUrl, config, title }: { dsUrl: string; config: any; title: string }) {
+export default function Editor({ dsUrl, config, title, redacted }: { dsUrl: string; config: any; title: string; redacted?: boolean }) {
   const editorRef = useRef<any>(null);
 
   useEffect(() => {
@@ -27,6 +27,7 @@ export default function Editor({ dsUrl, config, title }: { dsUrl: string; config
         <div className="logo">
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <span className="badge">{title}</span>
+          {redacted && <span className="classif high">REDACTED VIEW — read-only, classified sections hidden</span>}
         </div>
       </div>
       <div style={{ flex: 1 }}>

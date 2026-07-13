@@ -42,19 +42,25 @@ export async function destroySession() {
 }
 
 // Short-lived token embedded in file/callback URLs so the OnlyOffice server
-// can fetch documents without a browser session.
-export async function signFileToken(docId: number) {
-  return new SignJWT({ doc: docId })
+// can fetch documents without a browser session. Carries the viewer's effective
+// clearance and whether the served copy must be redacted.
+export async function signFileToken(docId: number, clr = 10, red = false) {
+  return new SignJWT({ doc: docId, clr, red })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("24h")
     .sign(secret());
 }
 
-export async function verifyFileToken(token: string, docId: number) {
+export async function readFileToken(token: string): Promise<{ doc: number; clr: number; red: boolean } | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
-    return payload.doc === docId;
+    return { doc: payload.doc as number, clr: (payload.clr as number) ?? 10, red: !!payload.red };
   } catch {
-    return false;
+    return null;
   }
+}
+
+export async function verifyFileToken(token: string, docId: number) {
+  const p = await readFileToken(token);
+  return !!p && p.doc === docId;
 }

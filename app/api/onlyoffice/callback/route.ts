@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
-import { verifyFileToken } from "@/lib/session";
+import { readFileToken } from "@/lib/session";
 import { verifyOOToken } from "@/lib/onlyoffice";
 
 // OnlyOffice pushes save events here. status 2 = document ready for saving,
@@ -9,7 +9,9 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const id = parseInt(url.searchParams.get("id") || "", 10);
   const t = url.searchParams.get("t") || "";
-  if (!id || !(await verifyFileToken(t, id))) {
+  const tok = await readFileToken(t);
+  // A redacted view is read-only: never accept a save from it (would overwrite the real doc).
+  if (!id || !tok || tok.doc !== id || tok.red) {
     return NextResponse.json({ error: 1 });
   }
   const body = await req.json();
