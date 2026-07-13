@@ -69,21 +69,23 @@ async function migrate() {
       name TEXT NOT NULL,
       filetype TEXT NOT NULL,
       content BYTEA NOT NULL,
+      body TEXT,
       created_by INT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    ALTER TABLE templates ADD COLUMN IF NOT EXISTS body TEXT;
   `);
-  // Seed the built-in Agent Personnel File template on first run.
-  const tpl = await pool.query("SELECT COUNT(*)::int AS n FROM templates");
-  if (tpl.rows[0].n === 0) {
-    try {
-      const content = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
-      await pool.query(
-        "INSERT INTO templates (name, filetype, content) VALUES ($1, 'docx', $2)",
-        ["Agent Personnel File", content]
-      );
-    } catch {}
-  }
+  // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
+  try {
+    const content = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
+    const { rowCount } = await pool.query(
+      "UPDATE templates SET content = $1 WHERE name = 'Agent Personnel File' AND created_by IS NULL",
+      [content]
+    );
+    if (!rowCount) {
+      await pool.query("INSERT INTO templates (name, filetype, content) VALUES ('Agent Personnel File', 'docx', $1)", [content]);
+    }
+  } catch {}
   const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
   if (rows[0].n === 0) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "fury1951", 10);

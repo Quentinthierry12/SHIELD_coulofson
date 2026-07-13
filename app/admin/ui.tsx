@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; discord_linked: boolean; created_at: string };
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
-type Template = { id: number; name: string; filetype: string; created_at: string };
+type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
   const [tab, setTab] = useState<"agents" | "templates" | "settings" | "audit">("agents");
@@ -169,7 +169,9 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [name, setName] = useState("");
+  const [body, setBody] = useState("");
   const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
   const [useTpl, setUseTpl] = useState<Template | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -195,17 +197,55 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
     load();
   }
 
+  async function saveText(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setSaved("");
+    const res = await fetch("/api/admin/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, body }),
+    });
+    if (!res.ok) return setError((await res.json()).error);
+    setName(""); setBody(""); setSaved("Template saved.");
+    load();
+  }
+
   async function del(t: Template) {
     if (!window.confirm(`Delete template “${t.name}”?`)) return;
     await fetch(`/api/admin/templates/${t.id}`, { method: "DELETE" });
     load();
   }
 
+  const detectedVars = Array.from(new Set((body.match(/\{\{\s*([\w -]+?)\s*\}\}/g) || []).map((v) => v.replace(/[{}]/g, "").trim())));
+
   return (
     <>
       {error && <p className="error">⚠ {error}</p>}
       <div className="panel">
-        <h2>Upload a template</h2>
+        <h2>Create a template on-site</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          Write the document content below. Start a line with <span className="mono">#</span> for a heading.
+          Insert fill-in fields with <span className="mono">{"{{double braces}}"}</span> — e.g. <span className="mono">{"{{agent name}}"}</span>,
+          <span className="mono"> {"{{mission code}}"}</span>. You'll be prompted for each when creating a document.
+        </p>
+        <form onSubmit={saveText}>
+          <input placeholder="TEMPLATE NAME" value={name} onChange={(e) => setName(e.target.value)} />
+          <textarea
+            placeholder={"# MISSION ORDER\n\nAgent: {{agent name}}\nBadge: {{badge}}\nObjective: {{objective}}\n\nAuthorized by: {{officer}}"}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={10}
+            style={{ width: "100%", padding: "10px 12px", background: "#0a101a", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", fontFamily: "Consolas, monospace", marginBottom: 10 }}
+          />
+          {detectedVars.length > 0 && (
+            <p className="muted" style={{ marginBottom: 10 }}>Detected fields: {detectedVars.map((v) => <span key={v} className="tag t-folder" style={{ marginRight: 6 }}>{v}</span>)}</p>
+          )}
+          {saved && <p className="success">✓ {saved}</p>}
+          <button>Save template</button>
+        </form>
+      </div>
+      <div className="panel">
+        <h2>Or upload a file template</h2>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input placeholder="TEMPLATE NAME (optional)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
           <button type="button" onClick={() => fileInput.current?.click()}>Choose file (.docx/.xlsx/.pptx)</button>
@@ -218,16 +258,17 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
           {templates.map((t) => (
             <div key={t.id} className={`card t-${t.filetype}`}>
               <div className="card-top">
-                <span className={`tag t-${t.filetype}`}>{TPL_TAG[t.filetype]}</span>
+                <span className={`tag t-${t.filetype}`}>{t.editable ? "TPL" : TPL_TAG[t.filetype]}</span>
                 <span className="card-actions" style={{ display: "inline-flex" }}>
                   <button className="ghost small" onClick={() => del(t)} title="Delete template">✕</button>
                 </span>
               </div>
               <div className="card-title">{t.name}</div>
+              {t.variables.length > 0 && <div className="card-meta muted" style={{ fontSize: "0.72rem" }}>{t.variables.length} field(s)</div>}
               <div className="card-meta"><button className="small" onClick={() => setUseTpl(t)}>New document</button></div>
             </div>
           ))}
-          {templates.length === 0 && <p className="muted">No templates yet. Upload one above.</p>}
+          {templates.length === 0 && <p className="muted">No templates yet.</p>}
         </div>
       </div>
       {useTpl && <FromTemplateModal template={useTpl} folders={folders} maxLevel={myClearance} onClose={() => setUseTpl(null)} />}
@@ -240,6 +281,7 @@ function FromTemplateModal({ template, folders, maxLevel, onClose }: { template:
   const [title, setTitle] = useState("");
   const [classification, setClassification] = useState(1);
   const [folderId, setFolderId] = useState("");
+  const [vars, setVars] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   async function create(e: React.FormEvent) {
@@ -247,7 +289,7 @@ function FromTemplateModal({ template, folders, maxLevel, onClose }: { template:
     setError("");
     const res = await fetch(`/api/admin/templates/${template.id}/new`, {
       method: "POST",
-      body: JSON.stringify({ title, classification, folder_id: folderId ? +folderId : null }),
+      body: JSON.stringify({ title, classification, folder_id: folderId ? +folderId : null, vars }),
     });
     const data = await res.json();
     if (!res.ok) return setError(data.error);
@@ -261,6 +303,14 @@ function FromTemplateModal({ template, folders, maxLevel, onClose }: { template:
         {error && <p className="error">⚠ {error}</p>}
         <form onSubmit={create}>
           <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
+          {template.variables.length > 0 && (
+            <>
+              <p className="muted" style={{ margin: "4px 0 8px" }}>Fill in the template fields:</p>
+              {template.variables.map((v) => (
+                <input key={v} placeholder={v.toUpperCase()} value={vars[v] || ""} onChange={(e) => setVars({ ...vars, [v]: e.target.value })} />
+              ))}
+            </>
+          )}
           <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
             {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification level {n}</option>)}
           </select>
@@ -337,7 +387,7 @@ const ACTION_LABELS: Record<string, string> = {
   folder_create: "Created folder", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
   account_create: "Created account", account_update: "Updated account", password_reset: "Reset password",
   password_change: "Changed password", settings_update: "Updated settings",
-  template_upload: "Uploaded template", template_delete: "Deleted template", doc_from_template: "Created from template",
+  template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)",
 };
 
