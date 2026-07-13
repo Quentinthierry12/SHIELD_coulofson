@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 
 type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean };
-type Folder = { id: number; name: string; restricted: boolean };
+type Folder = { id: number; name: string; parent_id: number | null; created_by: number | null; restricted: boolean; member: boolean; mine: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
 const TYPES: Record<string, { label: string; tag: string; cls: string }> = {
@@ -23,8 +23,8 @@ export default function Dashboard({ session }: { session: Session }) {
   const router = useRouter();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [cwd, setCwd] = useState<number | null>(null); // current folder, null = root
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [folderFilter, setFolderFilter] = useState<number | "all">("all");
   const [mineOnly, setMineOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [createType, setCreateType] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function Dashboard({ session }: { session: Session }) {
     const form = new FormData();
     form.append("file", file);
     form.append("classification", "1");
-    if (folderFilter !== "all") form.append("folder_id", String(folderFilter));
+    if (cwd) form.append("folder_id", String(cwd));
     const res = await fetch("/api/documents/upload", { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) return alert(`⚠ ${data.error}`);
@@ -56,10 +56,10 @@ export default function Dashboard({ session }: { session: Session }) {
   }
 
   async function createFolder() {
-    const name = window.prompt("New room name (e.g. Operations, Intelligence, R&D):");
+    const name = window.prompt("New folder name:");
     if (!name) return;
-    const res = await fetch("/api/folders", { method: "POST", body: JSON.stringify({ name }) });
-    if (!res.ok) alert(`⚠ ${(await res.json()).error}`);
+    const res = await fetch("/api/folders", { method: "POST", body: JSON.stringify({ name, parent_id: cwd }) });
+    if (!res.ok) return alert(`⚠ ${(await res.json()).error}`);
     load();
   }
 
@@ -85,13 +85,26 @@ export default function Dashboard({ session }: { session: Session }) {
     router.push("/");
   }
 
+  // Filtered / flat mode when searching, filtering by type, or "mine": ignore folder tree.
   const q = search.trim().toLowerCase();
-  const visible = docs.filter((d) =>
+  const flatMode = !!q || typeFilter !== "all" || mineOnly;
+
+  const foldersById = new Map(folders.map((f) => [f.id, f]));
+  function breadcrumb(id: number | null): Folder[] {
+    const path: Folder[] = [];
+    let cur = id ? foldersById.get(id) : undefined;
+    while (cur) { path.unshift(cur); cur = cur.parent_id ? foldersById.get(cur.parent_id) : undefined; }
+    return path;
+  }
+
+  const childFolders = folders.filter((f) => (f.parent_id ?? null) === cwd);
+  const flatDocs = docs.filter((d) =>
     (typeFilter === "all" || d.filetype === typeFilter) &&
-    (folderFilter === "all" || d.folder_id === folderFilter) &&
     (!mineOnly || d.mine) &&
     (!q || d.title.toLowerCase().includes(q) || (d.owner || "").toLowerCase().includes(q))
   );
+  const docsHere = docs.filter((d) => (d.folder_id ?? null) === cwd);
+  const shownDocs = flatMode ? flatDocs : docsHere;
 
   const railApps = [
     { key: "all", label: "Home" },
@@ -108,86 +121,86 @@ export default function Dashboard({ session }: { session: Session }) {
           <button
             key={a.key}
             className={`rail-btn ${typeFilter === a.key && !mineOnly ? "active" : ""}`}
-            title={a.label}
-            onClick={() => { setTypeFilter(a.key); setMineOnly(false); }}
+            onClick={() => { setTypeFilter(a.key); setMineOnly(false); if (a.key === "all") setCwd(cwd); }}
           >
             <span className="rail-label">{a.label}</span>
           </button>
         ))}
-        <button className={`rail-btn ${mineOnly ? "active" : ""}`} title="My documents" onClick={() => setMineOnly(!mineOnly)}>
+        <button className={`rail-btn ${mineOnly ? "active" : ""}`} onClick={() => setMineOnly(!mineOnly)}>
           <span className="rail-label">Mine</span>
         </button>
         {session.role === "admin" && (
-          <a href="/admin">
-            <button className="rail-btn" title="Command">
-              <span className="rail-label">Command</span>
-            </button>
-          </a>
+          <a href="/admin"><button className="rail-btn"><span className="rail-label">Command</span></button></a>
         )}
-        <div className="rail-sep" />
-        <div className="rail-title">Rooms</div>
-        <div className="rail-rooms">
-          <button className={`rail-btn ${folderFilter === "all" ? "active" : ""}`} title="All rooms" onClick={() => setFolderFilter("all")}>
-            <span className="rail-label">All</span>
-          </button>
-          {folders.map((f) => (
-            <button
-              key={f.id}
-              className={`rail-btn ${folderFilter === f.id ? "active" : ""}`}
-              title={f.restricted ? `${f.name} (restricted)` : f.name}
-              onClick={() => setFolderFilter(folderFilter === f.id ? "all" : f.id)}
-              onContextMenu={(e) => { if (session.role === "admin") { e.preventDefault(); setManageFolder(f); } }}
-            >
-              <span className="rail-label">{f.restricted ? "· " : ""}{f.name}</span>
-            </button>
-          ))}
-          {session.role === "admin" && (
-            <button className="rail-btn" title="New room" onClick={createFolder}>
-              <span className="rail-label">+ Room</span>
-            </button>
-          )}
-        </div>
       </nav>
 
       <div className="main">
         <div className="topbar">
-          <input
-            className="searchbar"
-            placeholder="Search the archives…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <input className="searchbar" placeholder="Search the archives…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <span className="badge">{session.matricule} · {session.codename} · LVL.{session.clearance}</span>
-            <a href="/api/auth/discord"><button className="ghost small" title="Link Discord to sign in with it and receive transmissions">Link Discord</button></a>
+            <a href="/api/auth/discord"><button className="ghost small" title="Link Discord">Link Discord</button></a>
             <button className="ghost small" onClick={changePassword}>Password</button>
             <button className="ghost small" onClick={logout}>Sign out</button>
           </div>
         </div>
 
         <div className="content">
-          <h2>Create</h2>
           <div className="tiles">
             {Object.entries(TYPES).map(([ext, t]) => (
               <button key={ext} className={`tile ${t.cls}`} onClick={() => setCreateType(ext)}>
-                <span className={`tag ${t.cls}`}>{t.tag}</span>
-                <span>New {t.label}</span>
+                <span className={`tag ${t.cls}`}>{t.tag}</span><span>New {t.label}</span>
               </button>
             ))}
             <button className="tile t-import" onClick={() => fileInput.current?.click()}>
-              <span className="tag t-import">FILE</span>
-              <span>Import file</span>
+              <span className="tag t-import">FILE</span><span>Import file</span>
+            </button>
+            <button className="tile t-folder" onClick={createFolder}>
+              <span className="tag t-folder">DIR</span><span>New folder</span>
             </button>
             <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
           </div>
 
-          <h2 style={{ marginTop: 26 }}>
-            {mineOnly ? "My documents" : typeFilter === "all" ? "Recent" : `${TYPES[typeFilter].label}s`}
-            {folderFilter !== "all" && ` — ${folders.find((f) => f.id === folderFilter)?.name}`}
-            <span className="muted" style={{ marginLeft: 8, textTransform: "none" }}>({visible.length})</span>
-          </h2>
+          {flatMode ? (
+            <h2 style={{ marginTop: 26 }}>
+              {mineOnly ? "My documents" : q ? "Search results" : `${TYPES[typeFilter].label}s`}
+              <span className="muted" style={{ marginLeft: 8, textTransform: "none" }}>({shownDocs.length})</span>
+            </h2>
+          ) : (
+            <div className="crumbs" style={{ marginTop: 26 }}>
+              <button className="crumb" onClick={() => setCwd(null)}>Drive</button>
+              {breadcrumb(cwd).map((f) => (
+                <span key={f.id}>
+                  <span className="crumb-sep">/</span>
+                  <button className="crumb" onClick={() => setCwd(f.id)}>{f.restricted ? "🔒 " : ""}{f.name}</button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Folders (only in Drive mode) */}
+          {!flatMode && childFolders.length > 0 && (
+            <div className="cards" style={{ marginBottom: 18 }}>
+              {childFolders.map((f) => (
+                <div key={f.id} className="card card-folder" onDoubleClick={() => setCwd(f.id)} onClick={() => setCwd(f.id)}>
+                  <div className="card-top">
+                    <span className="tag t-folder">DIR</span>
+                    {(f.mine || session.role === "admin") && (
+                      <span className="card-actions" onClick={(e) => e.stopPropagation()}>
+                        <button className="ghost small" title="Members / invitations" onClick={() => setManageFolder(f)}>Invite</button>
+                      </span>
+                    )}
+                  </div>
+                  <div className="card-title">{f.restricted ? "🔒 " : ""}{f.name}</div>
+                  <div className="card-meta muted">{f.restricted ? "Restricted" : "Open"}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Documents */}
           <div className="cards">
-            {visible.map((d) => (
+            {shownDocs.map((d) => (
               <div key={d.id} className={`card ${TYPES[d.filetype].cls}`} onClick={() => router.push(`/doc/${d.id}`)}>
                 <div className="card-top">
                   <span className={`tag ${TYPES[d.filetype].cls}`}>{TYPES[d.filetype].tag}</span>
@@ -199,43 +212,31 @@ export default function Dashboard({ session }: { session: Session }) {
                   )}
                 </div>
                 <div className="card-title">{d.title}</div>
-                <div className="card-meta">
-                  {classifBadge(d.classification)}
-                  <span className="muted">{folders.find((f) => f.id === d.folder_id)?.name || ""}</span>
-                </div>
+                <div className="card-meta">{classifBadge(d.classification)}</div>
                 <div className="card-meta muted">
                   {d.owner} · {new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </div>
               </div>
             ))}
-            {visible.length === 0 && <p className="muted">No documents here at your clearance level.</p>}
+            {shownDocs.length === 0 && (!flatMode ? childFolders.length === 0 : true) && (
+              <p className="muted">This folder is empty at your clearance level.</p>
+            )}
           </div>
         </div>
       </div>
 
       {createType && (
-        <CreateModal
-          filetype={createType}
-          folders={folders}
-          maxLevel={session.clearance}
-          defaultFolder={folderFilter === "all" ? "" : String(folderFilter)}
-          onClose={() => setCreateType(null)}
-        />
+        <CreateModal filetype={createType} folders={folders} maxLevel={session.clearance} defaultFolder={cwd ? String(cwd) : ""} onClose={() => setCreateType(null)} />
       )}
       {shareDoc && (
-        <AccessModal
-          title={`Share “${shareDoc.title}”`}
-          url={`/api/documents/${shareDoc.id}/share`}
-          verb="Shared with"
-          onClose={() => setShareDoc(null)}
-        />
+        <AccessModal title={`Share “${shareDoc.title}”`} url={`/api/documents/${shareDoc.id}/share`} verb="Shared with" onClose={() => setShareDoc(null)} />
       )}
       {manageFolder && (
         <AccessModal
-          title={`Room access — “${manageFolder.name}”`}
+          title={`Folder invitations — “${manageFolder.name}”`}
           url={`/api/folders/${manageFolder.id}/members`}
-          verb="Access granted to"
-          note="A room with no members is open to every agent. As soon as it has members, only they (and officers) can see it."
+          verb="Invited"
+          note="A folder with no members is open to every agent. As soon as it has members, only they (and officers) can see it and everything inside it."
           onClose={() => { setManageFolder(null); load(); }}
         />
       )}
@@ -273,12 +274,10 @@ function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
         <form onSubmit={create}>
           <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
           <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
-            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>Classification level {n}</option>
-            ))}
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification level {n}</option>)}
           </select>
           <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-            <option value="">— No room —</option>
+            <option value="">— Drive root —</option>
             {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
           <button style={{ width: "100%" }}>Create</button>
@@ -315,9 +314,7 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
     const res = await fetch(url, { method: "POST", body: JSON.stringify({ matricule: a.matricule }) });
     const data = await res.json();
     setMsg(res.ok ? `✓ ${verb} ${data.codename}` : `⚠ ${data.error}`);
-    setQ("");
-    setResults([]);
-    loadShares();
+    setQ(""); setResults([]); loadShares();
   }
 
   async function remove(a: Agent) {

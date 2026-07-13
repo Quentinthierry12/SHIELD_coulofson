@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db, createPersonnelFile } from "@/lib/db";
+import { db, createPersonnelFile, audit, getSetting } from "@/lib/db";
 
 const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
 export async function POST(req: Request) {
+  if ((await getSetting("public_registration")) === "off") {
+    return NextResponse.json({ error: "Public enlistment is currently closed. Contact an officer." }, { status: 403 });
+  }
   const { codename, password, matricule } = await req.json();
   if (!codename?.trim() || !password || password.length < 6) {
     return NextResponse.json({ error: "Codename required and password must be at least 6 characters." }, { status: 400 });
@@ -24,6 +27,7 @@ export async function POST(req: Request) {
         [m, codename.trim(), hash]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim());
+      audit({ id: rows[0].id, matricule: m }, "register", codename.trim());
       return NextResponse.json({ matricule: m });
     } catch (e: any) {
       if (e.code !== "23505") throw e;

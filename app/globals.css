@@ -107,6 +107,19 @@ tr:hover td { background: #0f1826; }
 .tag.t-xlsx { background: #0e3322; color: #4dd08a; }
 .tag.t-pptx { background: #3a2312; color: #ff9a5c; }
 .tag.t-import { background: #1a2333; color: var(--muted); }
+.tag.t-folder { background: #2a2440; color: #b79dff; }
+.t-folder { border-left-color: #b79dff; }
+.card.card-folder { border-top-color: #b79dff; cursor: pointer; }
+.card.card-folder:hover { border-color: #6a5aa0; }
+
+.crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+.crumb {
+  background: transparent; border: none; color: var(--accent); cursor: pointer;
+  font-family: Consolas, monospace; font-size: 0.95rem; padding: 2px 6px; border-radius: 4px;
+  text-transform: none; letter-spacing: 0;
+}
+.crumb:hover { background: #101a2a; }
+.crumb-sep { color: var(--muted); }
 .rail-rooms { display: flex; flex-direction: column; gap: 2px; }
 .main { flex: 1; min-width: 0; }
 .main .topbar { position: sticky; top: 0; z-index: 10; gap: 16px; }

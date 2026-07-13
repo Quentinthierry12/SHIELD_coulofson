@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
-import { getSession } from "@/lib/session";
+import { db, audit } from "@/lib/db";
+import { getSession, createSession } from "@/lib/session";
 
 export async function POST(req: Request) {
   const s = await getSession();
@@ -17,5 +17,8 @@ export async function POST(req: Request) {
     s.id,
     await bcrypt.hash(next, 10),
   ]);
+  // Refresh the session so the "must change password" gate clears immediately.
+  await createSession({ ...s, mustChangePassword: false });
+  audit(s, "password_change");
   return NextResponse.json({ ok: true });
 }

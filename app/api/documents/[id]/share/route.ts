@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
 
@@ -39,6 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   ]);
   if (!rows[0]) return NextResponse.json({ error: "Unknown badge number or inactive agent." }, { status: 404 });
   await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, rows[0].id]);
+  audit(s, "doc_share", `#${id} ${doc.title} -> ${(matricule || "").trim().toUpperCase()}`);
   dmByUserId(
     rows[0].id,
     `🦅 **S.H.I.E.L.D. TRANSMISSION** — Agent **${s.codename}** granted you access to classified document **« ${doc.title} »**. Open: ${process.env.PORTAL_URL}/doc/${id}`
@@ -57,5 +58,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     `DELETE FROM document_shares WHERE doc_id = $1 AND user_id = (SELECT id FROM users WHERE matricule = $2)`,
     [id, (matricule || "").trim().toUpperCase()]
   );
+  audit(s, "doc_unshare", `#${id} -> ${(matricule || "").trim().toUpperCase()}`);
   return NextResponse.json({ ok: true });
 }

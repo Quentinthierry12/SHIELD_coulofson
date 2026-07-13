@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, audit } from "@/lib/db";
 import { createSession } from "@/lib/session";
 import { exchangeCode, verifyState, sendDM } from "@/lib/discord";
 
@@ -20,6 +20,7 @@ export async function GET(req: Request) {
     } catch {
       return NextResponse.redirect(`${home}/dashboard?discord=taken`);
     }
+    audit({ id: state.userId, matricule: "?" }, "discord_link", discordUser.username);
     sendDM(
       discordUser.id,
       "🦅 **S.H.I.E.L.D. TRANSMISSION** — This Discord account is now linked to your agent credentials. You can sign in with Discord from now on."
@@ -39,5 +40,6 @@ export async function GET(req: Request) {
     clearance: user.clearance,
     role: user.role,
   });
+  audit(user, "discord_login", discordUser.username);
   return NextResponse.redirect(`${home}/dashboard`);
 }

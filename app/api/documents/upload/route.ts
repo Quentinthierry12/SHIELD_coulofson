@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { DOC_TYPES } from "@/lib/onlyoffice";
 
@@ -26,5 +26,6 @@ export async function POST(req: Request) {
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
     [title, ext, classification, s.id, content, folderId]
   );
+  audit(s, "doc_import", `#${rows[0].id} ${title} (${ext})`);
   return NextResponse.json({ id: rows[0].id });
 }

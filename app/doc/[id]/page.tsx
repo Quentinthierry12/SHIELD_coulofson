@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAccessibleDoc } from "@/lib/db";
+import { getAccessibleDoc, audit } from "@/lib/db";
 import { getSession, signFileToken } from "@/lib/session";
 import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig } from "@/lib/onlyoffice";
 import Editor from "./editor";
@@ -7,9 +7,11 @@ import Editor from "./editor";
 export default async function DocPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   if (!session) redirect("/");
+  if (session.mustChangePassword) redirect("/change-password");
   const id = parseInt((await params).id, 10);
   const doc = await getAccessibleDoc(id, session.clearance, session.id, session.role);
   if (!doc) redirect("/dashboard");
+  audit(session, "doc_open", `#${doc.id} ${doc.title}`);
 
   const t = await signFileToken(doc.id);
   const config: any = {

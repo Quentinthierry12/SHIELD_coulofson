@@ -1,33 +1,27 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, accessibleFolders, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 
 export async function GET() {
   const s = await getSession();
   if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  const pool = await db();
-  const { rows } = await pool.query(
-    `SELECT f.id, f.name,
-            EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id) AS restricted
-     FROM folders f
-     WHERE $2 = 'admin'
-        OR NOT EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id)
-        OR EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id AND fm.user_id = $1)
-     ORDER BY f.name`,
-    [s.id, s.role]
+  const folders = await accessibleFolders(s.id, s.role);
+  return NextResponse.json(
+    folders.map((f) => ({ ...f, mine: f.created_by === s.id || s.role === "admin" }))
   );
-  return NextResponse.json(rows);
 }
 
+// Any active agent can create a folder (they own it); officers can manage any.
 export async function POST(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
-  const { name } = await req.json();
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  const { name, parent_id } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name required." }, { status: 400 });
   const pool = await db();
   const { rows } = await pool.query(
-    "INSERT INTO folders (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
-    [name.trim()]
+    "INSERT INTO folders (name, parent_id, created_by) VALUES ($1, $2, $3) RETURNING id",
+    [name.trim(), parent_id || null, s.id]
   );
+  audit(s, "folder_create", name.trim());
   return NextResponse.json({ id: rows[0].id });
 }

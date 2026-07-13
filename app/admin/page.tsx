@@ -5,6 +5,7 @@ import AdminUI from "./ui";
 export default async function AdminPage() {
   const session = await getSession();
   if (!session) redirect("/");
+  if (session.mustChangePassword) redirect("/change-password");
   if (session.role !== "admin") redirect("/dashboard");
   return <AdminUI />;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, audit } from "@/lib/db";
 import { verifyFileToken } from "@/lib/session";
 import { verifyOOToken } from "@/lib/onlyoffice";
 
@@ -28,6 +28,11 @@ export async function POST(req: Request) {
       "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1",
       [id, content]
     );
+    const editorId = parseInt(data.users?.[0], 10);
+    const { rows: u } = editorId
+      ? await pool.query("SELECT id, matricule FROM users WHERE id = $1", [editorId])
+      : { rows: [] as any[] };
+    audit(u[0] || null, "doc_save", `#${id}`);
   }
   return NextResponse.json({ error: 0 });
 }

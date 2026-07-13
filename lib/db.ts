@@ -48,6 +48,22 @@ async function migrate() {
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id INT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_id TEXT;
     CREATE UNIQUE INDEX IF NOT EXISTS users_discord_idx ON users (discord_id) WHERE discord_id IS NOT NULL;
+    ALTER TABLE folders ADD COLUMN IF NOT EXISTS parent_id INT;
+    ALTER TABLE folders ADD COLUMN IF NOT EXISTS created_by INT;
+    ALTER TABLE folders DROP CONSTRAINT IF EXISTS folders_name_key;
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id SERIAL PRIMARY KEY,
+      user_id INT,
+      matricule TEXT,
+      action TEXT NOT NULL,
+      target TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at DESC);
   `);
   const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
   if (rows[0].n === 0) {
@@ -66,35 +82,96 @@ export async function db(): Promise<Pool> {
   return pool;
 }
 
-// Every new account gets an administrative personnel file, classified level 10:
-// only the agent themself (owner) and officers can see it.
-export async function createPersonnelFile(userId: number, matricule: string, codename: string) {
+// ---------- Audit ----------
+// Fire-and-forget: logging must never break the action being logged.
+export async function audit(user: { id: number; matricule: string } | null, action: string, target = "") {
   try {
-    const template = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
     const p = await db();
-    await p.query(
-      `INSERT INTO documents (title, filetype, classification, owner_id, content)
-       VALUES ($1, 'docx', 10, $2, $3)`,
-      [`PERSONNEL FILE — ${matricule} (${codename})`, userId, template]
-    );
-  } catch {} // ponytail: missing template must never block account creation
+    await p.query("INSERT INTO audit_log (user_id, matricule, action, target) VALUES ($1, $2, $3, $4)", [
+      user?.id ?? null,
+      user?.matricule ?? "?",
+      action,
+      target.slice(0, 300),
+    ]);
+  } catch {}
 }
 
-// Un salon sans membre est ouvert à tous ; avec membres, il est restreint à ceux-ci (+ officiers).
-export const FOLDER_ACCESS_SQL = `(d.folder_id IS NULL OR $4 = 'admin'
-  OR NOT EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = d.folder_id)
-  OR EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = d.folder_id AND fm.user_id = $3))`;
+// ---------- Settings ----------
+export async function getSetting(key: string): Promise<string | null> {
+  const p = await db();
+  const { rows } = await p.query("SELECT value FROM settings WHERE key = $1", [key]);
+  return rows[0]?.value ?? null;
+}
+
+export async function setSetting(key: string, value: string) {
+  const p = await db();
+  await p.query(
+    "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+    [key, value]
+  );
+}
+
+// ---------- Drive access ----------
+// A folder with no members is open; with members it is restricted to them (+ officers).
+// Nested rule: to access a folder you must have access to every restricted ancestor.
+// ponytail: computed in JS over all folders — fine for tens/hundreds of folders, CTE if thousands.
+export type FolderRow = { id: number; name: string; parent_id: number | null; created_by: number | null; restricted: boolean; member: boolean };
+
+export async function accessibleFolders(userId: number, role: string): Promise<FolderRow[]> {
+  const p = await db();
+  const { rows } = await p.query(
+    `SELECT f.id, f.name, f.parent_id, f.created_by,
+            EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id) AS restricted,
+            EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id AND fm.user_id = $1) AS member
+     FROM folders f ORDER BY f.name`,
+    [userId]
+  );
+  if (role === "admin") return rows;
+  const byId = new Map<number, FolderRow>(rows.map((f: FolderRow) => [f.id, f]));
+  const ok = (f: FolderRow): boolean => {
+    for (let cur: FolderRow | undefined = f; cur; cur = cur.parent_id ? byId.get(cur.parent_id) : undefined) {
+      if (cur.restricted && !cur.member) return false;
+    }
+    return true;
+  };
+  return rows.filter(ok);
+}
+
+export async function accessibleFolderIds(userId: number, role: string): Promise<number[]> {
+  return (await accessibleFolders(userId, role)).map((f) => f.id);
+}
 
 // Accès à un document : niveau d'habilitation suffisant, propriétaire, admin, ou partage explicite —
-// ET accès au salon qui le contient.
+// ET accès au dossier qui le contient.
 export async function getAccessibleDoc(docId: number, clearance: number, userId: number, role: string) {
   const p = await db();
   const { rows } = await p.query(
     `SELECT d.* FROM documents d
      WHERE d.id = $1 AND (d.classification <= $2 OR d.owner_id = $3 OR $4 = 'admin'
-       OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $3))
-       AND ${FOLDER_ACCESS_SQL}`,
+       OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $3))`,
     [docId, clearance, userId, role]
   );
-  return rows[0] || null;
+  const doc = rows[0];
+  if (!doc) return null;
+  if (doc.folder_id && role !== "admin") {
+    const ids = await accessibleFolderIds(userId, role);
+    if (!ids.includes(doc.folder_id)) return null;
+  }
+  return doc;
+}
+
+// Every new account gets an administrative personnel file, classified level 10:
+// only the agent themself (owner) and officers can see it. Its destination folder
+// is configurable from the Command settings (key: personnel_folder_id).
+export async function createPersonnelFile(userId: number, matricule: string, codename: string) {
+  try {
+    const template = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
+    const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
+    const p = await db();
+    await p.query(
+      `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id)
+       VALUES ($1, 'docx', 10, $2, $3, $4)`,
+      [`PERSONNEL FILE — ${matricule} (${codename})`, userId, template, folderId]
+    );
+  } catch {} // ponytail: missing template must never block account creation
 }

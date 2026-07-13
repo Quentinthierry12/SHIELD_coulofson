@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db, createPersonnelFile } from "@/lib/db";
+import { db, createPersonnelFile, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
 
@@ -22,7 +22,8 @@ export async function GET() {
 
 // Direct account creation by an officer (active immediately, no vetting step).
 export async function POST(req: Request) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const { codename, password, clearance, role, matricule } = await req.json();
   if (!codename?.trim() || !password || password.length < 6) {
     return NextResponse.json({ error: "Codename required and password must be at least 6 characters." }, { status: 400 });
@@ -37,11 +38,12 @@ export async function POST(req: Request) {
     const m = custom || "AG-" + Math.floor(1000 + Math.random() * 9000);
     try {
       const { rows } = await pool.query(
-        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status)
-         VALUES ($1, $2, $3, $4, $5, 'active') RETURNING id`,
+        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, must_change_password)
+         VALUES ($1, $2, $3, $4, $5, 'active', true) RETURNING id`,
         [m, codename.trim(), hash, Math.min(10, Math.max(1, clearance || 1)), role === "admin" ? "admin" : "agent"]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim());
+      audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${Math.min(10, Math.max(1, clearance || 1))})`);
       return NextResponse.json({ matricule: m });
     } catch (e: any) {
       if (e.code !== "23505") throw e;
@@ -66,8 +68,10 @@ export async function PATCH(req: Request) {
   );
   if (new_password) {
     if (new_password.length < 6) return NextResponse.json({ error: "Password: at least 6 characters." }, { status: 400 });
-    await pool.query("UPDATE users SET password_hash = $2 WHERE id = $1", [id, await bcrypt.hash(new_password, 10)]);
+    await pool.query("UPDATE users SET password_hash = $2, must_change_password = true WHERE id = $1", [id, await bcrypt.hash(new_password, 10)]);
+    audit(admin, "password_reset", `user #${id}`);
   }
+  audit(admin, "account_update", `user #${id} status=${status} clearance=${clearance} role=${role}`);
   if (before[0]?.status !== "active" && status === "active") {
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");
   }

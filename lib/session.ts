@@ -9,6 +9,7 @@ export type Session = {
   codename: string;
   clearance: number;
   role: string;
+  mustChangePassword?: boolean;
 };
 
 export async function createSession(user: Session) {

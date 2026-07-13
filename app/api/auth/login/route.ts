@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
+import { db, audit } from "@/lib/db";
 import { createSession } from "@/lib/session";
 
 export async function POST(req: Request) {
@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   ]);
   const user = rows[0];
   if (!user || !(await bcrypt.compare(password || "", user.password_hash))) {
+    audit(null, "login_failed", (matricule || "").trim().toUpperCase());
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
   if (user.status === "pending") {
@@ -25,6 +26,8 @@ export async function POST(req: Request) {
     codename: user.codename,
     clearance: user.clearance,
     role: user.role,
+    mustChangePassword: user.must_change_password,
   });
-  return NextResponse.json({ ok: true });
+  audit(user, "login");
+  return NextResponse.json({ ok: true, mustChangePassword: user.must_change_password });
 }
