@@ -6,7 +6,16 @@ export async function GET() {
   const s = await getSession();
   if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const pool = await db();
-  const { rows } = await pool.query("SELECT id, name FROM folders ORDER BY name");
+  const { rows } = await pool.query(
+    `SELECT f.id, f.name,
+            EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id) AS restricted
+     FROM folders f
+     WHERE $2 = 'admin'
+        OR NOT EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id)
+        OR EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id AND fm.user_id = $1)
+     ORDER BY f.name`,
+    [s.id, s.role]
+  );
   return NextResponse.json(rows);
 }
 

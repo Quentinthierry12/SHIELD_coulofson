@@ -13,8 +13,11 @@ export async function GET() {
     `SELECT d.id, d.title, d.filetype, d.classification, d.folder_id, d.updated_at, u.codename AS owner,
             (d.owner_id = $2) AS mine
      FROM documents d LEFT JOIN users u ON u.id = d.owner_id
-     WHERE d.classification <= $1 OR d.owner_id = $2 OR $3 = 'admin'
-        OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2)
+     WHERE (d.classification <= $1 OR d.owner_id = $2 OR $3 = 'admin'
+        OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2))
+       AND (d.folder_id IS NULL OR $3 = 'admin'
+        OR NOT EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = d.folder_id)
+        OR EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = d.folder_id AND fm.user_id = $2))
      ORDER BY d.updated_at DESC`,
     [s.clearance, s.id, s.role]
   );

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 
 type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean };
-type Folder = { id: number; name: string };
+type Folder = { id: number; name: string; restricted: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
 const TYPE_LABEL: Record<string, string> = { docx: "📄 Rapport", xlsx: "📊 Registre", pptx: "📽 Briefing" };
@@ -26,6 +26,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [folderId, setFolderId] = useState<string>("");
   const [error, setError] = useState("");
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
+  const [manageFolder, setManageFolder] = useState<Folder | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -141,7 +142,14 @@ export default function Dashboard({ session }: { session: Session }) {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
             <button className={folderFilter === "all" ? "small" : "ghost small"} onClick={() => setFolderFilter("all")}>Tous</button>
             {folders.map((f) => (
-              <button key={f.id} className={folderFilter === f.id ? "small" : "ghost small"} onClick={() => setFolderFilter(f.id)}>🗂 {f.name}</button>
+              <span key={f.id} style={{ display: "inline-flex", gap: 2 }}>
+                <button className={folderFilter === f.id ? "small" : "ghost small"} onClick={() => setFolderFilter(f.id)}>
+                  {f.restricted ? "🔒" : "🗂"} {f.name}
+                </button>
+                {session.role === "admin" && (
+                  <button className="ghost small" title="Gérer les accès" onClick={() => setManageFolder(f)}>⚙</button>
+                )}
+              </span>
             ))}
             {session.role === "admin" && <button className="ghost small" onClick={createFolder}>+ Salon</button>}
           </div>
@@ -176,19 +184,35 @@ export default function Dashboard({ session }: { session: Session }) {
           </table>
         </div>
       </div>
-      {shareDoc && <ShareModal doc={shareDoc} onClose={() => setShareDoc(null)} />}
+      {shareDoc && (
+        <AccessModal
+          title={`Partager « ${shareDoc.title} »`}
+          url={`/api/documents/${shareDoc.id}/share`}
+          verb="Partagé avec"
+          onClose={() => setShareDoc(null)}
+        />
+      )}
+      {manageFolder && (
+        <AccessModal
+          title={`Accès au salon « ${manageFolder.name} »`}
+          url={`/api/folders/${manageFolder.id}/members`}
+          verb="Accès accordé à"
+          note="Un salon sans aucun membre est ouvert à tous les agents. Dès qu'il a des membres, seuls eux (et les officiers) le voient."
+          onClose={() => { setManageFolder(null); load(); }}
+        />
+      )}
     </>
   );
 }
 
-function ShareModal({ doc, onClose }: { doc: Doc; onClose: () => void }) {
+function AccessModal({ title, url, verb, note, onClose }: { title: string; url: string; verb: string; note?: string; onClose: () => void }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Agent[]>([]);
   const [shares, setShares] = useState<Agent[]>([]);
   const [msg, setMsg] = useState("");
 
   async function loadShares() {
-    const res = await fetch(`/api/documents/${doc.id}/share`);
+    const res = await fetch(url);
     if (res.ok) setShares(await res.json());
   }
   useEffect(() => { loadShares(); }, []);
@@ -204,23 +228,24 @@ function ShareModal({ doc, onClose }: { doc: Doc; onClose: () => void }) {
 
   async function add(a: Agent) {
     setMsg("");
-    const res = await fetch(`/api/documents/${doc.id}/share`, { method: "POST", body: JSON.stringify({ matricule: a.matricule }) });
+    const res = await fetch(url, { method: "POST", body: JSON.stringify({ matricule: a.matricule }) });
     const data = await res.json();
-    setMsg(res.ok ? `✓ Partagé avec ${data.codename}` : `⚠ ${data.error}`);
+    setMsg(res.ok ? `✓ ${verb} ${data.codename}` : `⚠ ${data.error}`);
     setQ("");
     setResults([]);
     loadShares();
   }
 
   async function remove(a: Agent) {
-    await fetch(`/api/documents/${doc.id}/share`, { method: "DELETE", body: JSON.stringify({ matricule: a.matricule }) });
+    await fetch(url, { method: "DELETE", body: JSON.stringify({ matricule: a.matricule }) });
     loadShares();
   }
 
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2>Partager « {doc.title} »</h2>
+        <h2>{title}</h2>
+        {note && <p className="muted" style={{ marginBottom: 10 }}>{note}</p>}
         <input
           autoFocus
           placeholder="Tapez un nom de code ou un matricule…"

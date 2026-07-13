@@ -6,6 +6,10 @@ type User = { id: number; matricule: string; codename: string; clearance: number
 export default function AdminUI() {
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState("");
+  const [codename, setCodename] = useState("");
+  const [password, setPassword] = useState("");
+  const [clearance, setClearance] = useState(1);
+  const [created, setCreated] = useState("");
 
   async function load() {
     const res = await fetch("/api/admin/users");
@@ -29,6 +33,22 @@ export default function AdminUI() {
     if (pwd) update(u, { new_password: pwd });
   }
 
+  async function createAgent(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setCreated("");
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify({ codename, password, clearance }),
+    });
+    const data = await res.json();
+    if (!res.ok) return setError(data.error);
+    setCreated(`Compte créé : matricule ${data.matricule} — transmettez-le à l'agent avec son mot de passe.`);
+    setCodename("");
+    setPassword("");
+    load();
+  }
+
   const pending = users.filter((u) => u.status === "pending");
   const others = users.filter((u) => u.status !== "pending");
 
@@ -44,6 +64,18 @@ export default function AdminUI() {
       </div>
       <div className="container">
         {error && <p className="error">⚠ {error}</p>}
+        <div className="panel">
+          <h2>Créer un compte agent</h2>
+          {created && <p className="success">✓ {created}</p>}
+          <form onSubmit={createAgent} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input placeholder="NOM DE CODE" value={codename} onChange={(e) => setCodename(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 160 }} />
+            <input placeholder="MOT DE PASSE PROVISOIRE" value={password} onChange={(e) => setPassword(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 160 }} />
+            <select value={clearance} onChange={(e) => setClearance(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Hab. niv. {n}</option>)}
+            </select>
+            <button>Créer le compte</button>
+          </form>
+        </div>
         {pending.length > 0 && (
           <div className="panel" style={{ borderColor: "#665520" }}>
             <h2>⏳ Recrues en attente de validation ({pending.length})</h2>

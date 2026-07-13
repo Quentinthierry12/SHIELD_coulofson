@@ -17,6 +17,31 @@ export async function GET() {
   return NextResponse.json(rows);
 }
 
+// Création directe d'un compte agent par un officier (actif immédiatement, sans validation).
+export async function POST(req: Request) {
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  const { codename, password, clearance, role } = await req.json();
+  if (!codename?.trim() || !password || password.length < 6) {
+    return NextResponse.json({ error: "Nom de code requis et mot de passe de 6 caractères minimum." }, { status: 400 });
+  }
+  const pool = await db();
+  const hash = await bcrypt.hash(password, 10);
+  for (let i = 0; i < 5; i++) {
+    const matricule = "AG-" + Math.floor(1000 + Math.random() * 9000);
+    try {
+      await pool.query(
+        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status)
+         VALUES ($1, $2, $3, $4, $5, 'active')`,
+        [matricule, codename.trim(), hash, Math.min(10, Math.max(1, clearance || 1)), role === "admin" ? "admin" : "agent"]
+      );
+      return NextResponse.json({ matricule });
+    } catch (e: any) {
+      if (e.code !== "23505") throw e;
+    }
+  }
+  return NextResponse.json({ error: "Réessayez." }, { status: 500 });
+}
+
 export async function PATCH(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
