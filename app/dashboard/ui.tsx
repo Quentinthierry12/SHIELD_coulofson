@@ -63,6 +63,14 @@ export default function Dashboard({ session }: { session: Session }) {
     load();
   }
 
+  async function deleteFolder(f: Folder) {
+    if (!window.confirm(`Delete folder “${f.name}”? It must be empty. This cannot be undone.`)) return;
+    const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
+    if (!res.ok) return alert(`⚠ ${(await res.json()).error}`);
+    if (cwd === f.id) setCwd(f.parent_id ?? null);
+    load();
+  }
+
   async function destroy(doc: Doc) {
     if (!window.confirm(`Permanently destroy “${doc.title}”? (Destruction Protocol 4-Delta)`)) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
@@ -188,6 +196,7 @@ export default function Dashboard({ session }: { session: Session }) {
                     {(f.mine || session.role === "admin") && (
                       <span className="card-actions" onClick={(e) => e.stopPropagation()}>
                         <button className="ghost small" title="Members / invitations" onClick={() => setManageFolder(f)}>Invite</button>
+                        <button className="ghost small" title="Delete folder" onClick={() => deleteFolder(f)}>✕</button>
                       </span>
                     )}
                   </div>
