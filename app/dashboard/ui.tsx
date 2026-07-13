@@ -7,10 +7,10 @@ type Doc = { id: number; title: string; filetype: string; classification: number
 type Folder = { id: number; name: string; restricted: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
-const TYPES: Record<string, { label: string; icon: string; cls: string }> = {
-  docx: { label: "Report", icon: "📄", cls: "t-docx" },
-  xlsx: { label: "Ledger", icon: "📊", cls: "t-xlsx" },
-  pptx: { label: "Briefing", icon: "📽", cls: "t-pptx" },
+const TYPES: Record<string, { label: string; tag: string; cls: string }> = {
+  docx: { label: "Report", tag: "DOC", cls: "t-docx" },
+  xlsx: { label: "Ledger", tag: "XLS", cls: "t-xlsx" },
+  pptx: { label: "Briefing", tag: "PPT", cls: "t-pptx" },
 };
 
 function classifBadge(level: number) {
@@ -94,10 +94,10 @@ export default function Dashboard({ session }: { session: Session }) {
   );
 
   const railApps = [
-    { key: "all", icon: "🏠", label: "Home" },
-    { key: "docx", icon: "📄", label: "Reports" },
-    { key: "xlsx", icon: "📊", label: "Ledgers" },
-    { key: "pptx", icon: "📽", label: "Briefings" },
+    { key: "all", label: "Home" },
+    { key: "docx", label: "Reports" },
+    { key: "xlsx", label: "Ledgers" },
+    { key: "pptx", label: "Briefings" },
   ];
 
   return (
@@ -111,44 +111,39 @@ export default function Dashboard({ session }: { session: Session }) {
             title={a.label}
             onClick={() => { setTypeFilter(a.key); setMineOnly(false); }}
           >
-            <span className="rail-icon">{a.icon}</span>
             <span className="rail-label">{a.label}</span>
           </button>
         ))}
         <button className={`rail-btn ${mineOnly ? "active" : ""}`} title="My documents" onClick={() => setMineOnly(!mineOnly)}>
-          <span className="rail-icon">👤</span>
           <span className="rail-label">Mine</span>
         </button>
         {session.role === "admin" && (
           <a href="/admin">
             <button className="rail-btn" title="Command">
-              <span className="rail-icon">🦅</span>
               <span className="rail-label">Command</span>
             </button>
           </a>
         )}
         <div className="rail-sep" />
+        <div className="rail-title">Rooms</div>
         <div className="rail-rooms">
           <button className={`rail-btn ${folderFilter === "all" ? "active" : ""}`} title="All rooms" onClick={() => setFolderFilter("all")}>
-            <span className="rail-icon">🗂</span>
-            <span className="rail-label">All rooms</span>
+            <span className="rail-label">All</span>
           </button>
           {folders.map((f) => (
             <button
               key={f.id}
               className={`rail-btn ${folderFilter === f.id ? "active" : ""}`}
-              title={f.name}
+              title={f.restricted ? `${f.name} (restricted)` : f.name}
               onClick={() => setFolderFilter(folderFilter === f.id ? "all" : f.id)}
               onContextMenu={(e) => { if (session.role === "admin") { e.preventDefault(); setManageFolder(f); } }}
             >
-              <span className="rail-icon">{f.restricted ? "🔒" : "▪"}</span>
-              <span className="rail-label">{f.name}</span>
+              <span className="rail-label">{f.restricted ? "· " : ""}{f.name}</span>
             </button>
           ))}
           {session.role === "admin" && (
             <button className="rail-btn" title="New room" onClick={createFolder}>
-              <span className="rail-icon">＋</span>
-              <span className="rail-label">Room</span>
+              <span className="rail-label">+ Room</span>
             </button>
           )}
         </div>
@@ -158,7 +153,7 @@ export default function Dashboard({ session }: { session: Session }) {
         <div className="topbar">
           <input
             className="searchbar"
-            placeholder="🔍  Search the archives…"
+            placeholder="Search the archives…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -175,12 +170,12 @@ export default function Dashboard({ session }: { session: Session }) {
           <div className="tiles">
             {Object.entries(TYPES).map(([ext, t]) => (
               <button key={ext} className={`tile ${t.cls}`} onClick={() => setCreateType(ext)}>
-                <span className="tile-icon">{t.icon}</span>
+                <span className={`tag ${t.cls}`}>{t.tag}</span>
                 <span>New {t.label}</span>
               </button>
             ))}
             <button className="tile t-import" onClick={() => fileInput.current?.click()}>
-              <span className="tile-icon">⬆</span>
+              <span className="tag t-import">FILE</span>
               <span>Import file</span>
             </button>
             <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
@@ -195,10 +190,10 @@ export default function Dashboard({ session }: { session: Session }) {
             {visible.map((d) => (
               <div key={d.id} className={`card ${TYPES[d.filetype].cls}`} onClick={() => router.push(`/doc/${d.id}`)}>
                 <div className="card-top">
-                  <span className="card-icon">{TYPES[d.filetype].icon}</span>
+                  <span className={`tag ${TYPES[d.filetype].cls}`}>{TYPES[d.filetype].tag}</span>
                   {(d.mine || session.role === "admin") && (
                     <span className="card-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>⤴</button>
+                      <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
                       <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
                     </span>
                   )}
@@ -273,7 +268,7 @@ function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2>{t.icon} New {t.label}</h2>
+        <h2>New {t.label}</h2>
         {error && <p className="error">⚠ {error}</p>}
         <form onSubmit={create}>
           <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />

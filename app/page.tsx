@@ -53,7 +53,7 @@ function LoginPage() {
       <div className="login-box">
         <div className="eagle">
           <img src="/logo.png" alt="S.H.I.E.L.D." className="logo-img" style={{ height: 110 }}
-               onError={(e) => { e.currentTarget.outerHTML = "🦅"; }} />
+               onError={(e) => { e.currentTarget.style.display = "none"; }} />
         </div>
         <h1 style={{ textAlign: "center", marginBottom: 4 }}>S.H.I.E.L.D.</h1>
         <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>

@@ -26,7 +26,7 @@ export default function Editor({ dsUrl, config, title }: { dsUrl: string; config
       <div className="topbar" style={{ padding: "8px 16px" }}>
         <div className="logo">
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
-          <span className="badge">🦅 {title}</span>
+          <span className="badge">{title}</span>
         </div>
       </div>
       <div style={{ flex: 1 }}>

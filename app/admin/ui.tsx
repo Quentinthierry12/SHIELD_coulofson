@@ -59,7 +59,7 @@ export default function AdminUI() {
       <div className="topbar">
         <div className="logo">
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
-          <h1>🦅 Command</h1>
+          <h1>Command</h1>
           <span className="badge">AGENT MANAGEMENT</span>
         </div>
       </div>
@@ -80,7 +80,7 @@ export default function AdminUI() {
         </div>
         {pending.length > 0 && (
           <div className="panel" style={{ borderColor: "#665520" }}>
-            <h2>⏳ Recruits awaiting validation ({pending.length})</h2>
+            <h2>Recruits awaiting validation ({pending.length})</h2>
             <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} />
           </div>
         )}
@@ -120,7 +120,7 @@ function UserTable({ users, onUpdate, onResetPassword }: { users: User[]; onUpda
                 {u.status === "active" ? "ACTIVE" : u.status === "pending" ? "PENDING" : "REVOKED"}
               </span>
             </td>
-            <td className="muted">{u.discord_linked ? "🔗 linked" : "—"}</td>
+            <td className="muted">{u.discord_linked ? "linked" : "—"}</td>
             <td style={{ display: "flex", gap: 6 }}>
               {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
               {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}

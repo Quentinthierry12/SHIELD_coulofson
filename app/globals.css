@@ -94,10 +94,19 @@ tr:hover td { background: #0f1826; }
 }
 .rail-btn:hover { background: #101a2a; color: var(--text); }
 .rail-btn.active { background: var(--accent-dim); color: #dceaff; }
-.rail-icon { font-size: 1.25rem; }
-.rail-label { font-size: 0.62rem; font-family: Consolas, monospace; text-transform: uppercase; letter-spacing: 0.04em;
+.rail-label { font-size: 0.68rem; font-family: Consolas, monospace; text-transform: uppercase; letter-spacing: 0.05em;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-sep { border-top: 1px solid var(--border); margin: 8px 4px; }
+.rail-title { font-size: 0.6rem; font-family: Consolas, monospace; text-transform: uppercase; color: var(--muted);
+  padding: 2px 6px; letter-spacing: 0.1em; }
+.tag {
+  font-family: Consolas, monospace; font-size: 0.65rem; font-weight: 700;
+  padding: 3px 7px; border-radius: 3px; letter-spacing: 0.06em;
+}
+.tag.t-docx { background: #10304f; color: #4da3ff; }
+.tag.t-xlsx { background: #0e3322; color: #4dd08a; }
+.tag.t-pptx { background: #3a2312; color: #ff9a5c; }
+.tag.t-import { background: #1a2333; color: var(--muted); }
 .rail-rooms { display: flex; flex-direction: column; gap: 2px; }
 .main { flex: 1; min-width: 0; }
 .main .topbar { position: sticky; top: 0; z-index: 10; gap: 16px; }
