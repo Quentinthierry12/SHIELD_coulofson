@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__coolify__list_applications",
+      "mcp__coolify__list_services",
+      "mcp__coolify__coolify_api"
+    ]
+  }
+}

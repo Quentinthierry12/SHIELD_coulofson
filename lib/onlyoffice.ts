@@ -1,0 +1,28 @@
+import { SignJWT, jwtVerify } from "jose";
+
+const ooSecret = () => new TextEncoder().encode(process.env.OO_JWT_SECRET!);
+
+export const DS_URL = () => process.env.DS_PUBLIC_URL!; // ex: https://shield-office.quentinthierry.fr
+export const PORTAL_URL = () => process.env.PORTAL_URL!; // ex: https://shield.quentinthierry.fr
+
+export const DOC_TYPES: Record<string, { documentType: string; mime: string }> = {
+  docx: { documentType: "word", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  xlsx: { documentType: "cell", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  pptx: { documentType: "slide", mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+};
+
+export async function signOOConfig(config: object) {
+  return new SignJWT(config as any)
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("24h")
+    .sign(ooSecret());
+}
+
+export async function verifyOOToken(token: string) {
+  try {
+    const { payload } = await jwtVerify(token, ooSecret());
+    return payload as any;
+  } catch {
+    return null;
+  }
+}
