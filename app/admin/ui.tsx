@@ -1,12 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; discord_linked: boolean; created_at: string };
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
+type Template = { id: number; name: string; filetype: string; created_at: string };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"agents" | "settings" | "audit">("agents");
+  const [tab, setTab] = useState<"agents" | "templates" | "settings" | "audit">("agents");
   return (
     <>
       <div className="topbar">
@@ -14,14 +16,16 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Command</h1>
         </div>
-        <div className="tabs" style={{ marginBottom: 0, width: 420 }}>
+        <div className="tabs" style={{ marginBottom: 0, width: 540 }}>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
+          <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
           <button className={tab === "settings" ? "" : "inactive"} onClick={() => setTab("settings")}>Settings</button>
           <button className={tab === "audit" ? "" : "inactive"} onClick={() => setTab("audit")}>Audit log</button>
         </div>
       </div>
       <div className="container">
         {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
+        {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
         {tab === "settings" && <SettingsTab />}
         {tab === "audit" && <AuditTab />}
       </div>
@@ -158,6 +162,120 @@ function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users
   );
 }
 
+// ---------------- Templates ----------------
+const TPL_TAG: Record<string, string> = { docx: "DOC", xlsx: "XLS", pptx: "PPT" };
+
+function TemplatesTab({ myClearance }: { myClearance: number }) {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [useTpl, setUseTpl] = useState<Template | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function load() {
+    const res = await fetch("/api/admin/templates");
+    if (res.ok) setTemplates(await res.json());
+    const f = await fetch("/api/folders");
+    if (f.ok) setFolders(await f.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("name", name);
+    const res = await fetch("/api/admin/templates", { method: "POST", body: form });
+    if (!res.ok) return setError((await res.json()).error);
+    setName("");
+    load();
+  }
+
+  async function del(t: Template) {
+    if (!window.confirm(`Delete template “${t.name}”?`)) return;
+    await fetch(`/api/admin/templates/${t.id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <>
+      {error && <p className="error">⚠ {error}</p>}
+      <div className="panel">
+        <h2>Upload a template</h2>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input placeholder="TEMPLATE NAME (optional)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
+          <button type="button" onClick={() => fileInput.current?.click()}>Choose file (.docx/.xlsx/.pptx)</button>
+          <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
+        </div>
+      </div>
+      <div className="panel">
+        <h2>Templates — create a document from one</h2>
+        <div className="cards">
+          {templates.map((t) => (
+            <div key={t.id} className={`card t-${t.filetype}`}>
+              <div className="card-top">
+                <span className={`tag t-${t.filetype}`}>{TPL_TAG[t.filetype]}</span>
+                <span className="card-actions" style={{ display: "inline-flex" }}>
+                  <button className="ghost small" onClick={() => del(t)} title="Delete template">✕</button>
+                </span>
+              </div>
+              <div className="card-title">{t.name}</div>
+              <div className="card-meta"><button className="small" onClick={() => setUseTpl(t)}>New document</button></div>
+            </div>
+          ))}
+          {templates.length === 0 && <p className="muted">No templates yet. Upload one above.</p>}
+        </div>
+      </div>
+      {useTpl && <FromTemplateModal template={useTpl} folders={folders} maxLevel={myClearance} onClose={() => setUseTpl(null)} />}
+    </>
+  );
+}
+
+function FromTemplateModal({ template, folders, maxLevel, onClose }: { template: Template; folders: Folder[]; maxLevel: number; onClose: () => void }) {
+  const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [classification, setClassification] = useState(1);
+  const [folderId, setFolderId] = useState("");
+  const [error, setError] = useState("");
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch(`/api/admin/templates/${template.id}/new`, {
+      method: "POST",
+      body: JSON.stringify({ title, classification, folder_id: folderId ? +folderId : null }),
+    });
+    const data = await res.json();
+    if (!res.ok) return setError(data.error);
+    router.push(`/doc/${data.id}`);
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
+        <h2>New document — {template.name}</h2>
+        {error && <p className="error">⚠ {error}</p>}
+        <form onSubmit={create}>
+          <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification level {n}</option>)}
+          </select>
+          <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+            <option value="">— Drive root —</option>
+            {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <button style={{ width: "100%" }}>Create document</button>
+        </form>
+        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- Settings ----------------
 function SettingsTab() {
   const [settings, setSettings] = useState<Record<string, string | null>>({});
@@ -219,6 +337,8 @@ const ACTION_LABELS: Record<string, string> = {
   folder_create: "Created folder", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
   account_create: "Created account", account_update: "Updated account", password_reset: "Reset password",
   password_change: "Changed password", settings_update: "Updated settings",
+  template_upload: "Uploaded template", template_delete: "Deleted template", doc_from_template: "Created from template",
+  folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)",
 };
 
 function AuditTab() {

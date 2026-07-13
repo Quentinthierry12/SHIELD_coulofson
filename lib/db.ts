@@ -64,7 +64,26 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at DESC);
+    CREATE TABLE IF NOT EXISTS templates (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      filetype TEXT NOT NULL,
+      content BYTEA NOT NULL,
+      created_by INT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
+  // Seed the built-in Agent Personnel File template on first run.
+  const tpl = await pool.query("SELECT COUNT(*)::int AS n FROM templates");
+  if (tpl.rows[0].n === 0) {
+    try {
+      const content = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
+      await pool.query(
+        "INSERT INTO templates (name, filetype, content) VALUES ($1, 'docx', $2)",
+        ["Agent Personnel File", content]
+      );
+    } catch {}
+  }
   const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
   if (rows[0].n === 0) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "fury1951", 10);
