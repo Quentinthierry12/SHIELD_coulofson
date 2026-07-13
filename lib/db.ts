@@ -1,5 +1,7 @@
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import { readFile } from "fs/promises";
+import path from "path";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -44,6 +46,8 @@ async function migrate() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id INT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_id TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_discord_idx ON users (discord_id) WHERE discord_id IS NOT NULL;
   `);
   const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
   if (rows[0].n === 0) {
@@ -60,6 +64,20 @@ export async function db(): Promise<Pool> {
   if (!ready) ready = migrate();
   await ready;
   return pool;
+}
+
+// Every new account gets an administrative personnel file, classified level 10:
+// only the agent themself (owner) and officers can see it.
+export async function createPersonnelFile(userId: number, matricule: string, codename: string) {
+  try {
+    const template = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
+    const p = await db();
+    await p.query(
+      `INSERT INTO documents (title, filetype, classification, owner_id, content)
+       VALUES ($1, 'docx', 10, $2, $3)`,
+      [`PERSONNEL FILE — ${matricule} (${codename})`, userId, template]
+    );
+  } catch {} // ponytail: missing template must never block account creation
 }
 
 // Un salon sans membre est ouvert à tous ; avec membres, il est restreint à ceux-ci (+ officiers).

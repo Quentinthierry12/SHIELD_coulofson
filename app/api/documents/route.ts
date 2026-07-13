@@ -7,7 +7,7 @@ import { DOC_TYPES } from "@/lib/onlyoffice";
 
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT d.id, d.title, d.filetype, d.classification, d.folder_id, d.updated_at, u.codename AS owner,
@@ -26,10 +26,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { title, filetype, classification, folder_id } = await req.json();
   if (!title?.trim() || !DOC_TYPES[filetype]) {
-    return NextResponse.json({ error: "Titre et type requis." }, { status: 400 });
+    return NextResponse.json({ error: "Title and type are required." }, { status: 400 });
   }
   const level = Math.min(Math.max(1, classification || 1), s.clearance);
   const template = await readFile(path.join(process.cwd(), "templates", `new.${filetype}`));

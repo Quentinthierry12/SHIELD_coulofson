@@ -23,7 +23,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
     documentType: DOC_TYPES[doc.filetype].documentType,
     editorConfig: {
       callbackUrl: `${PORTAL_URL()}/api/onlyoffice/callback?id=${doc.id}&t=${t}`,
-      lang: "fr",
+      lang: "en",
       user: { id: String(session.id), name: `${session.matricule} · ${session.codename}` },
       customization: {
         uiTheme: "theme-dark",

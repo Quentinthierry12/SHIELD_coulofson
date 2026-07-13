@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
+import { db, createPersonnelFile } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { dmByUserId } from "@/lib/discord";
+
+const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
 async function requireAdmin() {
   const s = await getSession();
@@ -9,54 +12,64 @@ async function requireAdmin() {
 }
 
 export async function GET() {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
-    "SELECT id, matricule, codename, clearance, role, status, created_at FROM users ORDER BY status DESC, id"
+    "SELECT id, matricule, codename, clearance, role, status, discord_id IS NOT NULL AS discord_linked, created_at FROM users ORDER BY status DESC, id"
   );
   return NextResponse.json(rows);
 }
 
-// Création directe d'un compte agent par un officier (actif immédiatement, sans validation).
+// Direct account creation by an officer (active immediately, no vetting step).
 export async function POST(req: Request) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
-  const { codename, password, clearance, role } = await req.json();
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  const { codename, password, clearance, role, matricule } = await req.json();
   if (!codename?.trim() || !password || password.length < 6) {
-    return NextResponse.json({ error: "Nom de code requis et mot de passe de 6 caractères minimum." }, { status: 400 });
+    return NextResponse.json({ error: "Codename required and password must be at least 6 characters." }, { status: 400 });
+  }
+  const custom = (matricule || "").trim().toUpperCase();
+  if (custom && !MATRICULE_RE.test(custom)) {
+    return NextResponse.json({ error: "Badge number: 3-20 characters, letters/digits/dashes only." }, { status: 400 });
   }
   const pool = await db();
   const hash = await bcrypt.hash(password, 10);
   for (let i = 0; i < 5; i++) {
-    const matricule = "AG-" + Math.floor(1000 + Math.random() * 9000);
+    const m = custom || "AG-" + Math.floor(1000 + Math.random() * 9000);
     try {
-      await pool.query(
+      const { rows } = await pool.query(
         `INSERT INTO users (matricule, codename, password_hash, clearance, role, status)
-         VALUES ($1, $2, $3, $4, $5, 'active')`,
-        [matricule, codename.trim(), hash, Math.min(10, Math.max(1, clearance || 1)), role === "admin" ? "admin" : "agent"]
+         VALUES ($1, $2, $3, $4, $5, 'active') RETURNING id`,
+        [m, codename.trim(), hash, Math.min(10, Math.max(1, clearance || 1)), role === "admin" ? "admin" : "agent"]
       );
-      return NextResponse.json({ matricule });
+      await createPersonnelFile(rows[0].id, m, codename.trim());
+      return NextResponse.json({ matricule: m });
     } catch (e: any) {
       if (e.code !== "23505") throw e;
+      if (custom) return NextResponse.json({ error: "This badge number is already taken." }, { status: 409 });
     }
   }
-  return NextResponse.json({ error: "Réessayez." }, { status: 500 });
+  return NextResponse.json({ error: "Please try again." }, { status: 500 });
 }
 
 export async function PATCH(req: Request) {
   const admin = await requireAdmin();
-  if (!admin) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (!admin) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const { id, status, clearance, role, new_password } = await req.json();
   if (id === admin.id && (status !== "active" || role !== "admin")) {
-    return NextResponse.json({ error: "Impossible de se rétrograder soi-même." }, { status: 400 });
+    return NextResponse.json({ error: "You cannot demote yourself." }, { status: 400 });
   }
   const pool = await db();
+  const { rows: before } = await pool.query("SELECT status FROM users WHERE id = $1", [id]);
   await pool.query(
     "UPDATE users SET status = $2, clearance = $3, role = $4 WHERE id = $1",
     [id, status, Math.min(10, Math.max(1, clearance)), role === "admin" ? "admin" : "agent"]
   );
   if (new_password) {
-    if (new_password.length < 6) return NextResponse.json({ error: "Mot de passe : 6 caractères minimum." }, { status: 400 });
+    if (new_password.length < 6) return NextResponse.json({ error: "Password: at least 6 characters." }, { status: 400 });
     await pool.query("UPDATE users SET password_hash = $2 WHERE id = $1", [id, await bcrypt.hash(new_password, 10)]);
+  }
+  if (before[0]?.status !== "active" && status === "active") {
+    dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");
   }
   return NextResponse.json({ ok: true });
 }

@@ -7,12 +7,12 @@ type Doc = { id: number; title: string; filetype: string; classification: number
 type Folder = { id: number; name: string; restricted: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
-const TYPE_LABEL: Record<string, string> = { docx: "📄 Rapport", xlsx: "📊 Registre", pptx: "📽 Briefing" };
+const TYPE_LABEL: Record<string, string> = { docx: "📄 Report", xlsx: "📊 Ledger", pptx: "📽 Briefing" };
 
 function classifBadge(level: number) {
   const cls = level >= 7 ? "high" : level >= 4 ? "mid" : "low";
-  const label = level >= 7 ? "TOP SECRET" : level >= 4 ? "CLASSIFIÉ" : "RESTREINT";
-  return <span className={`classif ${cls}`}>NIV.{level} — {label}</span>;
+  const label = level >= 7 ? "TOP SECRET" : level >= 4 ? "CLASSIFIED" : "RESTRICTED";
+  return <span className={`classif ${cls}`}>LVL.{level} — {label}</span>;
 }
 
 export default function Dashboard({ session }: { session: Session }) {
@@ -66,7 +66,7 @@ export default function Dashboard({ session }: { session: Session }) {
   }
 
   async function createFolder() {
-    const name = window.prompt("Nom du nouveau salon (ex: Opérations, Renseignement, R&D) :");
+    const name = window.prompt("New room name (e.g. Operations, Intelligence, R&D):");
     if (!name) return;
     const res = await fetch("/api/folders", { method: "POST", body: JSON.stringify({ name }) });
     if (!res.ok) alert(`⚠ ${(await res.json()).error}`);
@@ -74,20 +74,20 @@ export default function Dashboard({ session }: { session: Session }) {
   }
 
   async function destroy(doc: Doc) {
-    if (!window.confirm(`Détruire définitivement « ${doc.title} » ? (Protocole de destruction 4-Delta)`)) return;
+    if (!window.confirm(`Permanently destroy “${doc.title}”? (Destruction Protocol 4-Delta)`)) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
     if (!res.ok) alert(`⚠ ${(await res.json()).error}`);
     load();
   }
 
   async function changePassword() {
-    const current = window.prompt("Mot de passe actuel :");
+    const current = window.prompt("Current password:");
     if (!current) return;
-    const next = window.prompt("Nouveau mot de passe (6 caractères min.) :");
+    const next = window.prompt("New password (min. 6 characters):");
     if (!next) return;
     const res = await fetch("/api/auth/password", { method: "POST", body: JSON.stringify({ current, next }) });
     const data = await res.json();
-    alert(res.ok ? "Mot de passe mis à jour." : `⚠ ${data.error}`);
+    alert(res.ok ? "Password updated." : `⚠ ${data.error}`);
   }
 
   async function logout() {
@@ -103,60 +103,61 @@ export default function Dashboard({ session }: { session: Session }) {
         <div className="logo">
           <img src="/logo.png" alt="" className="logo-img" onError={(e) => (e.currentTarget.style.display = "none")} />
           <h1>S.H.I.E.L.D.</h1>
-          <span className="badge">DOCUMENTS CLASSIFIÉS</span>
+          <span className="badge">CLASSIFIED DOCUMENTS</span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <span className="badge">{session.matricule} · {session.codename} · HAB. NIV.{session.clearance}</span>
-          {session.role === "admin" && <a href="/admin"><button className="small">Commandement</button></a>}
-          <button className="ghost small" onClick={changePassword}>Mot de passe</button>
-          <button className="ghost small" onClick={logout}>Déconnexion</button>
+          <span className="badge">{session.matricule} · {session.codename} · CLEARANCE LVL.{session.clearance}</span>
+          {session.role === "admin" && <a href="/admin"><button className="small">Command</button></a>}
+          <a href="/api/auth/discord"><button className="ghost small" title="Link your Discord account to sign in with it and receive transmissions">Link Discord</button></a>
+          <button className="ghost small" onClick={changePassword}>Password</button>
+          <button className="ghost small" onClick={logout}>Sign out</button>
         </div>
       </div>
       <div className="container">
         <div className="panel">
-          <h2>Nouveau document</h2>
+          <h2>New document</h2>
           {error && <p className="error">⚠ {error}</p>}
           <form onSubmit={create} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input placeholder="TITRE DU DOCUMENT" value={title} onChange={(e) => setTitle(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 200 }} />
+            <input placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 200 }} />
             <select value={filetype} onChange={(e) => setFiletype(e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-              <option value="docx">📄 Rapport (Word)</option>
-              <option value="xlsx">📊 Registre (Excel)</option>
+              <option value="docx">📄 Report (Word)</option>
+              <option value="xlsx">📊 Ledger (Excel)</option>
               <option value="pptx">📽 Briefing (PowerPoint)</option>
             </select>
             <select value={classification} onChange={(e) => setClassification(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
               {Array.from({ length: session.clearance }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>Niveau {n}</option>
+                <option key={n} value={n}>Level {n}</option>
               ))}
             </select>
             <select value={folderId} onChange={(e) => setFolderId(e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-              <option value="">— Sans salon —</option>
+              <option value="">— No room —</option>
               {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
-            <button>Créer</button>
-            <button type="button" className="ghost" onClick={() => fileInput.current?.click()}>Importer</button>
+            <button>Create</button>
+            <button type="button" className="ghost" onClick={() => fileInput.current?.click()}>Import</button>
           </form>
           <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
-          <p className="muted" style={{ marginTop: 8 }}>Importer : verse un fichier .docx / .xlsx / .pptx de votre machine aux archives, au niveau et salon sélectionnés.</p>
+          <p className="muted" style={{ marginTop: 8 }}>Import: files a .docx / .xlsx / .pptx from your machine into the archives, at the selected level and room.</p>
         </div>
         <div className="panel">
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-            <button className={folderFilter === "all" ? "small" : "ghost small"} onClick={() => setFolderFilter("all")}>Tous</button>
+            <button className={folderFilter === "all" ? "small" : "ghost small"} onClick={() => setFolderFilter("all")}>All</button>
             {folders.map((f) => (
               <span key={f.id} style={{ display: "inline-flex", gap: 2 }}>
                 <button className={folderFilter === f.id ? "small" : "ghost small"} onClick={() => setFolderFilter(f.id)}>
                   {f.restricted ? "🔒" : "🗂"} {f.name}
                 </button>
                 {session.role === "admin" && (
-                  <button className="ghost small" title="Gérer les accès" onClick={() => setManageFolder(f)}>⚙</button>
+                  <button className="ghost small" title="Manage access" onClick={() => setManageFolder(f)}>⚙</button>
                 )}
               </span>
             ))}
-            {session.role === "admin" && <button className="ghost small" onClick={createFolder}>+ Salon</button>}
+            {session.role === "admin" && <button className="ghost small" onClick={createFolder}>+ Room</button>}
           </div>
-          <h2>Archives accessibles — habilitation niveau {session.clearance}</h2>
+          <h2>Accessible archives — clearance level {session.clearance}</h2>
           <table>
             <thead>
-              <tr><th>Type</th><th>Titre</th><th>Classification</th><th>Salon</th><th>Agent</th><th>Dernière modif.</th><th></th></tr>
+              <tr><th>Type</th><th>Title</th><th>Classification</th><th>Room</th><th>Agent</th><th>Last modified</th><th></th></tr>
             </thead>
             <tbody>
               {visible.map((d) => (
@@ -166,19 +167,19 @@ export default function Dashboard({ session }: { session: Session }) {
                   <td>{classifBadge(d.classification)}</td>
                   <td className="muted">{folders.find((f) => f.id === d.folder_id)?.name || "—"}</td>
                   <td className="muted">{d.owner}</td>
-                  <td className="muted">{new Date(d.updated_at).toLocaleString("fr-FR")}</td>
+                  <td className="muted">{new Date(d.updated_at).toLocaleString("en-US")}</td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                     {(d.mine || session.role === "admin") && (
                       <>
-                        <button className="ghost small" onClick={() => setShareDoc(d)}>Partager</button>{" "}
-                        <button className="ghost small" onClick={() => destroy(d)} title="Détruire">✕</button>
+                        <button className="ghost small" onClick={() => setShareDoc(d)}>Share</button>{" "}
+                        <button className="ghost small" onClick={() => destroy(d)} title="Destroy">✕</button>
                       </>
                     )}
                   </td>
                 </tr>
               ))}
               {visible.length === 0 && (
-                <tr><td colSpan={7} className="muted">Aucun document ici à votre niveau d'habilitation.</td></tr>
+                <tr><td colSpan={7} className="muted">No documents here at your clearance level.</td></tr>
               )}
             </tbody>
           </table>
@@ -186,18 +187,18 @@ export default function Dashboard({ session }: { session: Session }) {
       </div>
       {shareDoc && (
         <AccessModal
-          title={`Partager « ${shareDoc.title} »`}
+          title={`Share “${shareDoc.title}”`}
           url={`/api/documents/${shareDoc.id}/share`}
-          verb="Partagé avec"
+          verb="Shared with"
           onClose={() => setShareDoc(null)}
         />
       )}
       {manageFolder && (
         <AccessModal
-          title={`Accès au salon « ${manageFolder.name} »`}
+          title={`Room access — “${manageFolder.name}”`}
           url={`/api/folders/${manageFolder.id}/members`}
-          verb="Accès accordé à"
-          note="Un salon sans aucun membre est ouvert à tous les agents. Dès qu'il a des membres, seuls eux (et les officiers) le voient."
+          verb="Access granted to"
+          note="A room with no members is open to every agent. As soon as it has members, only they (and officers) can see it."
           onClose={() => { setManageFolder(null); load(); }}
         />
       )}
@@ -248,7 +249,7 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
         {note && <p className="muted" style={{ marginBottom: 10 }}>{note}</p>}
         <input
           autoFocus
-          placeholder="Tapez un nom de code ou un matricule…"
+          placeholder="Type a codename or badge number…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -256,7 +257,7 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
           <div className="results">
             {results.map((a) => (
               <div key={a.matricule} className="result-item" onClick={() => add(a)}>
-                <span className="mono">{a.matricule}</span> · {a.codename} <span className="muted">niv.{a.clearance}</span>
+                <span className="mono">{a.matricule}</span> · {a.codename} <span className="muted">lvl.{a.clearance}</span>
               </div>
             ))}
           </div>
@@ -264,16 +265,16 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
         {msg && <p className={msg.startsWith("✓") ? "success" : "error"}>{msg}</p>}
         {shares.length > 0 && (
           <>
-            <h2 style={{ marginTop: 14 }}>Accès accordés</h2>
+            <h2 style={{ marginTop: 14 }}>Current access</h2>
             {shares.map((a) => (
               <div key={a.matricule} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                 <span><span className="mono">{a.matricule}</span> · {a.codename}</span>
-                <button className="ghost small" onClick={() => remove(a)}>Retirer</button>
+                <button className="ghost small" onClick={() => remove(a)}>Remove</button>
               </div>
             ))}
           </>
         )}
-        <button className="ghost" style={{ marginTop: 16, width: "100%" }} onClick={onClose}>Fermer</button>
+        <button className="ghost" style={{ marginTop: 16, width: "100%" }} onClick={onClose}>Close</button>
       </div>
     </div>
   );
