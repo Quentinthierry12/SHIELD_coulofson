@@ -212,7 +212,7 @@ function MissionsTab({ myClearance }: { myClearance: number }) {
       <form onSubmit={issue}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input placeholder="MISSION CODE (e.g. OP-INSIGHT)" value={f.code} onChange={(e) => set("code", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
-          <input placeholder="ASSIGNED AGENT BADGE (optional)" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 160 }} />
+          <input placeholder="ASSIGNED AGENTS — badges, comma-separated (optional)" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 220 }} />
         </div>
         <input placeholder="OBJECTIVE" value={f.objective} onChange={(e) => set("objective", e.target.value)} style={{ marginTop: 10 }} />
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

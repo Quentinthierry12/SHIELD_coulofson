@@ -125,7 +125,7 @@ export async function buildMissionOrder(m: MissionOrder): Promise<Buffer> {
     heading("Order Details"),
     infoTable([
       ["Mission Code", m.code.toUpperCase()],
-      ["Assigned Agent", m.agent || "—"],
+      ["Assigned Agent(s)", m.agent || "—"],
       ["Location", m.location || "—"],
       ["Priority", m.priority || "Routine"],
       ["Classification", `Level ${m.classification || 1} — ${clsCls}`],

@@ -14,20 +14,20 @@ export async function POST(req: Request) {
   const level = Math.min(Math.max(1, classification || 1), s.clearance);
   const pool = await db();
 
-  // Resolve the assigned agent (optional) to name it in the order and share it.
-  let assigned: { id: number; codename: string; matricule: string } | null = null;
-  if (matricule?.trim()) {
-    const { rows } = await pool.query("SELECT id, codename, matricule FROM users WHERE matricule = $1 AND status = 'active'", [
-      matricule.trim().toUpperCase(),
-    ]);
-    if (!rows[0]) return NextResponse.json({ error: "Assigned agent not found or inactive." }, { status: 404 });
-    assigned = rows[0];
+  // Resolve any assigned agents (badges separated by comma / space / newline).
+  const badges = String(matricule || "")
+    .split(/[\s,;]+/).map((b) => b.trim().toUpperCase()).filter(Boolean);
+  const assigned: { id: number; codename: string; matricule: string }[] = [];
+  for (const b of [...new Set(badges)]) {
+    const { rows } = await pool.query("SELECT id, codename, matricule FROM users WHERE matricule = $1 AND status = 'active'", [b]);
+    if (!rows[0]) return NextResponse.json({ error: `Agent ${b} not found or inactive.` }, { status: 404 });
+    assigned.push(rows[0]);
   }
 
   const content = await buildMissionOrder({
     code: code.trim(),
     objective: objective.trim(),
-    agent: assigned ? `${assigned.matricule} · ${assigned.codename}` : "",
+    agent: assigned.map((a) => `${a.matricule} · ${a.codename}`).join(", "),
     location, priority, classification: level, briefing,
     officer: `${s.matricule} · ${s.codename}`,
   });
@@ -39,13 +39,13 @@ export async function POST(req: Request) {
   );
   const docId = rows[0].id;
 
-  if (assigned) {
-    await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [docId, assigned.id]);
+  for (const a of assigned) {
+    await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [docId, a.id]);
     dmByUserId(
-      assigned.id,
+      a.id,
       `🦅 **S.H.I.E.L.D. MISSION ORDER** — You are assigned to **${code.trim().toUpperCase()}**. Objective: ${objective.trim()}. Full order: ${process.env.PORTAL_URL}/doc/${docId}`
     );
   }
-  audit(s, "mission_order", `#${docId} ${code.trim().toUpperCase()}${assigned ? " -> " + assigned.matricule : ""}`);
+  audit(s, "mission_order", `#${docId} ${code.trim().toUpperCase()}${assigned.length ? " -> " + assigned.map((a) => a.matricule).join(",") : ""}`);
   return NextResponse.json({ id: docId });
 }
