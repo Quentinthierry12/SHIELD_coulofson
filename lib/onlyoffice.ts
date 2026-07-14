@@ -15,7 +15,7 @@ export const DOC_TYPES: Record<string, { documentType: string; mime: string }> =
 // Dark theme, agency branding in the About dialog, and ONLYOFFICE marketing removed
 // for a clean internal-tool feel.
 export const SHIELD_CUSTOMIZATION = {
-  uiTheme: "theme-dark",
+  uiTheme: "theme-shield-dark",
   compactHeader: true,
   hideRightMenu: true,
   toolbarNoTabs: false,
