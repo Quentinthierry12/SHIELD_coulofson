@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { readFile } from "fs/promises";
 import path from "path";
+import { buildPersonnelFile } from "./docxgen";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -196,17 +197,24 @@ export async function getAccessibleDoc(docId: number, clearance: number, userId:
 }
 
 // Every new account gets an administrative personnel file, classified level 10:
-// only the agent themself (owner) and officers can see it. Its destination folder
-// is configurable from the Command settings (key: personnel_folder_id).
-export async function createPersonnelFile(userId: number, matricule: string, codename: string) {
+// only the agent themself (owner) and officers can see it. It is generated (Document
+// Builder) pre-filled with the agent's real data. Destination folder is configurable
+// from Command settings (key: personnel_folder_id).
+export async function createPersonnelFile(
+  userId: number,
+  matricule: string,
+  codename: string,
+  division?: string,
+  clearance?: number
+) {
   try {
-    const template = await readFile(path.join(process.cwd(), "templates", "personnel-file.docx"));
+    const content = await buildPersonnelFile({ matricule, codename, division, clearance });
     const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
     const p = await db();
     await p.query(
       `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id)
        VALUES ($1, 'docx', 10, $2, $3, $4)`,
-      [`PERSONNEL FILE — ${matricule} (${codename})`, userId, template, folderId]
+      [`PERSONNEL FILE — ${matricule} (${codename})`, userId, content, folderId]
     );
-  } catch {} // ponytail: missing template must never block account creation
+  } catch {} // ponytail: generation must never block account creation
 }

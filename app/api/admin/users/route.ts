@@ -47,7 +47,7 @@ export async function POST(req: Request) {
          VALUES ($1, $2, $3, $4, $5, 'active', true, $6) RETURNING id`,
         [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null]
       );
-      await createPersonnelFile(rows[0].id, m, codename.trim());
+      await createPersonnelFile(rows[0].id, m, codename.trim(), (division || "").trim(), level);
       audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${level})`);
       return NextResponse.json({ matricule: m });
     } catch (e: any) {
