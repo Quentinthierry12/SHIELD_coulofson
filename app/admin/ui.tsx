@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
 type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; created_at: string };
 type Folder = { id: number; name: string };
@@ -59,9 +60,9 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     load();
   }
 
-  function resetPassword(u: User) {
-    const pwd = window.prompt(`New temporary password for ${u.matricule} (${u.codename}) — they will be forced to change it at next sign-in:`);
-    if (pwd) update(u, { new_password: pwd });
+  async function resetPassword(u: User) {
+    const pwd = await promptDialog({ title: `Reset password — ${u.matricule}`, message: `${u.codename} will be forced to change it at next sign-in.`, placeholder: "New temporary password", password: true });
+    if (pwd) { update(u, { new_password: pwd }); toast("Temporary password set.", "success"); }
   }
 
   async function createAgent(e: React.FormEvent) {
@@ -232,8 +233,10 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
   }
 
   async function del(t: Template) {
-    if (!window.confirm(`Delete template “${t.name}”?`)) return;
+    const ok = await confirmDialog({ title: `Delete template “${t.name}”?`, confirmLabel: "Delete", danger: true });
+    if (!ok) return;
     await fetch(`/api/admin/templates/${t.id}`, { method: "DELETE" });
+    toast("Template deleted.", "success");
     load();
   }
 

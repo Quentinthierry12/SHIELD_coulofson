@@ -10,9 +10,10 @@ function rank(level: number) {
 
 export default function Roster({ isAdmin }: { isAdmin: boolean }) {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/roster").then(async (r) => { if (r.ok) setAgents(await r.json()); });
+    fetch("/api/roster").then(async (r) => { if (r.ok) setAgents(await r.json()); setLoading(false); });
   }, []);
 
   // Group by division for the org-chart feel.
@@ -53,7 +54,14 @@ export default function Roster({ isAdmin }: { isAdmin: boolean }) {
             </table>
           </div>
         ))}
-        {agents.length === 0 && <p className="muted">No active agents.</p>}
+        {loading && <div className="panel"><div className="skeleton" style={{ height: 120 }} /></div>}
+        {!loading && agents.length === 0 && (
+          <div className="empty">
+            <div className="empty-mark">[ ▚ ]</div>
+            <div className="empty-title">No active agents</div>
+            <div>Validate recruits from Command to populate the roster.</div>
+          </div>
+        )}
         {isAdmin && <p className="muted">Tip: set each agent's division from Command → Agents.</p>}
       </div>
     </>

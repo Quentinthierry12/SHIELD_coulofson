@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
+import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
 type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean };
 type Folder = { id: number; name: string; parent_id: number | null; created_by: number | null; restricted: boolean; member: boolean; mine: boolean };
@@ -32,6 +33,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [publicDoc, setPublicDoc] = useState<Doc | null>(null);
   const [manageFolder, setManageFolder] = useState<Folder | null>(null);
   const [dragOver, setDragOver] = useState<number | "root" | null>(null);
+  const [loading, setLoading] = useState(true);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -40,6 +42,7 @@ export default function Dashboard({ session }: { session: Session }) {
     setDocs(await res.json());
     const f = await fetch("/api/folders");
     if (f.ok) setFolders(await f.json());
+    setLoading(false);
   }
   useEffect(() => { load(); }, []);
 
@@ -53,21 +56,23 @@ export default function Dashboard({ session }: { session: Session }) {
     if (cwd) form.append("folder_id", String(cwd));
     const res = await fetch("/api/documents/upload", { method: "POST", body: form });
     const data = await res.json();
-    if (!res.ok) return alert(`⚠ ${data.error}`);
+    if (!res.ok) return toast(data.error, "error");
     router.push(`/doc/${data.id}`);
   }
 
   async function createFolder() {
-    const name = window.prompt("New folder name:");
-    if (!name) return;
+    const name = await promptDialog({ title: "New folder", placeholder: "Folder name" });
+    if (!name?.trim()) return;
     const res = await fetch("/api/folders", { method: "POST", body: JSON.stringify({ name, parent_id: cwd }) });
-    if (!res.ok) return alert(`⚠ ${(await res.json()).error}`);
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Folder created.", "success");
     load();
   }
 
   async function moveDoc(docId: number, folderId: number | null) {
     const res = await fetch(`/api/documents/${docId}`, { method: "PATCH", body: JSON.stringify({ folder_id: folderId }) });
-    if (!res.ok) alert(`⚠ ${(await res.json()).error}`);
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Document moved.", "success");
     load();
   }
 
@@ -81,28 +86,32 @@ export default function Dashboard({ session }: { session: Session }) {
   }
 
   async function deleteFolder(f: Folder) {
-    if (!window.confirm(`Delete folder “${f.name}”? It must be empty. This cannot be undone.`)) return;
+    const ok = await confirmDialog({ title: `Delete folder “${f.name}”?`, message: "The folder must be empty. This cannot be undone.", confirmLabel: "Delete", danger: true });
+    if (!ok) return;
     const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
-    if (!res.ok) return alert(`⚠ ${(await res.json()).error}`);
+    if (!res.ok) return toast((await res.json()).error, "error");
     if (cwd === f.id) setCwd(f.parent_id ?? null);
+    toast("Folder deleted.", "success");
     load();
   }
 
   async function destroy(doc: Doc) {
-    if (!window.confirm(`Permanently destroy “${doc.title}”? (Destruction Protocol 4-Delta)`)) return;
+    const ok = await confirmDialog({ title: `Destroy “${doc.title}”?`, message: "Destruction Protocol 4-Delta — this is permanent.", confirmLabel: "Destroy", danger: true });
+    if (!ok) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
-    if (!res.ok) alert(`⚠ ${(await res.json()).error}`);
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Document destroyed.", "success");
     load();
   }
 
   async function changePassword() {
-    const current = window.prompt("Current password:");
+    const current = await promptDialog({ title: "Change password", message: "Enter your current password.", placeholder: "Current password", password: true });
     if (!current) return;
-    const next = window.prompt("New password (min. 6 characters):");
+    const next = await promptDialog({ title: "Change password", message: "Enter a new password (min. 6 characters).", placeholder: "New password", password: true });
     if (!next) return;
     const res = await fetch("/api/auth/password", { method: "POST", body: JSON.stringify({ current, next }) });
     const data = await res.json();
-    alert(res.ok ? "Password updated." : `⚠ ${data.error}`);
+    toast(res.ok ? "Password updated." : data.error, res.ok ? "success" : "error");
   }
 
   async function logout() {
@@ -246,7 +255,8 @@ export default function Dashboard({ session }: { session: Session }) {
 
           {/* Documents */}
           <div className="cards">
-            {shownDocs.map((d) => (
+            {loading && Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton skeleton-card" />)}
+            {!loading && shownDocs.map((d) => (
               <div
                 key={d.id}
                 className={`card ${TYPES[d.filetype].cls}`}
@@ -272,8 +282,12 @@ export default function Dashboard({ session }: { session: Session }) {
                 </div>
               </div>
             ))}
-            {shownDocs.length === 0 && (!flatMode ? childFolders.length === 0 : true) && (
-              <p className="muted">This folder is empty at your clearance level.</p>
+            {!loading && shownDocs.length === 0 && (!flatMode ? childFolders.length === 0 : true) && (
+              <div className="empty">
+                <div className="empty-mark">[ ▚ ]</div>
+                <div className="empty-title">{q ? "No results" : mineOnly ? "No documents yet" : "Empty protocol"}</div>
+                <div>{q ? "No archive matches your search at this clearance level." : "No documents here at your clearance level. Create one above."}</div>
+              </div>
             )}
           </div>
         </div>
