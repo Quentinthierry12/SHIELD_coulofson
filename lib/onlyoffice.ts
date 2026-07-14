@@ -17,7 +17,7 @@ export const DOC_TYPES: Record<string, { documentType: string; mime: string }> =
 export const SHIELD_CLASSIFY_GUID = "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}";
 
 export const SHIELD_CUSTOMIZATION = {
-  uiTheme: "theme-shield-dark",
+  uiTheme: "theme-dark",
   compactHeader: false,
   hideRightMenu: true,
   toolbarNoTabs: false,
