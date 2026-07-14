@@ -5,18 +5,18 @@
     "baseUrl": "",
     "variations": [
         {
-            "description": "Mark the current paragraph as classified",
+            "description": "Add a Classify tab to mark paragraphs as classified",
             "url": "index.html",
             "icons": ["resources/img/icon.png", "resources/img/icon@2x.png"],
             "isViewer": false,
             "EditorsSupport": ["word"],
-            "isVisual": true,
+            "isVisual": false,
             "isModal": false,
-            "isInsideMode": true,
+            "isInsideMode": false,
+            "isSystem": false,
             "initDataType": "none",
             "initData": "",
-            "buttons": [],
-            "size": [280, 340]
+            "buttons": []
         }
     ]
 }

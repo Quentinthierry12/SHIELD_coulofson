@@ -14,9 +14,11 @@ export const DOC_TYPES: Record<string, { documentType: string; mime: string }> =
 // Approach A — S.H.I.E.L.D. reskin via the official customization API (no image patch).
 // Dark theme, agency branding in the About dialog, and ONLYOFFICE marketing removed
 // for a clean internal-tool feel.
+export const SHIELD_CLASSIFY_GUID = "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}";
+
 export const SHIELD_CUSTOMIZATION = {
   uiTheme: "theme-shield-dark",
-  compactHeader: true,
+  compactHeader: false,
   hideRightMenu: true,
   toolbarNoTabs: false,
   feedback: false,
