@@ -1,0 +1,37 @@
+{
+  "id": "theme-shield-dark",
+  "name": "S.H.I.E.L.D. Dark",
+  "type": "dark",
+  "shortcut": "",
+  "colors": {
+    "background-normal": "#0d1420",
+    "background-toolbar": "#070b12",
+    "background-toolbar-additional": "#0d1420",
+    "background-primary-dialog-button": "#1a4a7a",
+    "background-accent-button": "#1a4a7a",
+    "background-contrast-popover": "#0d1420",
+
+    "border-toolbar": "#1c2a3f",
+    "border-divider": "#1c2a3f",
+    "border-regular-control": "#1c2a3f",
+    "border-control-focus": "#4da6ff",
+
+    "text-normal": "#c9d6e5",
+    "text-secondary": "#5f7590",
+    "text-tertiary": "#5f7590",
+    "text-link": "#4da6ff",
+    "text-inverse": "#041020",
+    "text-toolbar-header": "#4da6ff",
+
+    "highlight-button-hover": "#101a2a",
+    "highlight-button-pressed": "#1a4a7a",
+    "highlight-accent-button-hover": "#4da6ff",
+
+    "icon-normal": "#c9d6e5",
+    "icon-toolbar-header": "#4da6ff",
+
+    "canvas-background": "#1a2230",
+    "canvas-content-background": "#ffffff",
+    "canvas-page-border": "#1c2a3f"
+  }
+}
