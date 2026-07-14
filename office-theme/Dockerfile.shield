@@ -33,6 +33,16 @@ RUN set -e; \
     printf '%s' '{"themes":["shield-dark.json"]}' > "$D/themes.json"; \
     echo "installed SHIELD theme in $D"
 
+# Install the S.H.I.E.L.D. Classify plugin into sdkjs-plugins so it appears in the
+# editor's Plugins tab. Fetches each file from the public repo.
+RUN set -e; \
+    P=/var/www/onlyoffice/documentserver/sdkjs-plugins/shield-classify; \
+    B=https://raw.githubusercontent.com/Quentinthierry12/SHIELD_coulofson/main/office-theme/plugin/shield-classify; \
+    mkdir -p "$P/resources/img"; \
+    for f in config.json index.html code.js; do wget -qO "$P/$f" "$B/$f"; test -s "$P/$f"; done; \
+    for f in resources/img/icon.png resources/img/icon@2x.png; do wget -qO "$P/$f" "$B/$f"; test -s "$P/$f"; done; \
+    echo "installed SHIELD Classify plugin in $P"
+
 # After deploy, point the portal editor config at uiTheme "theme-shield-dark"
 # (SHIELD_CUSTOMIZATION in lib/onlyoffice.ts). For deeper changes (renaming
 # Document→Report, custom loading screen) use B2 — the source fork built with
