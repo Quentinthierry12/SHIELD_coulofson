@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { db, createPersonnelFile, refreshPersonnelFile, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
+import { syncMoodleUser, setMoodlePassword } from "@/lib/moodle";
 
 const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
         [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim(), (division || "").trim(), level);
+      syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), division, suspended: false }, password);
       audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${level})`);
       return NextResponse.json({ matricule: m });
     } catch (e: any) {
@@ -83,9 +85,13 @@ export async function PATCH(req: Request) {
   if (new_password) {
     if (new_password.length < 6) return NextResponse.json({ error: "Password: at least 6 characters." }, { status: 400 });
     await pool.query("UPDATE users SET password_hash = $2, must_change_password = true WHERE id = $1", [id, await bcrypt.hash(new_password, 10)]);
+    setMoodlePassword(id, new_password);
     audit(admin, "password_reset", `user #${id}`);
   }
   audit(admin, "account_update", `user #${id} status=${status} clearance=${clearance} role=${role}`);
+  // Keep the Academy account in step with status changes (unsuspend on activation, etc.).
+  const { rows: cur } = await pool.query("SELECT matricule, codename, division FROM users WHERE id = $1", [id]);
+  if (cur[0]) syncMoodleUser(id, { matricule: cur[0].matricule, codename: cur[0].codename, division: cur[0].division, suspended: status !== "active" });
   if (before[0]?.status !== "active" && status === "active") {
     await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");

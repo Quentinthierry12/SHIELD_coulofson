@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db, createPersonnelFile, audit, getSetting } from "@/lib/db";
+import { syncMoodleUser } from "@/lib/moodle";
 
 const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
@@ -27,6 +28,8 @@ export async function POST(req: Request) {
         [m, codename.trim(), hash]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim());
+      // Provision the Academy account now (password available), suspended until validated.
+      syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), suspended: true }, password);
       audit({ id: rows[0].id, matricule: m }, "register", codename.trim());
       return NextResponse.json({ matricule: m });
     } catch (e: any) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db, audit } from "@/lib/db";
 import { getSession, createSession } from "@/lib/session";
+import { setMoodlePassword } from "@/lib/moodle";
 
 export async function POST(req: Request) {
   const s = await getSession();
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
     s.id,
     await bcrypt.hash(next, 10),
   ]);
+  setMoodlePassword(s.id, next); // keep Academy password in sync
   // Refresh the session so the "must change password" gate clears immediately.
   await createSession({ ...s, mustChangePassword: false });
   audit(s, "password_change");

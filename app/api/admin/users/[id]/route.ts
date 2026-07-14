@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, audit, refreshPersonnelFile } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { deleteMoodleUser } from "@/lib/moodle";
 
 // Regenerate the agent's personnel file on demand (after a clearance/division change).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (target.clearance >= s.clearance) {
     return NextResponse.json({ error: "You cannot delete an agent at or above your own clearance." }, { status: 403 });
   }
+  await deleteMoodleUser(id); // remove their Academy account too
   // Keep the agent's documents (orphaned), drop their access rows, then remove the account.
   await pool.query("UPDATE documents SET owner_id = NULL WHERE owner_id = $1", [id]);
   await pool.query("UPDATE folders SET created_by = NULL WHERE created_by = $1", [id]);

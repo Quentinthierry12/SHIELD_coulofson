@@ -51,6 +51,7 @@ async function migrate() {
     CREATE UNIQUE INDEX IF NOT EXISTS documents_public_idx ON documents (public_token) WHERE public_token IS NOT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_id TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS division TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS moodle_id INT;
     CREATE UNIQUE INDEX IF NOT EXISTS users_discord_idx ON users (discord_id) WHERE discord_id IS NOT NULL;
     ALTER TABLE folders ADD COLUMN IF NOT EXISTS parent_id INT;
     ALTER TABLE folders ADD COLUMN IF NOT EXISTS created_by INT;
