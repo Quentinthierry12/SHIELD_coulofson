@@ -21,21 +21,19 @@ RUN sed -i "s/default .scheme;/default https;/" /etc/onlyoffice/documentserver/n
     ! grep -q "default .scheme;" /etc/onlyoffice/documentserver/nginx/includes/http-common.conf
 
 # ---- SHIELD branding layer ----
-# 1) Install the custom UI theme (path discovered at build time).
-COPY theme/shield-dark.json /tmp/shield-dark.json
-RUN WA=/var/www/onlyoffice/documentserver/web-apps; \
-    for ed in documenteditor spreadsheeteditor presentationeditor common; do \
-      d="$WA/apps/$ed/main/resources/themes"; \
-      [ -d "$d" ] && cp /tmp/shield-dark.json "$d/theme-shield-dark.json" || true; \
-    done; true
+# Install the custom UI theme (theme-shield-dark) into the shared themes folder and
+# register it in themes.json. Self-locates the folder; fetches the theme from the
+# public repo (no build context needed). Fails the build if the theme dir is missing
+# so a broken reskin is caught before going live.
+RUN set -e; \
+    D="$(dirname "$(find /var/www/onlyoffice/documentserver/web-apps -name themes.json -ipath '*resources/themes*' | head -1)")"; \
+    echo "themes dir: $D"; test -n "$D"; \
+    wget -qO "$D/shield-dark.json" "https://raw.githubusercontent.com/Quentinthierry12/SHIELD_coulofson/main/office-theme/theme/shield-dark.json"; \
+    test -s "$D/shield-dark.json"; \
+    printf '%s' '{"themes":["shield-dark.json"]}' > "$D/themes.json"; \
+    echo "installed SHIELD theme in $D"
 
-# 2) Swap header logos with the SHIELD eagle fetched from the portal (guarded).
-RUN wget -qO /tmp/shield-logo.svg "https://shield.quentinthierry.fr/logo.svg" 2>/dev/null || true; \
-    if [ -s /tmp/shield-logo.svg ]; then \
-      find /var/www/onlyoffice/documentserver/web-apps -type f -ipath '*resources/img*' \
-        \( -iname 'logo*.svg' -o -iname 'header*logo*.svg' \) \
-        -exec cp /tmp/shield-logo.svg {} \; 2>/dev/null || true; \
-    fi; true
-
-# NOTE: for deep changes (renaming Document→Report, custom loading screen) use B2 —
-# the source fork of web-apps built with btactic-oo/build_tools. See README.md.
+# After deploy, point the portal editor config at uiTheme "theme-shield-dark"
+# (SHIELD_CUSTOMIZATION in lib/onlyoffice.ts). For deeper changes (renaming
+# Document→Report, custom loading screen) use B2 — the source fork built with
+# btactic-oo/build_tools. See README.md.
