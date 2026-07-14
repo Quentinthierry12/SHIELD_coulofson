@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
-import { db, audit } from "@/lib/db";
+import { db, audit, refreshPersonnelFile } from "@/lib/db";
 import { getSession } from "@/lib/session";
+
+// Regenerate the agent's personnel file on demand (after a clearance/division change).
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const s = await getSession();
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  const id = parseInt((await params).id, 10);
+  await refreshPersonnelFile(id);
+  audit(s, "personnel_file", `user #${id}`);
+  return NextResponse.json({ ok: true });
+}
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();

@@ -76,6 +76,11 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     load();
   }
 
+  async function genFile(u: User) {
+    const res = await fetch(`/api/admin/users/${u.id}`, { method: "POST" });
+    toast(res.ok ? "Personnel file regenerated." : "Failed.", res.ok ? "success" : "error");
+  }
+
   async function createAgent(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -115,18 +120,18 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} maxLevel={maxLevel} myId={myId} />
+          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} maxLevel={maxLevel} myId={myId} />
+        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
 }
 
-function UserTable({ users, onUpdate, onResetPassword, onDelete, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; maxLevel: number; myId: number }) {
+function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; maxLevel: number; myId: number }) {
   return (
     <table>
       <thead>
@@ -170,6 +175,7 @@ function UserTable({ users, onUpdate, onResetPassword, onDelete, maxLevel, myId 
               {locked ? <span className="muted">Above your clearance</span> : <>
                 {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
                 {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}
+                <button className="ghost small" onClick={() => onGenFile(u)} title="Regenerate personnel file with current data">Gen. file</button>
                 <button className="ghost small" onClick={() => onResetPassword(u)}>Reset pwd</button>
                 <button className="ghost small danger" onClick={() => onDelete(u)}>Delete</button>
               </>}
@@ -485,6 +491,7 @@ const ACTION_LABELS: Record<string, string> = {
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
   doc_public_on: "Enabled public link", doc_public_off: "Disabled public link", mission_order: "Issued mission order",
+  personnel_file: "Regenerated personnel file",
 };
 
 function AuditTab() {

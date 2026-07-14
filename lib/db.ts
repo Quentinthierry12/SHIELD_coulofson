@@ -218,3 +218,28 @@ export async function createPersonnelFile(
     );
   } catch {} // ponytail: generation must never block account creation
 }
+
+// (Re)generate an agent's personnel file from their current data — used on approval and
+// on-demand. Replaces the existing file's content if there is one, else creates it.
+export async function refreshPersonnelFile(userId: number) {
+  try {
+    const p = await db();
+    const { rows } = await p.query("SELECT matricule, codename, division, clearance FROM users WHERE id = $1", [userId]);
+    const u = rows[0];
+    if (!u) return;
+    const content = await buildPersonnelFile({ matricule: u.matricule, codename: u.codename, division: u.division, clearance: u.clearance });
+    const title = `PERSONNEL FILE — ${u.matricule} (${u.codename})`;
+    const { rowCount } = await p.query(
+      "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE owner_id = $1 AND title = $3",
+      [userId, content, title]
+    );
+    if (!rowCount) {
+      const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
+      await p.query(
+        `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id)
+         VALUES ($1, 'docx', 10, $2, $3, $4)`,
+        [title, userId, content, folderId]
+      );
+    }
+  } catch {}
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db, createPersonnelFile, audit } from "@/lib/db";
+import { db, createPersonnelFile, refreshPersonnelFile, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
 
@@ -87,6 +87,7 @@ export async function PATCH(req: Request) {
   }
   audit(admin, "account_update", `user #${id} status=${status} clearance=${clearance} role=${role}`);
   if (before[0]?.status !== "active" && status === "active") {
+    await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");
   }
   return NextResponse.json({ ok: true });
