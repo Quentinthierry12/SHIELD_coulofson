@@ -31,7 +31,7 @@ export default function Editor({ dsUrl, config, title, redacted, hideNav }: { ds
         </div>
         {!redacted && (
           <span className="muted" style={{ fontSize: "0.78rem" }}>
-            Classify a paragraph: “Classify” tab → pick a level
+            Classify a paragraph: type [[CLR:n]] in it (n = clearance level)
           </span>
         )}
       </div>

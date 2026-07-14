@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAccessibleDoc, audit } from "@/lib/db";
 import { getSession, signFileToken } from "@/lib/session";
-import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION, SHIELD_CLASSIFY_GUID } from "@/lib/onlyoffice";
+import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION } from "@/lib/onlyoffice";
 import { extractLevels } from "@/lib/redact";
 import Editor from "./editor";
 
@@ -37,8 +37,6 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       lang: "en",
       user: { id: String(session.id), name: `${session.matricule} · ${session.codename}` },
       customization: SHIELD_CUSTOMIZATION,
-      // Auto-load the Classify plugin so its toolbar tab appears without opening the panel.
-      plugins: redacted ? undefined : { autostart: [SHIELD_CLASSIFY_GUID] },
     },
   };
   config.token = await signOOConfig(config);

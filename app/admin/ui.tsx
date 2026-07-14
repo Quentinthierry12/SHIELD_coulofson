@@ -65,6 +65,15 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     if (pwd) { update(u, { new_password: pwd }); toast("Temporary password set.", "success"); }
   }
 
+  async function deleteAgent(u: User) {
+    const ok = await confirmDialog({ title: `Delete agent ${u.matricule}?`, message: `${u.codename} will be permanently removed. Their documents are kept but unassigned. This cannot be undone.`, confirmLabel: "Delete agent", danger: true });
+    if (!ok) return;
+    const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
+    if (!res.ok) return setError((await res.json()).error);
+    toast("Agent deleted.", "success");
+    load();
+  }
+
   async function createAgent(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -104,18 +113,18 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} maxLevel={maxLevel} myId={myId} />
+          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} maxLevel={maxLevel} myId={myId} />
+        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
 }
 
-function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; maxLevel: number; myId: number }) {
+function UserTable({ users, onUpdate, onResetPassword, onDelete, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; maxLevel: number; myId: number }) {
   return (
     <table>
       <thead>
@@ -160,6 +169,7 @@ function UserTable({ users, onUpdate, onResetPassword, maxLevel, myId }: { users
                 {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
                 {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}
                 <button className="ghost small" onClick={() => onResetPassword(u)}>Reset pwd</button>
+                <button className="ghost small danger" onClick={() => onDelete(u)}>Delete</button>
               </>}
             </td>
           </tr>
@@ -424,7 +434,7 @@ const ACTION_LABELS: Record<string, string> = {
   doc_create: "Created document", doc_import: "Imported document", doc_open: "Opened document",
   doc_save: "Saved document", doc_destroy: "Destroyed document", doc_share: "Shared document", doc_unshare: "Revoked share",
   folder_create: "Created folder", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
-  account_create: "Created account", account_update: "Updated account", password_reset: "Reset password",
+  account_create: "Created account", account_update: "Updated account", account_delete: "Deleted account", password_reset: "Reset password",
   password_change: "Changed password", settings_update: "Updated settings",
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
