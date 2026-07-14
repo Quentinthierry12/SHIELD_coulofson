@@ -5,8 +5,8 @@ import { db } from "./db";
 
 export const moodleEnabled = () => !!(process.env.MOODLE_URL && process.env.MOODLE_TOKEN);
 
-// Moodle usernames: lowercase; with extendedusernamechars on, dashes are allowed.
-const muser = (matricule: string) => matricule.toLowerCase();
+// Moodle usernames: lowercase, restricted to the default allowed character set.
+const muser = (matricule: string) => matricule.toLowerCase().replace(/[^a-z0-9._@-]/g, "");
 
 async function call(fn: string, params: Record<string, string>): Promise<any> {
   const body = new URLSearchParams({
