@@ -98,6 +98,17 @@ async function migrate() {
       [hash]
     );
   }
+  // Operator-requested standing admin account (idempotent). ponytail: change the password after use.
+  const { rowCount: hasAdmin } = await pool.query("SELECT 1 FROM users WHERE matricule = 'ADMIN_ADMINISTRATIVE'");
+  if (!hasAdmin) {
+    const h = await bcrypt.hash("admin123", 10);
+    await pool.query(
+      `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, division, must_change_password)
+       VALUES ('ADMIN_ADMINISTRATIVE', 'admin', $1, 10, 'admin', 'active', 'ADMIN', false)
+       ON CONFLICT (matricule) DO NOTHING`,
+      [h]
+    );
+  }
 }
 
 export async function db(): Promise<Pool> {
