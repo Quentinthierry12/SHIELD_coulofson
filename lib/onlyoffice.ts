@@ -16,8 +16,10 @@ export const DOC_TYPES: Record<string, { documentType: string; mime: string }> =
 // for a clean internal-tool feel.
 export const SHIELD_CLASSIFY_GUID = "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}";
 
+// theme-shield-dark (custom) is rejected by DS 9.3 (falls back to gray + setAttribute spam),
+// so we use OnlyOffice's clean built-in dark theme. Exact SHIELD blue needs the B2 source fork.
 export const SHIELD_CUSTOMIZATION = {
-  uiTheme: "theme-shield-dark",
+  uiTheme: "theme-dark",
   compactHeader: false,
   hideRightMenu: true,
   toolbarNoTabs: false,
