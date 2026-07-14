@@ -9,7 +9,7 @@ type LogRow = { id: number; matricule: string; action: string; target: string; c
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"agents" | "templates" | "settings" | "audit">("agents");
+  const [tab, setTab] = useState<"agents" | "missions" | "templates" | "settings" | "audit">("agents");
   return (
     <>
       <div className="topbar">
@@ -17,8 +17,9 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Command</h1>
         </div>
-        <div className="tabs" style={{ marginBottom: 0, width: 540 }}>
+        <div className="tabs" style={{ marginBottom: 0, width: 640 }}>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
+          <button className={tab === "missions" ? "" : "inactive"} onClick={() => setTab("missions")}>Missions</button>
           <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
           <button className={tab === "settings" ? "" : "inactive"} onClick={() => setTab("settings")}>Settings</button>
           <button className={tab === "audit" ? "" : "inactive"} onClick={() => setTab("audit")}>Audit log</button>
@@ -26,6 +27,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
       </div>
       <div className="container">
         {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
+        {tab === "missions" && <MissionsTab myClearance={myClearance} />}
         {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
         {tab === "settings" && <SettingsTab />}
         {tab === "audit" && <AuditTab />}
@@ -177,6 +179,50 @@ function UserTable({ users, onUpdate, onResetPassword, onDelete, maxLevel, myId 
         {users.length === 0 && <tr><td colSpan={8} className="muted">Nobody.</td></tr>}
       </tbody>
     </table>
+  );
+}
+
+// ---------------- Missions ----------------
+function MissionsTab({ myClearance }: { myClearance: number }) {
+  const router = useRouter();
+  const [f, setF] = useState({ code: "", objective: "", matricule: "", location: "", priority: "Routine", classification: 1, briefing: "" });
+  const [error, setError] = useState("");
+  const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
+
+  async function issue(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/admin/mission-order", { method: "POST", body: JSON.stringify(f) });
+    const data = await res.json();
+    if (!res.ok) return setError(data.error);
+    router.push(`/doc/${data.id}`);
+  }
+
+  return (
+    <div className="panel">
+      <h2>Issue a mission order</h2>
+      <p className="muted" style={{ marginBottom: 12 }}>Generates a classified mission order document. If an agent is assigned, it is shared with them and they receive a Discord transmission.</p>
+      {error && <p className="error">⚠ {error}</p>}
+      <form onSubmit={issue}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input placeholder="MISSION CODE (e.g. OP-INSIGHT)" value={f.code} onChange={(e) => set("code", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
+          <input placeholder="ASSIGNED AGENT BADGE (optional)" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 160 }} />
+        </div>
+        <input placeholder="OBJECTIVE" value={f.objective} onChange={(e) => set("objective", e.target.value)} style={{ marginTop: 10 }} />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input placeholder="LOCATION" value={f.location} onChange={(e) => set("location", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 160 }} />
+          <select value={f.priority} onChange={(e) => set("priority", e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
+            <option>Routine</option><option>Priority</option><option>Critical</option>
+          </select>
+          <select value={f.classification} onChange={(e) => set("classification", +e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
+            {Array.from({ length: myClearance }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification {n}</option>)}
+          </select>
+        </div>
+        <textarea placeholder="BRIEFING (one line per paragraph)" value={f.briefing} onChange={(e) => set("briefing", e.target.value)} rows={6}
+          style={{ width: "100%", padding: "10px 12px", background: "#0a101a", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", fontFamily: "Consolas, monospace", margin: "10px 0" }} />
+        <button>Issue order</button>
+      </form>
+    </div>
   );
 }
 
@@ -438,7 +484,7 @@ const ACTION_LABELS: Record<string, string> = {
   password_change: "Changed password", settings_update: "Updated settings",
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
-  doc_public_on: "Enabled public link", doc_public_off: "Disabled public link",
+  doc_public_on: "Enabled public link", doc_public_off: "Disabled public link", mission_order: "Issued mission order",
 };
 
 function AuditTab() {

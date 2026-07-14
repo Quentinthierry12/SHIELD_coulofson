@@ -98,6 +98,58 @@ function infoTable(rows: [string, string][]) {
   return `<w:tbl><w:tblPr><w:tblW w:w="9200" w:type="dxa"/><w:tblBorders>${border}</w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="3200"/><w:gridCol w:w="6000"/></w:tblGrid>${tr}</w:tbl>`;
 }
 
+// ---------- Mission Order generator ----------
+export type MissionOrder = {
+  code: string;
+  objective: string;
+  agent?: string;
+  location?: string;
+  priority?: string;
+  classification?: number;
+  briefing?: string;
+  officer: string;
+};
+
+export async function buildMissionOrder(m: MissionOrder): Promise<Buffer> {
+  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const heading = (t: string) => paraXml(runXml(t, { b: true, sz: 26, color: "1C3A5E" }), { heading: true });
+  const clsCls = (m.classification || 1) >= 7 ? "TOP SECRET" : (m.classification || 1) >= 4 ? "CLASSIFIED" : "RESTRICTED";
+  const briefingParas = (m.briefing || "").split(/\r?\n/).filter(Boolean).map((l) => paraXml(runXml(l, { sz: 22 })));
+
+  const body = [
+    centerPara(runXml(`CLASSIFIED — ${clsCls} — LEVEL ${m.classification || 1}`, { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
+    centerPara(runXml("S.H.I.E.L.D.", { b: true, sz: 44, color: "1C3A5E" }), { before: 200, after: 0 }),
+    centerPara(runXml("MISSION ORDER", { b: true, sz: 30 }), { after: 40 }),
+    centerPara(runXml(m.code.toUpperCase(), { b: true, sz: 24, color: "4DA6FF" }), { after: 200 }),
+
+    heading("Order Details"),
+    infoTable([
+      ["Mission Code", m.code.toUpperCase()],
+      ["Assigned Agent", m.agent || "—"],
+      ["Location", m.location || "—"],
+      ["Priority", m.priority || "Routine"],
+      ["Classification", `Level ${m.classification || 1} — ${clsCls}`],
+      ["Date Issued", today],
+      ["Authorizing Officer", m.officer],
+    ]),
+    paraXml(runXml("")),
+
+    heading("Objective"),
+    paraXml(runXml(m.objective, { sz: 22 })),
+    paraXml(runXml("")),
+
+    ...(briefingParas.length ? [heading("Briefing"), ...briefingParas, paraXml(runXml(""))] : []),
+
+    heading("Authorization"),
+    paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml(m.officer + "        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml(today, { sz: 20 })].join("")),
+    paraXml([runXml("Agent acknowledgement:  ", { b: true, sz: 20 }), runXml("________________________", { sz: 20 })].join("")),
+
+    centerPara(runXml("This order is the property of S.H.I.E.L.D. Compromise of this document is a Level-1 offense.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
+  ].join("\n");
+
+  return packDocx(body);
+}
+
 export type AgentInfo = { matricule: string; codename: string; division?: string; clearance?: number };
 
 const clearanceLabel = (n = 1) => `Level ${n} — ${n >= 7 ? "Top Secret" : n >= 4 ? "Classified" : "Restricted"}`;
