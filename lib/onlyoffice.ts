@@ -23,12 +23,6 @@ export const SHIELD_CUSTOMIZATION = {
   toolbarNoTabs: false,
   feedback: false,
   goback: false,
-  // Replaces the ONLYOFFICE header logo with the S.H.I.E.L.D. eagle (white for the dark UI).
-  logo: {
-    image: `${process.env.PORTAL_URL}/logo-white.png`,
-    imageDark: `${process.env.PORTAL_URL}/logo-white.png`,
-    url: `${process.env.PORTAL_URL}/dashboard`,
-  },
   customer: {
     name: "S.H.I.E.L.D.",
     info: "Strategic Homeland Intervention, Enforcement and Logistics Division — Central Document System",
