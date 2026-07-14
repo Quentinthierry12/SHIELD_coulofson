@@ -11,6 +11,26 @@ export const DOC_TYPES: Record<string, { documentType: string; mime: string }> =
   pptx: { documentType: "slide", mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
 };
 
+// Approach A — S.H.I.E.L.D. reskin via the official customization API (no image patch).
+// Dark theme, agency branding in the About dialog, and ONLYOFFICE marketing removed
+// for a clean internal-tool feel.
+export const SHIELD_CUSTOMIZATION = {
+  uiTheme: "theme-dark",
+  compactHeader: true,
+  hideRightMenu: true,
+  toolbarNoTabs: false,
+  feedback: false,
+  goback: false,
+  customer: {
+    name: "S.H.I.E.L.D.",
+    info: "Strategic Homeland Intervention, Enforcement and Logistics Division — Central Document System",
+    logo: `${process.env.PORTAL_URL}/logo.png`,
+    www: process.env.PORTAL_URL,
+    mail: "",
+    address: "Classified",
+  },
+};
+
 export async function signOOConfig(config: object) {
   return new SignJWT(config as any)
     .setProtectedHeader({ alg: "HS256" })

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig } from "@/lib/onlyoffice";
+import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION } from "@/lib/onlyoffice";
 import Editor from "@/app/doc/[id]/editor";
 
 // Public read-only view — no account required. Reachable only with the token.
@@ -27,7 +27,7 @@ export default async function PublicDocPage({ params }: { params: Promise<{ toke
       mode: "view",
       lang: "en",
       user: { id: "public", name: "Public viewer" },
-      customization: { uiTheme: "theme-dark", compactHeader: true, hideRightMenu: true },
+      customization: SHIELD_CUSTOMIZATION,
     },
   };
   config.token = await signOOConfig(config);

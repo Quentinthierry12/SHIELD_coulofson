@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAccessibleDoc, audit } from "@/lib/db";
 import { getSession, signFileToken } from "@/lib/session";
-import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig } from "@/lib/onlyoffice";
+import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION } from "@/lib/onlyoffice";
 import { extractLevels } from "@/lib/redact";
 import Editor from "./editor";
 
@@ -36,11 +36,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       callbackUrl: redacted ? undefined : `${PORTAL_URL()}/api/onlyoffice/callback?id=${doc.id}&t=${t}`,
       lang: "en",
       user: { id: String(session.id), name: `${session.matricule} · ${session.codename}` },
-      customization: {
-        uiTheme: "theme-dark",
-        compactHeader: true,
-        hideRightMenu: true,
-      },
+      customization: SHIELD_CUSTOMIZATION,
     },
   };
   config.token = await signOOConfig(config);
