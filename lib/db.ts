@@ -69,6 +69,17 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS audit_log_created_idx ON audit_log (created_at DESC);
+    CREATE TABLE IF NOT EXISTS access_requests (
+      id SERIAL PRIMARY KEY,
+      doc_id INT NOT NULL,
+      user_id INT NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      decided_by INT,
+      decided_at TIMESTAMPTZ,
+      UNIQUE (doc_id, user_id)
+    );
     CREATE TABLE IF NOT EXISTS templates (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,

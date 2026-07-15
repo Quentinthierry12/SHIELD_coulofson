@@ -9,7 +9,7 @@ type LogRow = { id: number; matricule: string; action: string; target: string; c
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"agents" | "missions" | "templates" | "settings" | "audit">("agents");
+  const [tab, setTab] = useState<"agents" | "requests" | "missions" | "templates" | "settings" | "audit">("agents");
   return (
     <>
       <div className="topbar">
@@ -17,8 +17,9 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Command</h1>
         </div>
-        <div className="tabs" style={{ marginBottom: 0, width: 640 }}>
+        <div className="tabs" style={{ marginBottom: 0, width: 740 }}>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
+          <button className={tab === "requests" ? "" : "inactive"} onClick={() => setTab("requests")}>Requests</button>
           <button className={tab === "missions" ? "" : "inactive"} onClick={() => setTab("missions")}>Missions</button>
           <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
           <button className={tab === "settings" ? "" : "inactive"} onClick={() => setTab("settings")}>Settings</button>
@@ -27,6 +28,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
       </div>
       <div className="container">
         {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
+        {tab === "requests" && <RequestsTab />}
         {tab === "missions" && <MissionsTab myClearance={myClearance} />}
         {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
         {tab === "settings" && <SettingsTab />}
@@ -185,6 +187,64 @@ function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, maxL
         {users.length === 0 && <tr><td colSpan={8} className="muted">Nobody.</td></tr>}
       </tbody>
     </table>
+  );
+}
+
+// ---------------- Access requests ----------------
+type AccessReq = { id: number; doc_id: number; reason: string; created_at: string; title: string; classification: number; matricule: string; codename: string; clearance: number };
+
+function RequestsTab() {
+  const [reqs, setReqs] = useState<AccessReq[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    const res = await fetch("/api/admin/requests");
+    if (res.ok) setReqs(await res.json());
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function decide(r: AccessReq, approve: boolean) {
+    const res = await fetch("/api/admin/requests", { method: "PATCH", body: JSON.stringify({ id: r.id, approve }) });
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast(approve ? `Access granted to ${r.codename}.` : "Request denied.", approve ? "success" : "info");
+    load();
+  }
+
+  return (
+    <div className="panel">
+      <h2>Pending access requests</h2>
+      <p className="muted" style={{ marginBottom: 12 }}>
+        Approving grants an explicit share — it overrides both the clearance level and any private-folder restriction.
+      </p>
+      {loading ? <div className="skeleton" style={{ height: 80 }} /> : reqs.length === 0 ? (
+        <div className="empty">
+          <div className="empty-mark">[ ▚ ]</div>
+          <div className="empty-title">No pending requests</div>
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr><th>Agent</th><th>Document</th><th>Classification</th><th>Reason</th><th>When</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {reqs.map((r) => (
+              <tr key={r.id}>
+                <td><span className="mono">{r.matricule}</span> · {r.codename} <span className="muted">lvl.{r.clearance}</span></td>
+                <td><a href={`/doc/${r.doc_id}`}>{r.title}</a></td>
+                <td><span className={`classif ${r.classification >= 7 ? "high" : r.classification >= 4 ? "mid" : "low"}`}>LVL.{r.classification}</span></td>
+                <td className="muted">{r.reason || "—"}</td>
+                <td className="muted">{new Date(r.created_at).toLocaleString("en-US")}</td>
+                <td style={{ display: "flex", gap: 6 }}>
+                  <button className="small" onClick={() => decide(r, true)}>Grant</button>
+                  <button className="ghost small danger" onClick={() => decide(r, false)}>Deny</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
@@ -492,6 +552,8 @@ const ACTION_LABELS: Record<string, string> = {
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
   doc_public_on: "Enabled public link", doc_public_off: "Disabled public link", mission_order: "Issued mission order",
   personnel_file: "Regenerated personnel file",
+  access_request: "Requested access", access_granted: "Granted access", access_denied: "Denied access",
+  doc_blocked: "Hit a restricted document",
 };
 
 function AuditTab() {

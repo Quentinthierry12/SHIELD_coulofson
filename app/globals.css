@@ -110,6 +110,10 @@ tr:hover td { background: #0f1826; }
 .tag.t-pptx { background: #3a2312; color: #ff9a5c; }
 .tag.t-import { background: #1a2333; color: var(--muted); }
 .tag.t-folder { background: #2a2440; color: #b79dff; }
+.tag.t-locked { background: #331010; color: var(--danger); }
+.card-locked { opacity: 0.62; border-top-color: var(--danger) !important; }
+.card-locked .card-title { color: var(--muted); }
+.card-locked:hover { opacity: 0.85; border-color: var(--danger); }
 .t-folder { border-left-color: #b79dff; }
 .card.card-folder { border-top-color: #b79dff; cursor: pointer; }
 .card.card-folder:hover { border-color: #6a5aa0; }

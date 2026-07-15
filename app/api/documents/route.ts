@@ -10,17 +10,31 @@ export async function GET() {
   if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   const folderIds = await accessibleFolderIds(s.id, s.role);
+  // Everything is listed; what the agent may not open comes back flagged `locked`
+  // (by clearance or by private folder) so they can request access.
   const { rows } = await pool.query(
     `SELECT d.id, d.title, d.filetype, d.classification, d.folder_id, d.updated_at, u.codename AS owner,
-            (d.owner_id = $2) AS mine
+            (d.owner_id = $2) AS mine,
+            (d.classification <= $1 OR d.owner_id = $2 OR $3 = 'admin'
+              OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2)) AS clearance_ok,
+            (d.folder_id IS NULL OR d.folder_id = ANY($4)) AS folder_ok,
+            (SELECT ar.status FROM access_requests ar WHERE ar.doc_id = d.id AND ar.user_id = $2) AS request_status
      FROM documents d LEFT JOIN users u ON u.id = d.owner_id
-     WHERE (d.classification <= $1 OR d.owner_id = $2 OR $3 = 'admin'
-        OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2))
-       AND (d.folder_id IS NULL OR d.folder_id = ANY($4))
      ORDER BY d.updated_at DESC`,
     [s.clearance, s.id, s.role, folderIds]
   );
-  return NextResponse.json(rows);
+  return NextResponse.json(
+    rows.map((r: any) => {
+      const locked = !(r.clearance_ok && r.folder_ok);
+      return {
+        id: r.id, title: r.title, filetype: r.filetype, classification: r.classification,
+        folder_id: r.folder_id, updated_at: r.updated_at, owner: r.owner, mine: r.mine,
+        locked,
+        lock_reason: locked ? (!r.clearance_ok ? "clearance" : "folder") : null,
+        request_status: r.request_status || null,
+      };
+    })
+  );
 }
 
 export async function POST(req: Request) {

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getAccessibleDoc, audit } from "@/lib/db";
+import { getAccessibleDoc, audit, db, accessibleFolderIds } from "@/lib/db";
+import RequestAccess from "./request-access";
 import { getSession, signFileToken } from "@/lib/session";
 import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION } from "@/lib/onlyoffice";
 import { extractLevels } from "@/lib/redact";
@@ -11,7 +12,29 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
   if (session.mustChangePassword) redirect("/change-password");
   const id = parseInt((await params).id, 10);
   const doc = await getAccessibleDoc(id, session.clearance, session.id, session.role);
-  if (!doc) redirect("/dashboard");
+  if (!doc) {
+    // Visible but not openable → offer to request access instead of a dead end.
+    const pool = await db();
+    const { rows } = await pool.query("SELECT id, title, classification, folder_id FROM documents WHERE id = $1", [id]);
+    if (!rows[0]) redirect("/dashboard");
+    const blocked = rows[0];
+    const folderIds = await accessibleFolderIds(session.id, session.role);
+    const folderOk = !blocked.folder_id || folderIds.includes(blocked.folder_id);
+    const { rows: ar } = await pool.query(
+      "SELECT status FROM access_requests WHERE doc_id = $1 AND user_id = $2",
+      [id, session.id]
+    );
+    audit(session, "doc_blocked", `#${id} ${blocked.title}`);
+    return (
+      <RequestAccess
+        id={blocked.id}
+        title={blocked.title}
+        classification={blocked.classification}
+        reason={folderOk ? "clearance" : "folder"}
+        alreadyRequested={ar[0]?.status === "pending"}
+      />
+    );
+  }
 
   // Redaction (Brique B): officers see everything (effective clearance 10).
   const effectiveClr = session.role === "admin" ? 10 : session.clearance;

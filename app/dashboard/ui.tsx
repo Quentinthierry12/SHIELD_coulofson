@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
-type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean };
+type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean; locked?: boolean; lock_reason?: string | null; request_status?: string | null };
 type Folder = { id: number; name: string; parent_id: number | null; created_by: number | null; restricted: boolean; member: boolean; mine: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
@@ -259,27 +259,38 @@ export default function Dashboard({ session }: { session: Session }) {
             {!loading && shownDocs.map((d) => (
               <div
                 key={d.id}
-                className={`card ${TYPES[d.filetype].cls}`}
+                className={`card ${TYPES[d.filetype].cls} ${d.locked ? "card-locked" : ""}`}
                 onClick={() => router.push(`/doc/${d.id}`)}
-                draggable={d.mine || session.role === "admin"}
+                draggable={!d.locked && (d.mine || session.role === "admin")}
                 onDragStart={(e) => { e.dataTransfer.setData("text/doc-id", String(d.id)); e.dataTransfer.effectAllowed = "move"; }}
-                title={(d.mine || session.role === "admin") ? "Drag onto a folder to move" : undefined}
+                title={d.locked ? "Restricted — click to request access" : (d.mine || session.role === "admin") ? "Drag onto a folder to move" : undefined}
               >
                 <div className="card-top">
                   <span className={`tag ${TYPES[d.filetype].cls}`}>{TYPES[d.filetype].tag}</span>
-                  {(d.mine || session.role === "admin") && (
+                  {!d.locked && (d.mine || session.role === "admin") && (
                     <span className="card-actions" onClick={(e) => e.stopPropagation()}>
                       <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
                       <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
                       <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
                     </span>
                   )}
+                  {d.locked && <span className="tag t-locked">LOCKED</span>}
                 </div>
                 <div className="card-title">{d.title}</div>
                 <div className="card-meta">{classifBadge(d.classification)}</div>
-                <div className="card-meta muted">
-                  {d.owner} · {new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                </div>
+                {d.locked ? (
+                  <div className="card-meta muted">
+                    {d.request_status === "pending"
+                      ? "Access requested — awaiting approval"
+                      : d.lock_reason === "folder"
+                        ? "Restricted folder — request access"
+                        : "Above your clearance — request access"}
+                  </div>
+                ) : (
+                  <div className="card-meta muted">
+                    {d.owner} · {new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                )}
               </div>
             ))}
             {!loading && shownDocs.length === 0 && (!flatMode ? childFolders.length === 0 : true) && (
