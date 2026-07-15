@@ -189,19 +189,22 @@ export async function accessibleFolderIds(userId: number, role: string): Promise
   return (await accessibleFolders(userId, role)).map((f) => f.id);
 }
 
-// Accès à un document : niveau d'habilitation suffisant, propriétaire, admin, ou partage explicite —
-// ET accès au dossier qui le contient.
+// Access rules, in order — an explicit grant always wins over both barriers:
+//   owner / officer / explicit share  → always allowed (share overrides clearance AND folder)
+//   otherwise                         → clearance must suffice AND the folder must be reachable
 export async function getAccessibleDoc(docId: number, clearance: number, userId: number, role: string) {
   const p = await db();
-  const { rows } = await p.query(
-    `SELECT d.* FROM documents d
-     WHERE d.id = $1 AND (d.classification <= $2 OR d.owner_id = $3 OR $4 = 'admin'
-       OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $3))`,
-    [docId, clearance, userId, role]
-  );
+  const { rows } = await p.query("SELECT * FROM documents WHERE id = $1", [docId]);
   const doc = rows[0];
   if (!doc) return null;
-  if (doc.folder_id && role !== "admin") {
+  if (role === "admin" || doc.owner_id === userId) return doc;
+  const { rowCount: shared } = await p.query(
+    "SELECT 1 FROM document_shares WHERE doc_id = $1 AND user_id = $2",
+    [docId, userId]
+  );
+  if (shared) return doc;
+  if (doc.classification > clearance) return null;
+  if (doc.folder_id) {
     const ids = await accessibleFolderIds(userId, role);
     if (!ids.includes(doc.folder_id)) return null;
   }
