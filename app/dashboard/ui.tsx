@@ -104,6 +104,24 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
     load();
   }
 
+  async function renameDoc(doc: Doc) {
+    const name = await promptDialog({ title: "Rename document", message: `Current name: “${doc.title}”.`, placeholder: "New name", defaultValue: doc.title });
+    if (!name || name.trim() === doc.title) return;
+    const res = await fetch(`/api/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ title: name }) });
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Document renamed.", "success");
+    load();
+  }
+
+  async function renameFolder(f: Folder) {
+    const name = await promptDialog({ title: "Rename folder", message: `Current name: “${f.name}”.`, placeholder: "New name", defaultValue: f.name });
+    if (!name || name.trim() === f.name) return;
+    const res = await fetch(`/api/folders/${f.id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Folder renamed.", "success");
+    load();
+  }
+
   async function reclassify(doc: Doc, level: number) {
     const res = await fetch(`/api/documents/${doc.id}`, {
       method: "PATCH",
@@ -272,6 +290,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                     <span className="tag t-folder">DIR</span>
                     {(f.mine || session.role === "admin") && (
                       <span className="card-actions" onClick={(e) => e.stopPropagation()}>
+                        <button className="ghost small" title="Rename folder" onClick={() => renameFolder(f)}>Rename</button>
                         <button className="ghost small" title="Members / invitations" onClick={() => setManageFolder(f)}>Invite</button>
                         <button className="ghost small" title="Delete folder" onClick={() => deleteFolder(f)}>✕</button>
                       </span>
@@ -303,6 +322,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                       <button className="ghost small" title="Export as PDF" onClick={() => exportPdf(d)}>PDF</button>
                       {(d.mine || session.role === "admin") && (
                         <>
+                          <button className="ghost small" title="Rename" onClick={() => renameDoc(d)}>Rename</button>
                           <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
                           <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
                           <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>

@@ -2,6 +2,27 @@ import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 
+// Rename a folder. Creator or officer only, same rule as deletion.
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const s = await getSession();
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  const id = parseInt((await params).id, 10);
+  const { name } = await req.json();
+  const clean = String(name || "").trim();
+  if (!clean) return NextResponse.json({ error: "Name cannot be empty." }, { status: 400 });
+  if (clean.length > 100) return NextResponse.json({ error: "Name is too long (100 characters max)." }, { status: 400 });
+  const pool = await db();
+  const { rows: fr } = await pool.query("SELECT name, created_by FROM folders WHERE id = $1", [id]);
+  const folder = fr[0];
+  if (!folder) return NextResponse.json({ error: "Folder not found." }, { status: 404 });
+  if (s.role !== "admin" && folder.created_by !== s.id) {
+    return NextResponse.json({ error: "Only the folder creator or an officer can rename it." }, { status: 403 });
+  }
+  await pool.query("UPDATE folders SET name = $2 WHERE id = $1", [id, clean]);
+  audit(s, "folder_rename", `${folder.name} -> ${clean}`);
+  return NextResponse.json({ ok: true });
+}
+
 // The folder creator or an officer can delete a folder — only if it is empty
 // (no sub-folders and no documents), to avoid accidental mass destruction.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

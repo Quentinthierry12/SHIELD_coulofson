@@ -8,8 +8,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const s = await getSession();
   if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
-  const { folder_id, classification } = await req.json();
+  const { folder_id, classification, title } = await req.json();
   const pool = await db();
+
+  if (title !== undefined) {
+    const name = String(title).trim();
+    if (!name) return NextResponse.json({ error: "Title cannot be empty." }, { status: 400 });
+    if (name.length > 200) return NextResponse.json({ error: "Title is too long (200 characters max)." }, { status: 400 });
+    const { rows } = await pool.query(
+      "UPDATE documents SET title = $2 WHERE id = $1 AND (owner_id = $3 OR $4 = 'admin') RETURNING title",
+      [id, name, s.id, s.role]
+    );
+    if (!rows[0]) return NextResponse.json({ error: "Only the document owner or an officer can rename it." }, { status: 403 });
+    audit(s, "doc_rename", `#${id} -> ${name}`);
+  }
 
   if (classification !== undefined) {
     const level = Math.min(10, Math.max(1, parseInt(String(classification), 10) || 1));

@@ -48,6 +48,12 @@ async function migrate() {
     );
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS folder_id INT;
     ALTER TABLE documents ADD COLUMN IF NOT EXISTS public_token TEXT;
+    -- Flags the auto-generated agent file. Was inferred from the title, which broke the
+    -- moment a title changed (rename, badge change) — refreshPersonnelFile would miss it
+    -- and mint a duplicate. Backfilled from the old title convention.
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS is_personnel BOOLEAN NOT NULL DEFAULT false;
+    UPDATE documents SET is_personnel = true
+      WHERE is_personnel = false AND title LIKE 'PERSONNEL FILE — %';
     CREATE UNIQUE INDEX IF NOT EXISTS documents_public_idx ON documents (public_token) WHERE public_token IS NOT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_id TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS division TEXT;
@@ -227,8 +233,8 @@ export async function createPersonnelFile(
     const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
     const p = await db();
     await p.query(
-      `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id)
-       VALUES ($1, 'docx', 10, $2, $3, $4)`,
+      `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id, is_personnel)
+       VALUES ($1, 'docx', 10, $2, $3, $4, true)`,
       [`PERSONNEL FILE — ${matricule} (${codename})`, userId, content, folderId]
     );
   } catch {} // ponytail: generation must never block account creation
@@ -244,19 +250,21 @@ export async function refreshPersonnelFile(userId: number) {
     if (!u) return;
     const content = await buildPersonnelFile({ matricule: u.matricule, codename: u.codename, division: u.division, clearance: u.clearance });
     const title = `PERSONNEL FILE — ${u.matricule} (${u.codename})`;
-    // Match on the owner + prefix, not the exact title: the title embeds the badge and
-    // codename, so after a rename an exact match would miss and mint a second file.
-    // The title is rewritten here, which is what carries the rename through.
+    // Found by flag, never by title: the file can be renamed and the badge can change,
+    // and either would make a title match miss and mint a duplicate. Only the default
+    // title is refreshed — a file the agent renamed on purpose keeps its name.
     const { rowCount } = await p.query(
-      `UPDATE documents SET title = $3, content = $2, version = version + 1, updated_at = now()
-       WHERE owner_id = $1 AND title LIKE 'PERSONNEL FILE — %'`,
+      `UPDATE documents
+          SET content = $2, version = version + 1, updated_at = now(),
+              title = CASE WHEN title LIKE 'PERSONNEL FILE — %' THEN $3 ELSE title END
+        WHERE owner_id = $1 AND is_personnel`,
       [userId, content, title]
     );
     if (!rowCount) {
       const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
       await p.query(
-        `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id)
-         VALUES ($1, 'docx', 10, $2, $3, $4)`,
+        `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id, is_personnel)
+         VALUES ($1, 'docx', 10, $2, $3, $4, true)`,
         [title, userId, content, folderId]
       );
     }
