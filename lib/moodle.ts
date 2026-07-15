@@ -37,14 +37,15 @@ export async function syncMoodleUser(
   portalUserId: number,
   agent: { matricule: string; codename: string; division?: string; suspended?: boolean },
   password?: string
-) {
-  if (!moodleEnabled()) return;
+): Promise<{ id: number; created: boolean } | null> {
+  if (!moodleEnabled()) return null;
   try {
     const pool = await db();
     const { rows } = await pool.query("SELECT moodle_id FROM users WHERE id = $1", [portalUserId]);
     let mid: number | null = rows[0]?.moodle_id || null;
     const username = muser(agent.matricule);
     if (!mid) mid = await findByUsername(username);
+    const existed = !!mid;
 
     if (mid) {
       const p: Record<string, string> = {
@@ -72,8 +73,10 @@ export async function syncMoodleUser(
       }
     }
     if (mid) await pool.query("UPDATE users SET moodle_id = $2 WHERE id = $1", [portalUserId, mid]);
+    return mid ? { id: mid, created: !existed } : null;
   } catch (e) {
     console.error("[moodle] sync failed:", e);
+    return null;
   }
 }
 

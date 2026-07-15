@@ -83,6 +83,25 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     toast(res.ok ? "Personnel file regenerated." : "Failed.", res.ok ? "success" : "error");
   }
 
+  // We only ever hold a bcrypt hash, so a manual sync cannot carry the agent's real
+  // password across — be explicit about it rather than implying the accounts match.
+  async function academySync(u: User) {
+    const ok = await confirmDialog({
+      title: `Create Academy account — ${u.matricule}?`,
+      message:
+        `An Academy account will be created for ${u.codename}. Their portal password cannot be copied over ` +
+        `(the portal only stores an encrypted hash), so the Academy password will differ until ${u.codename} ` +
+        `changes their portal password — or you reset it for them.`,
+      confirmLabel: "Create account",
+    });
+    if (!ok) return;
+    const res = await fetch("/api/admin/academy-sync", { method: "POST", body: JSON.stringify({ id: u.id }) });
+    const d = await res.json();
+    if (!res.ok) return toast(d.error || "Academy sync failed.", "error");
+    toast(d.created ? "Academy account created. Password not synced yet." : "Academy account updated.", "success");
+    load();
+  }
+
   async function createAgent(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -122,12 +141,12 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} maxLevel={maxLevel} myId={myId} />
+          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} maxLevel={maxLevel} myId={myId} />
+        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
@@ -139,7 +158,7 @@ function SyncDot({ on, label, title }: { on: boolean; label: string; title: stri
   return <span className={`sync-dot ${on ? "on" : "off"}`} title={title}>{label}</span>;
 }
 
-function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; maxLevel: number; myId: number }) {
+function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
   return (
     <table>
       <thead>
@@ -191,6 +210,9 @@ function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, maxL
                 {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
                 {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}
                 <button className="ghost small" onClick={() => onGenFile(u)} title="Regenerate personnel file with current data">Gen. file</button>
+                {!u.moodle_synced && (
+                  <button className="ghost small" onClick={() => onAcademySync(u)} title="Create this agent's Academy account now">Sync Academy</button>
+                )}
                 <button className="ghost small" onClick={() => onResetPassword(u)}>Reset pwd</button>
                 <button className="ghost small danger" onClick={() => onDelete(u)}>Delete</button>
               </>}
@@ -506,7 +528,29 @@ type Integrations = { total: number; discord: Integration; academy: Integration;
 
 function IntegrationsPanel() {
   const [d, setD] = useState<Integrations | null>(null);
-  useEffect(() => { fetch("/api/admin/integrations").then((r) => r.ok && r.json()).then((x) => x && setD(x)); }, []);
+  const [busy, setBusy] = useState(false);
+  function load() { fetch("/api/admin/integrations").then((r) => r.ok && r.json()).then((x) => x && setD(x)); }
+  useEffect(() => { load(); }, []);
+
+  async function syncAll() {
+    const missing = d ? d.total - d.academy.linked! : 0;
+    const ok = await confirmDialog({
+      title: `Create Academy accounts for ${missing} agent(s)?`,
+      message:
+        "Agents created before the Academy have no account. Portal passwords cannot be copied over " +
+        "(only an encrypted hash is stored), so each agent's Academy password will differ until they " +
+        "change their portal password.",
+      confirmLabel: "Create accounts",
+    });
+    if (!ok) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/academy-sync", { method: "POST", body: JSON.stringify({}) });
+    const r = await res.json();
+    setBusy(false);
+    if (!res.ok) return toast(r.error || "Academy sync failed.", "error");
+    toast(`${r.created} account(s) created${r.failed ? `, ${r.failed} failed` : ""}.`, r.failed ? "error" : "success");
+    load();
+  }
 
   const row = (name: string, i: Integration, note: string) => {
     const state = !i.configured ? "Not configured" : i.reachable ? "Online" : "Unreachable";
@@ -533,6 +577,15 @@ function IntegrationsPanel() {
             {row("OFFICE", d.office, "Document Server: editing and PDF export")}
           </tbody>
         </table>
+      )}
+      {d && d.academy.configured && d.academy.linked! < d.total && (
+        <p className="muted" style={{ marginTop: 12 }}>
+          {d.total - d.academy.linked!} agent(s) have no Academy account — accounts are provisioned automatically
+          only when the portal knows the password (creation, password change).{" "}
+          <button className="ghost small" disabled={busy} onClick={syncAll}>
+            {busy ? "Creating…" : "Create them now"}
+          </button>
+        </p>
       )}
     </div>
   );
