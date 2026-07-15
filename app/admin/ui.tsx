@@ -216,8 +216,13 @@ function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGen
             </td>
             <td>
               {locked ? <span className="mono">Lvl. {u.clearance}</span> : (
+                // All ten levels are listed, those above maxLevel disabled. Listing only
+                // 1..maxLevel dropped your own level 10 out of the options, and the browser
+                // silently fell back to showing "Lvl. 1" — your own account read as level 1.
                 <select value={u.clearance} onChange={(e) => onUpdate(u, { clearance: +e.target.value })} style={{ marginBottom: 0, width: 90 }}>
-                  {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Lvl. {n}</option>)}
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n} disabled={n > maxLevel && n !== u.clearance}>Lvl. {n}</option>
+                  ))}
                 </select>
               )}
             </td>
