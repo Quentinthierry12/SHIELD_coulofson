@@ -284,3 +284,27 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
 .classif-select.low { border-color: var(--ok); color: var(--ok); }
 .classif-select.mid { border-color: #ffd166; color: #ffd166; }
 .classif-select.high { border-color: var(--danger); color: var(--danger); }
+
+/* Command → Agents: one readable row per agent, editing behind the ··· sheet.
+   Replaces an 8-column table that overflowed its panel and truncated values. */
+.agent-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 4px; border-bottom: 1px solid var(--border);
+}
+.agent-row:last-of-type { border-bottom: none; }
+.agent-row.locked { opacity: 0.45; }
+.agent-who { min-width: 210px; }
+.agent-who b { font-size: 0.85rem; color: var(--text); letter-spacing: 0.06em; }
+.agent-who span { display: block; font-size: 0.75rem; color: var(--muted); }
+.agent-spacer { flex: 1; }
+.chip {
+  font-size: 0.7rem; padding: 3px 8px; border-radius: 3px;
+  border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+}
+.chip.lv { border-color: var(--accent-dim); color: var(--accent); }
+.sheet-label { display: block; font-size: 0.7rem; margin-bottom: 4px; letter-spacing: 0.06em; }
+.sheet-actions {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+.sheet-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }

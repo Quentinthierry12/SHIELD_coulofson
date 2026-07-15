@@ -176,94 +176,130 @@ function SyncDot({ on, label, title }: { on: boolean; label: string; title: stri
   return <span className={`sync-dot ${on ? "on" : "off"}`} title={title}>{label}</span>;
 }
 
-function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
+// One readable line per agent. The 8-column table it replaced overflowed the panel
+// (Delete was cut off) and turned every field into an always-live input, which read as
+// a form rather than a roster. Editing now happens in AgentSheet, behind the ··· button,
+// so destructive actions cannot be hit while scanning the list.
+function AgentRow({ u, locked, onOpen }: { u: User; locked: boolean; onOpen: () => void }) {
+  const statusCls = u.status === "active" ? "low" : u.status === "pending" ? "mid" : "high";
   return (
-    <table>
-      <thead>
-        <tr><th>Badge</th><th>Codename</th><th>Division</th><th>Clearance</th><th>Role</th><th>Status</th><th>Sync</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-        {users.map((u) => {
-          // maxLevel = own clearance - 1. An agent at/above the officer's clearance is off-limits (except self).
-          const locked = u.id !== myId && u.clearance > maxLevel;
-          return (
-          <tr key={u.id} style={locked ? { opacity: 0.5 } : undefined}>
-            <td>
-              {locked ? <span className="mono">{u.matricule}</span> : (
-                // The badge is the sign-in name: changing it DMs the agent (see the PATCH route).
-                <input
-                  className="mono"
-                  defaultValue={u.matricule}
-                  onBlur={(e) => e.target.value.trim().toUpperCase() !== u.matricule && onRename(u, { matricule: e.target.value })}
-                  style={{ marginBottom: 0, width: 130 }}
-                  title="Badge number — also the sign-in name, here and at the Academy"
-                />
-              )}
-            </td>
-            <td>
-              {locked ? <span>{u.codename}</span> : (
-                <input
-                  defaultValue={u.codename}
-                  onBlur={(e) => e.target.value.trim() !== u.codename && onRename(u, { codename: e.target.value })}
-                  style={{ marginBottom: 0, width: 130 }}
-                />
-              )}
-            </td>
-            <td>
-              {locked ? <span className="muted">{u.division || "—"}</span> : (
-                <input defaultValue={u.division} placeholder="—" onBlur={(e) => e.target.value !== u.division && onUpdate(u, { division: e.target.value })} style={{ marginBottom: 0, width: 120 }} />
-              )}
-            </td>
-            <td>
-              {locked ? <span className="mono">Lvl. {u.clearance}</span> : (
-                // All ten levels are listed, those above maxLevel disabled. Listing only
-                // 1..maxLevel dropped your own level 10 out of the options, and the browser
-                // silently fell back to showing "Lvl. 1" — your own account read as level 1.
-                <select value={u.clearance} onChange={(e) => onUpdate(u, { clearance: +e.target.value })} style={{ marginBottom: 0, width: 90 }}>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n} disabled={n > maxLevel && n !== u.clearance}>Lvl. {n}</option>
-                  ))}
-                </select>
-              )}
-            </td>
-            <td>
-              {locked ? <span className="muted">{u.role === "admin" ? "Officer" : "Agent"}</span> : (
-                <select value={u.role} onChange={(e) => onUpdate(u, { role: e.target.value })} style={{ marginBottom: 0, width: 110 }}>
-                  <option value="agent">Agent</option>
-                  <option value="admin">Officer</option>
-                </select>
-              )}
-            </td>
-            <td>
-              <span className={`classif ${u.status === "active" ? "low" : u.status === "pending" ? "mid" : "high"}`}>
-                {u.status === "active" ? "ACTIVE" : u.status === "pending" ? "PENDING" : "REVOKED"}
-              </span>
-            </td>
-            <td>
-              <span className="sync-cell">
-                <SyncDot on={u.discord_linked} label="DISCORD"
-                  title={u.discord_linked ? "Discord account linked" : "No Discord account linked — the agent signs in with their badge only"} />
-                <SyncDot on={u.moodle_synced} label="ACADEMY"
-                  title={u.moodle_synced ? "Academy (Moodle) account provisioned" : "No Academy account — created on next password change or account update"} />
-              </span>
-            </td>
-            <td style={{ display: "flex", gap: 6 }}>
-              {locked ? <span className="muted">Above your clearance</span> : <>
-                {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
-                {u.status === "active" && <button className="ghost small" onClick={() => onUpdate(u, { status: "revoked" })}>Revoke</button>}
-                <button className="ghost small" onClick={() => onGenFile(u)} title="Regenerate personnel file with current data">Gen. file</button>
-                {!u.moodle_synced && (
-                  <button className="ghost small" onClick={() => onAcademySync(u)} title="Create this agent's Academy account now">Sync Academy</button>
-                )}
-                <button className="ghost small" onClick={() => onResetPassword(u)}>Reset pwd</button>
-                <button className="ghost small danger" onClick={() => onDelete(u)}>Delete</button>
-              </>}
-            </td>
-          </tr>
-        );})}
-        {users.length === 0 && <tr><td colSpan={8} className="muted">Nobody.</td></tr>}
-      </tbody>
-    </table>
+    <div className={`agent-row ${locked ? "locked" : ""}`}>
+      <div className="agent-who">
+        <b className="mono">{u.matricule}</b>
+        <span>{u.codename}{u.division ? ` · ${u.division}` : ""}</span>
+      </div>
+      <span className="chip lv mono">LVL. {u.clearance}</span>
+      <span className="chip">{u.role === "admin" ? "Officer" : "Agent"}</span>
+      <span className={`classif ${statusCls}`}>
+        {u.status === "active" ? "ACTIVE" : u.status === "pending" ? "PENDING" : "REVOKED"}
+      </span>
+      <span className="sync-cell">
+        <SyncDot on={u.discord_linked} label="DISCORD"
+          title={u.discord_linked ? "Discord account linked" : "No Discord account linked — the agent signs in with their badge only"} />
+        <SyncDot on={u.moodle_synced} label="ACADEMY"
+          title={u.moodle_synced ? "Academy (Moodle) account provisioned" : "No Academy account — created on next password change or account update"} />
+      </span>
+      <span className="agent-spacer" />
+      {locked ? (
+        <span className="muted" style={{ fontSize: ".75rem" }}>Above your clearance</span>
+      ) : (
+        <button className="ghost small" onClick={onOpen} title="Manage this agent">···</button>
+      )}
+    </div>
+  );
+}
+
+// Full edit sheet. Fields are applied on Save, not on every keystroke, so a half-typed
+// badge is never sent — the badge is the sign-in name.
+function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onAcademySync }: {
+  u: User; maxLevel: number; onClose: () => void;
+  onUpdate: (u: User, p: Partial<User>) => void;
+  onRename: (u: User, p: { matricule?: string; codename?: string }) => void;
+  onResetPassword: (u: User) => void; onDelete: (u: User) => void;
+  onGenFile: (u: User) => void; onAcademySync: (u: User) => void;
+}) {
+  const [matricule, setMatricule] = useState(u.matricule);
+  const [codename, setCodename] = useState(u.codename);
+  const [division, setDivision] = useState(u.division);
+  const [clearance, setClearance] = useState(u.clearance);
+  const [role, setRole] = useState(u.role);
+
+  const dirty = matricule.trim().toUpperCase() !== u.matricule || codename.trim() !== u.codename
+    || division !== u.division || clearance !== u.clearance || role !== u.role;
+
+  function save() {
+    const patch: any = { division, clearance, role };
+    if (matricule.trim().toUpperCase() !== u.matricule) patch.matricule = matricule;
+    if (codename.trim() !== u.codename) patch.codename = codename;
+    // onRename carries the badge confirmation; onUpdate is enough when identity is untouched.
+    (patch.matricule || patch.codename ? onRename : onUpdate)(u, patch);
+    onClose();
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
+        <h2>Agent {u.matricule}</h2>
+        <label className="muted sheet-label">Badge number — this is the sign-in name, here and at the Academy</label>
+        <input className="mono" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
+        <label className="muted sheet-label">Codename</label>
+        <input value={codename} onChange={(e) => setCodename(e.target.value)} />
+        <label className="muted sheet-label">Division</label>
+        <input value={division} placeholder="—" onChange={(e) => setDivision(e.target.value)} />
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label className="muted sheet-label">Clearance</label>
+            <select value={clearance} onChange={(e) => setClearance(+e.target.value)}>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n} disabled={n > maxLevel && n !== u.clearance}>Lvl. {n}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="muted sheet-label">Role</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="agent">Agent</option>
+              <option value="admin">Officer</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="sheet-actions">
+          {u.status !== "active" && <button className="small" onClick={() => { onUpdate(u, { status: "active" }); onClose(); }}>Validate</button>}
+          {u.status === "active" && <button className="ghost small" onClick={() => { onUpdate(u, { status: "revoked" }); onClose(); }}>Revoke</button>}
+          <button className="ghost small" onClick={() => onGenFile(u)} title="Regenerate personnel file with current data">Gen. file</button>
+          {!u.moodle_synced && <button className="ghost small" onClick={() => { onAcademySync(u); onClose(); }}>Sync Academy</button>}
+          <button className="ghost small" onClick={() => { onResetPassword(u); onClose(); }}>Reset pwd</button>
+          <button className="ghost small danger" onClick={() => { onDelete(u); onClose(); }}>Delete agent</button>
+        </div>
+
+        <div className="sheet-footer">
+          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button disabled={!dirty} onClick={save}>Save changes</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
+  const [open, setOpen] = useState<User | null>(null);
+  if (!users.length) return <p className="muted">Nobody.</p>;
+  return (
+    <>
+      {users.map((u) => {
+        // maxLevel = own clearance - 1. An agent at/above the officer's clearance is off-limits (except self).
+        const locked = u.id !== myId && u.clearance > maxLevel;
+        return <AgentRow key={u.id} u={u} locked={locked} onOpen={() => setOpen(u)} />;
+      })}
+      {open && (
+        <AgentSheet
+          u={open} maxLevel={maxLevel} onClose={() => setOpen(null)}
+          onUpdate={onUpdate} onRename={onRename} onResetPassword={onResetPassword}
+          onDelete={onDelete} onGenFile={onGenFile} onAcademySync={onAcademySync}
+        />
+      )}
+    </>
   );
 }
 
