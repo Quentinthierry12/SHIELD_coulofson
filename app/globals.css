@@ -17,6 +17,8 @@ body {
   color: var(--text);
   font-family: "Segoe UI", system-ui, sans-serif;
   min-height: 100vh;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1, h2, h3, .mono { font-family: "Consolas", "Courier New", monospace; letter-spacing: 0.08em; }
@@ -239,3 +241,20 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
 .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
 .tabs button { flex: 1; }
 .tabs button.inactive { background: transparent; border-color: var(--border); color: var(--muted); }
+
+/* ===== PWA / mobile : hauteur dynamique + zones sûres (encoches) ===== */
+@supports (height: 100dvh) {
+  .layout { min-height: 100dvh; }
+  .rail { height: 100dvh; }
+  .login-wrap { min-height: 100dvh; }
+}
+@media (max-width: 720px) {
+  /* Barres collantes : respecter l'encoche / la barre d'état iOS. */
+  .rail { padding-top: calc(8px + env(safe-area-inset-top)); }
+  .main .topbar { padding-left: calc(14px + env(safe-area-inset-left));
+                  padding-right: calc(14px + env(safe-area-inset-right)); }
+  .content { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  /* Cibles tactiles plus confortables au doigt. */
+  button.small { padding: 7px 12px; }
+  .card-actions { display: inline-flex; }
+}
