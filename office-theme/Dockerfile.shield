@@ -1,9 +1,15 @@
-# Approach B1 — SHIELD-branded document server (image patch, no source rebuild).
-# Extends the working unlimited build with a guarded branding layer. Every patch step
-# is self-locating and `|| true`-guarded: a path that changed between OnlyOffice versions
-# is skipped, never fails the build. Test on a redeploy before trusting in prod; revert
-# with Dockerfile.current if anything looks off.
+# S.H.I.E.L.D. document server — unlimited build + SHIELD reskin, by image patch.
+# This is the Dockerfile actually running shield-office.quentinthierry.fr.
+#
+# Deliberately NOT here:
+#  - the shield-classify sdkjs plugin: its presence broke the editor (black screen), so it
+#    was removed. Do not re-add it without reproducing that first.
+#  - a custom theme (theme-shield-dark): impossible on DS 9.3 — see the branding layer below.
 FROM onlyoffice/documentserver:9.3.1
+
+# btactic's unlimited build: removes the 20-connection limit. Its postinst wants a reachable
+# Postgres during install, but the Coolify builder runs on the host network where 5432 is
+# taken — so bring up the build-time cluster on 5433 and tell debconf about it.
 RUN wget -q -P /tmp "https://github.com/btactic-oo/unlimited-onlyoffice-package-builder/releases/download/onlyoffice-unlimited-build-debian-13/9.3.1.11/onlyoffice-documentserver_9.3.1-11-btactic_amd64.deb" && \
     pg_conftool 16 main set port 5433 && \
     (service postgresql start || true) && \
@@ -17,38 +23,27 @@ RUN wget -q -P /tmp "https://github.com/btactic-oo/unlimited-onlyoffice-package-
     pg_conftool 16 main set port 5432 && \
     echo "onlyoffice-documentserver onlyoffice/db-port string 5432" | debconf-set-selections && \
     rm -f /tmp/*.deb && rm -rf /var/lib/apt/lists/*
+
+# The portal is HTTPS-only; without this the editor loads its assets over http and the
+# browser blocks them as mixed content.
 RUN sed -i "s/default .scheme;/default https;/" /etc/onlyoffice/documentserver/nginx/includes/http-common.conf && \
     ! grep -q "default .scheme;" /etc/onlyoffice/documentserver/nginx/includes/http-common.conf
 
-# ---- SHIELD branding layer ----
-# Repaint the BUILT-IN dark theme rather than registering a custom one.
+# ---- SHIELD branding ----
+# Repaint the BUILT-IN dark theme instead of registering a custom one.
 #
 # Why: DS 9.3's api.js only ever appends `&uitheme=<id>` to the editor URL, never
 # `&uithemetype=`. The bootstrap in index.html therefore cannot know a custom theme's type
 # (themes.json loads later), leaves the body on `theme-type-light`, and the editor renders
-# light — the "custom theme is ignored" symptom. Built-in themes sidestep this entirely:
-# their colours are precompiled in app.css under `.theme-dark`, so the body class alone is
-# enough. The portal then just asks for uiTheme "theme-dark" (see lib/onlyoffice.ts).
+# light — measured: window.uitheme.id was theme-shield-dark while body carried
+# theme-type-light and the light palette. Built-in themes have their colours precompiled in
+# app.css under `.theme-dark`, so the body class alone is enough. The portal asks for
+# uiTheme "theme-dark" (SHIELD_CUSTOMIZATION in lib/onlyoffice.ts).
 #
-# The script fails loudly if it cannot find the rule, so a silently-unstyled editor can
-# never reach production.
+# The script exits non-zero if it cannot find the rule, so an unstyled editor fails the
+# build rather than reaching production silently.
 RUN set -e; \
     wget -qO /tmp/repaint-dark.py "https://raw.githubusercontent.com/Quentinthierry12/SHIELD_coulofson/main/office-theme/repaint-dark.py"; \
     test -s /tmp/repaint-dark.py; \
     python3 /tmp/repaint-dark.py /var/www/onlyoffice/documentserver/web-apps; \
     rm -f /tmp/repaint-dark.py
-
-# Install the S.H.I.E.L.D. Classify plugin into sdkjs-plugins so it appears in the
-# editor's Plugins tab. Fetches each file from the public repo.
-RUN set -e; \
-    P=/var/www/onlyoffice/documentserver/sdkjs-plugins/shield-classify; \
-    B=https://raw.githubusercontent.com/Quentinthierry12/SHIELD_coulofson/main/office-theme/plugin/shield-classify; \
-    mkdir -p "$P/resources/img"; \
-    for f in config.json index.html code.js; do wget -qO "$P/$f" "$B/$f"; test -s "$P/$f"; done; \
-    for f in resources/img/icon.png resources/img/icon@2x.png; do wget -qO "$P/$f" "$B/$f"; test -s "$P/$f"; done; \
-    echo "installed SHIELD Classify plugin in $P"
-
-# After deploy, point the portal editor config at uiTheme "theme-shield-dark"
-# (SHIELD_CUSTOMIZATION in lib/onlyoffice.ts). For deeper changes (renaming
-# Document→Report, custom loading screen) use B2 — the source fork built with
-# btactic-oo/build_tools. See README.md.
