@@ -22,7 +22,7 @@ export default function Editor({ dsUrl, config, title, redacted, hideNav }: { ds
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh" }}>
       <div className="topbar" style={{ padding: "8px 16px" }}>
         <div className="logo">
           {!hideNav && <a href="/dashboard"><button className="ghost small">← Archives</button></a>}

@@ -1,11 +1,32 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import UiHost from "./ui-host";
+import PwaRegister from "./pwa-register";
 
 export const metadata: Metadata = {
   title: "S.H.I.E.L.D. — Central Document System",
   description: "Strategic Homeland Intervention, Enforcement and Logistics Division",
-  icons: { icon: "/logo.png" },
+  applicationName: "S.H.I.E.L.D.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: [{ url: "/logo-white.png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "S.H.I.E.L.D.",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#070b12",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <UiHost />
+        <PwaRegister />
       </body>
     </html>
   );
