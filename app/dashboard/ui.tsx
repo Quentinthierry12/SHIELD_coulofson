@@ -104,6 +104,21 @@ export default function Dashboard({ session }: { session: Session }) {
     load();
   }
 
+  // Conversion runs on the Document Server and takes a moment on big files, so tell the
+  // agent it started rather than leaving the button dead.
+  async function exportPdf(doc: Doc) {
+    toast(`Generating PDF — “${doc.title}”…`);
+    const res = await fetch(`/api/documents/${doc.id}/pdf`);
+    if (!res.ok) return toast((await res.json()).error || "Conversion failed.", "error");
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${doc.title}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast("PDF ready.", "success");
+  }
+
   async function changePassword() {
     const current = await promptDialog({ title: "Change password", message: "Enter your current password.", placeholder: "Current password", password: true });
     if (!current) return;
@@ -267,11 +282,16 @@ export default function Dashboard({ session }: { session: Session }) {
               >
                 <div className="card-top">
                   <span className={`tag ${TYPES[d.filetype].cls}`}>{TYPES[d.filetype].tag}</span>
-                  {!d.locked && (d.mine || session.role === "admin") && (
+                  {!d.locked && (
                     <span className="card-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
-                      <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
-                      <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
+                      <button className="ghost small" title="Export as PDF" onClick={() => exportPdf(d)}>PDF</button>
+                      {(d.mine || session.role === "admin") && (
+                        <>
+                          <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
+                          <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
+                          <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
+                        </>
+                      )}
                     </span>
                   )}
                   {d.locked && <span className="tag t-locked">LOCKED</span>}
