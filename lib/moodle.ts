@@ -56,17 +56,20 @@ export async function syncMoodleUser(
       if (password) p["users[0][password]"] = password;
       await call("core_user_update_users", p);
     } else {
-      const p: Record<string, string> = {
+      // core_user_create_users takes no `suspended` param (update_users does) — sending it
+      // fails the whole call with `invalidparameter`, so suspend in a second step.
+      const created = await call("core_user_create_users", {
         "users[0][username]": username,
         "users[0][password]": password || Math.random().toString(36).slice(2) + "Aa1!",
         "users[0][firstname]": agent.codename,
         "users[0][lastname]": agent.matricule,
         "users[0][email]": `${username}@shield.local`,
         "users[0][auth]": "manual",
-        "users[0][suspended]": agent.suspended ? "1" : "0",
-      };
-      const created = await call("core_user_create_users", p);
+      });
       mid = Array.isArray(created) && created[0]?.id ? created[0].id : null;
+      if (mid && agent.suspended) {
+        await call("core_user_update_users", { "users[0][id]": String(mid), "users[0][suspended]": "1" });
+      }
     }
     if (mid) await pool.query("UPDATE users SET moodle_id = $2 WHERE id = $1", [portalUserId, mid]);
   } catch (e) {
