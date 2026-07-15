@@ -20,7 +20,7 @@ function classifBadge(level: number) {
   return <span className={`classif ${cls}`}>LVL.{level} — {label}</span>;
 }
 
-export default function Dashboard({ session }: { session: Session }) {
+export default function Dashboard({ session, academyUrl }: { session: Session; academyUrl?: string }) {
   const router = useRouter();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -179,6 +179,12 @@ export default function Dashboard({ session }: { session: Session }) {
           <span className="rail-label">Mine</span>
         </button>
         <a href="/roster"><button className="rail-btn"><span className="rail-label">Roster</span></button></a>
+        {academyUrl && (
+          // Separate system on its own domain — open it in a new tab rather than losing the Drive.
+          <a href={academyUrl} target="_blank" rel="noopener noreferrer" title="S.H.I.E.L.D. Academy — training">
+            <button className="rail-btn"><span className="rail-label">Academy</span></button>
+          </a>
+        )}
         {session.role === "admin" && (
           <a href="/admin"><button className="rail-btn"><span className="rail-label">Command</span></button></a>
         )}
