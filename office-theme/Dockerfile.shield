@@ -21,17 +21,22 @@ RUN sed -i "s/default .scheme;/default https;/" /etc/onlyoffice/documentserver/n
     ! grep -q "default .scheme;" /etc/onlyoffice/documentserver/nginx/includes/http-common.conf
 
 # ---- SHIELD branding layer ----
-# Install the custom UI theme (theme-shield-dark) into the shared themes folder and
-# register it in themes.json. Self-locates the folder; fetches the theme from the
-# public repo (no build context needed). Fails the build if the theme dir is missing
-# so a broken reskin is caught before going live.
+# Repaint the BUILT-IN dark theme rather than registering a custom one.
+#
+# Why: DS 9.3's api.js only ever appends `&uitheme=<id>` to the editor URL, never
+# `&uithemetype=`. The bootstrap in index.html therefore cannot know a custom theme's type
+# (themes.json loads later), leaves the body on `theme-type-light`, and the editor renders
+# light — the "custom theme is ignored" symptom. Built-in themes sidestep this entirely:
+# their colours are precompiled in app.css under `.theme-dark`, so the body class alone is
+# enough. The portal then just asks for uiTheme "theme-dark" (see lib/onlyoffice.ts).
+#
+# The script fails loudly if it cannot find the rule, so a silently-unstyled editor can
+# never reach production.
 RUN set -e; \
-    D="$(dirname "$(find /var/www/onlyoffice/documentserver/web-apps -name themes.json -ipath '*resources/themes*' | head -1)")"; \
-    echo "themes dir: $D"; test -n "$D"; \
-    wget -qO "$D/shield-dark.json" "https://raw.githubusercontent.com/Quentinthierry12/SHIELD_coulofson/main/office-theme/theme/shield-dark.json"; \
-    test -s "$D/shield-dark.json"; \
-    printf '%s' '{"themes":["shield-dark.json"]}' > "$D/themes.json"; \
-    echo "installed SHIELD theme in $D"
+    wget -qO /tmp/repaint-dark.py "https://raw.githubusercontent.com/Quentinthierry12/SHIELD_coulofson/main/office-theme/repaint-dark.py"; \
+    test -s /tmp/repaint-dark.py; \
+    python3 /tmp/repaint-dark.py /var/www/onlyoffice/documentserver/web-apps; \
+    rm -f /tmp/repaint-dark.py
 
 # Install the S.H.I.E.L.D. Classify plugin into sdkjs-plugins so it appears in the
 # editor's Plugins tab. Fetches each file from the public repo.

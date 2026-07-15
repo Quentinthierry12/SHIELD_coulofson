@@ -16,16 +16,25 @@ export const DOC_TYPES: Record<string, { documentType: string; mime: string }> =
 // for a clean internal-tool feel.
 export const SHIELD_CLASSIFY_GUID = "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}";
 
-// shield-dark.json is installed on the DS (see office-theme/Dockerfile.shield) and carries
-// the full 89-variable set OnlyOffice expects, so the custom theme loads — an earlier note
-// claiming DS 9.3 rejects it was wrong: it applied, it was just painted near-black.
+// Must stay a BUILT-IN theme id. DS 9.3's api.js only ever appends `&uitheme=<id>` to the
+// editor URL — never `&uithemetype=` — so the bootstrap in index.html cannot know a custom
+// theme's type (themes.json loads later) and leaves the body on theme-type-light. Built-in
+// themes dodge this: their colours are precompiled in app.css under `.theme-dark`, so the
+// body class alone is enough. We therefore repaint `.theme-dark` itself in the image
+// (office-theme/Dockerfile.shield) instead of registering theme-shield-dark.
 export const SHIELD_CUSTOMIZATION = {
-  uiTheme: "theme-shield-dark",
+  uiTheme: "theme-dark",
   compactHeader: false,
   hideRightMenu: true,
   toolbarNoTabs: false,
   feedback: false,
   goback: false,
+  // Header logo. Without this the editor shows the stock ONLYOFFICE mark.
+  logo: {
+    image: `${process.env.PORTAL_URL}/logo-white.png`,
+    imageDark: `${process.env.PORTAL_URL}/logo-white.png`,
+    url: process.env.PORTAL_URL,
+  },
   customer: {
     name: "S.H.I.E.L.D.",
     info: "Strategic Homeland Intervention, Enforcement and Logistics Division — Central Document System",
