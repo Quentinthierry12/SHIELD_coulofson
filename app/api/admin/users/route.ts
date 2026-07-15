@@ -16,7 +16,11 @@ export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
-    "SELECT id, matricule, codename, clearance, role, status, COALESCE(division,'') AS division, discord_id IS NOT NULL AS discord_linked, created_at FROM users ORDER BY status DESC, id"
+    `SELECT id, matricule, codename, clearance, role, status, COALESCE(division,'') AS division,
+            discord_id IS NOT NULL AS discord_linked,
+            moodle_id IS NOT NULL AS moodle_synced,
+            created_at
+     FROM users ORDER BY status DESC, id`
   );
   return NextResponse.json(rows);
 }

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
-type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; created_at: string };
+type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; moodle_synced: boolean; created_at: string };
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
@@ -133,11 +133,17 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
   );
 }
 
+// A synced integration reads as a lit badge; an unsynced one stays dim rather than
+// disappearing, so an officer can tell "not linked" from "column missing".
+function SyncDot({ on, label, title }: { on: boolean; label: string; title: string }) {
+  return <span className={`sync-dot ${on ? "on" : "off"}`} title={title}>{label}</span>;
+}
+
 function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; maxLevel: number; myId: number }) {
   return (
     <table>
       <thead>
-        <tr><th>Badge</th><th>Codename</th><th>Division</th><th>Clearance</th><th>Role</th><th>Status</th><th>Discord</th><th>Actions</th></tr>
+        <tr><th>Badge</th><th>Codename</th><th>Division</th><th>Clearance</th><th>Role</th><th>Status</th><th>Sync</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {users.map((u) => {
@@ -172,7 +178,14 @@ function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, maxL
                 {u.status === "active" ? "ACTIVE" : u.status === "pending" ? "PENDING" : "REVOKED"}
               </span>
             </td>
-            <td className="muted">{u.discord_linked ? "linked" : "—"}</td>
+            <td>
+              <span className="sync-cell">
+                <SyncDot on={u.discord_linked} label="DISCORD"
+                  title={u.discord_linked ? "Discord account linked" : "No Discord account linked — the agent signs in with their badge only"} />
+                <SyncDot on={u.moodle_synced} label="ACADEMY"
+                  title={u.moodle_synced ? "Academy (Moodle) account provisioned" : "No Academy account — created on next password change or account update"} />
+              </span>
+            </td>
             <td style={{ display: "flex", gap: 6 }}>
               {locked ? <span className="muted">Above your clearance</span> : <>
                 {u.status !== "active" && <button className="small" onClick={() => onUpdate(u, { status: "active" })}>Validate</button>}
@@ -488,6 +501,43 @@ function FromTemplateModal({ template, folders, maxLevel, onClose }: { template:
 }
 
 // ---------------- Settings ----------------
+type Integration = { configured: boolean; reachable: boolean; linked: number | null };
+type Integrations = { total: number; discord: Integration; academy: Integration; office: Integration };
+
+function IntegrationsPanel() {
+  const [d, setD] = useState<Integrations | null>(null);
+  useEffect(() => { fetch("/api/admin/integrations").then((r) => r.ok && r.json()).then((x) => x && setD(x)); }, []);
+
+  const row = (name: string, i: Integration, note: string) => {
+    const state = !i.configured ? "Not configured" : i.reachable ? "Online" : "Unreachable";
+    const cls = !i.configured ? "off" : i.reachable ? "on" : "bad";
+    return (
+      <tr key={name}>
+        <td className="mono">{name}</td>
+        <td><span className={`sync-dot ${cls}`}>{state.toUpperCase()}</span></td>
+        <td className="muted">{i.linked === null ? "—" : `${i.linked} / ${d!.total} agents`}</td>
+        <td className="muted">{note}</td>
+      </tr>
+    );
+  };
+
+  return (
+    <div className="panel">
+      <h2>Integrations</h2>
+      {!d ? <div className="skeleton" style={{ height: 80 }} /> : (
+        <table>
+          <thead><tr><th>System</th><th>Status</th><th>Linked</th><th></th></tr></thead>
+          <tbody>
+            {row("DISCORD", d.discord, "OAuth sign-in and automatic DMs")}
+            {row("ACADEMY", d.academy, "Moodle accounts, same badge and password")}
+            {row("OFFICE", d.office, "Document Server: editing and PDF export")}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab() {
   const [settings, setSettings] = useState<Record<string, string | null>>({});
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -507,6 +557,8 @@ function SettingsTab() {
   }
 
   return (
+    <>
+    <IntegrationsPanel />
     <div className="panel">
       <h2>Automatic documents</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
@@ -536,6 +588,7 @@ function SettingsTab() {
 
       {saved && <p className="success" style={{ marginTop: 14 }}>✓ Settings saved.</p>}
     </div>
+    </>
   );
 }
 
