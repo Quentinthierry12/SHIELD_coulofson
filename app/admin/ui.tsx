@@ -83,6 +83,24 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     toast(res.ok ? "Personnel file regenerated." : "Failed.", res.ok ? "success" : "error");
   }
 
+  // Renaming rewrites the agent's identity everywhere: personnel file, Academy username.
+  // Confirm the badge change explicitly — it is what the agent signs in with.
+  async function rename(u: User, patch: { matricule?: string; codename?: string }) {
+    if (patch.matricule) {
+      const ok = await confirmDialog({
+        title: `Change badge ${u.matricule} → ${patch.matricule.trim().toUpperCase()}?`,
+        message: `The badge is ${u.codename}'s sign-in name, on the portal and at the Academy. They will be notified on Discord. Their password is unchanged.`,
+        confirmLabel: "Change badge",
+      });
+      if (!ok) return load(); // reload to snap the input back
+    }
+    const res = await fetch("/api/admin/users", { method: "PATCH", body: JSON.stringify({ ...u, ...patch }) });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error); return load(); }
+    toast("Agent updated.", "success");
+    load();
+  }
+
   // We only ever hold a bcrypt hash, so a manual sync cannot carry the agent's real
   // password across — be explicit about it rather than implying the accounts match.
   async function academySync(u: User) {
@@ -141,12 +159,12 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
+          <UserTable users={pending} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
+        <UserTable users={others} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
@@ -158,7 +176,7 @@ function SyncDot({ on, label, title }: { on: boolean; label: string; title: stri
   return <span className={`sync-dot ${on ? "on" : "off"}`} title={title}>{label}</span>;
 }
 
-function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
+function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
   return (
     <table>
       <thead>
@@ -170,8 +188,27 @@ function UserTable({ users, onUpdate, onResetPassword, onDelete, onGenFile, onAc
           const locked = u.id !== myId && u.clearance > maxLevel;
           return (
           <tr key={u.id} style={locked ? { opacity: 0.5 } : undefined}>
-            <td className="mono">{u.matricule}</td>
-            <td>{u.codename}</td>
+            <td>
+              {locked ? <span className="mono">{u.matricule}</span> : (
+                // The badge is the sign-in name: changing it DMs the agent (see the PATCH route).
+                <input
+                  className="mono"
+                  defaultValue={u.matricule}
+                  onBlur={(e) => e.target.value.trim().toUpperCase() !== u.matricule && onRename(u, { matricule: e.target.value })}
+                  style={{ marginBottom: 0, width: 130 }}
+                  title="Badge number — also the sign-in name, here and at the Academy"
+                />
+              )}
+            </td>
+            <td>
+              {locked ? <span>{u.codename}</span> : (
+                <input
+                  defaultValue={u.codename}
+                  onBlur={(e) => e.target.value.trim() !== u.codename && onRename(u, { codename: e.target.value })}
+                  style={{ marginBottom: 0, width: 130 }}
+                />
+              )}
+            </td>
             <td>
               {locked ? <span className="muted">{u.division || "—"}</span> : (
                 <input defaultValue={u.division} placeholder="—" onBlur={(e) => e.target.value !== u.division && onUpdate(u, { division: e.target.value })} style={{ marginBottom: 0, width: 120 }} />

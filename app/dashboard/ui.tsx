@@ -104,6 +104,16 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
     load();
   }
 
+  async function reclassify(doc: Doc, level: number) {
+    const res = await fetch(`/api/documents/${doc.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ classification: level }),
+    });
+    if (!res.ok) { toast((await res.json()).error, "error"); return load(); }
+    toast(`“${doc.title}” is now level ${level}.`, "success");
+    load();
+  }
+
   // Conversion runs on the Document Server and takes a moment on big files, so tell the
   // agent it started rather than leaving the button dead.
   async function exportPdf(doc: Doc) {
@@ -303,7 +313,27 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                   {d.locked && <span className="tag t-locked">LOCKED</span>}
                 </div>
                 <div className="card-title">{d.title}</div>
-                <div className="card-meta">{classifBadge(d.classification)}</div>
+                <div className="card-meta" onClick={(e) => e.stopPropagation()}>
+                  {!d.locked && (d.mine || session.role === "admin") ? (
+                    // Personnel files land at level 10 by default; reclassify them in place.
+                    // Capped at your own clearance — you cannot hide a file from yourself.
+                    <select
+                      className={`classif-select ${d.classification >= 7 ? "high" : d.classification >= 4 ? "mid" : "low"}`}
+                      value={d.classification}
+                      onChange={(e) => reclassify(d, +e.target.value)}
+                      title="Classification level"
+                    >
+                      {/* All ten levels are listed so a file already above your clearance
+                          (personnel files start at 10) still shows its real level; the ones
+                          you may not assign are disabled, and the API refuses them anyway. */}
+                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n} disabled={n > session.clearance}>
+                          LVL.{n} — {n >= 7 ? "TOP SECRET" : n >= 4 ? "CLASSIFIED" : "RESTRICTED"}
+                        </option>
+                      ))}
+                    </select>
+                  ) : classifBadge(d.classification)}
+                </div>
                 {d.locked ? (
                   <div className="card-meta muted">
                     {d.request_status === "pending"

@@ -273,3 +273,14 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
 .sync-dot.on { border-color: var(--accent-dim); color: var(--accent); }
 .sync-dot.off { opacity: 0.45; }
 .sync-dot.bad { border-color: var(--danger); color: var(--danger); }
+
+/* Classification picker on a Drive card: reads as the badge it replaces, not as a form field. */
+.classif-select {
+  width: auto; margin-bottom: 0; padding: 2px 6px;
+  font-family: Consolas, monospace; font-size: 0.7rem; letter-spacing: 0.05em;
+  border-radius: 3px; cursor: pointer;
+  background: #0a101a;
+}
+.classif-select.low { border-color: var(--ok); color: var(--ok); }
+.classif-select.mid { border-color: #ffd166; color: #ffd166; }
+.classif-select.high { border-color: var(--danger); color: var(--danger); }

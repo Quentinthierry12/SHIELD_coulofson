@@ -244,8 +244,12 @@ export async function refreshPersonnelFile(userId: number) {
     if (!u) return;
     const content = await buildPersonnelFile({ matricule: u.matricule, codename: u.codename, division: u.division, clearance: u.clearance });
     const title = `PERSONNEL FILE — ${u.matricule} (${u.codename})`;
+    // Match on the owner + prefix, not the exact title: the title embeds the badge and
+    // codename, so after a rename an exact match would miss and mint a second file.
+    // The title is rewritten here, which is what carries the rename through.
     const { rowCount } = await p.query(
-      "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE owner_id = $1 AND title = $3",
+      `UPDATE documents SET title = $3, content = $2, version = version + 1, updated_at = now()
+       WHERE owner_id = $1 AND title LIKE 'PERSONNEL FILE — %'`,
       [userId, content, title]
     );
     if (!rowCount) {

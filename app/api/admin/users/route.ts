@@ -67,12 +67,12 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return NextResponse.json({ error: "Access denied." }, { status: 403 });
-  const { id, status, clearance, role, new_password, division } = await req.json();
+  const { id, status, clearance, role, new_password, division, matricule, codename } = await req.json();
   if (id === admin.id && (status !== "active" || role !== "admin")) {
     return NextResponse.json({ error: "You cannot demote yourself." }, { status: 400 });
   }
   const pool = await db();
-  const { rows: before } = await pool.query("SELECT status, clearance FROM users WHERE id = $1", [id]);
+  const { rows: before } = await pool.query("SELECT status, clearance, matricule, codename FROM users WHERE id = $1", [id]);
   if (!before[0]) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
   const level = Math.min(10, Math.max(1, clearance));
   // Officers can neither manage agents at/above their own clearance nor raise anyone to it.
@@ -82,10 +82,25 @@ export async function PATCH(req: Request) {
   if (id !== admin.id && level >= admin.clearance) {
     return NextResponse.json({ error: `You can only assign clearances below your own (max level ${admin.clearance - 1}).` }, { status: 403 });
   }
-  await pool.query(
-    "UPDATE users SET status = $2, clearance = $3, role = $4, division = $5 WHERE id = $1",
-    [id, status, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null]
-  );
+  // Badge and codename are editable; the badge is the sign-in name, so validate it and
+  // keep it unique. Both are optional in the payload — absent means "leave alone".
+  const newBadge = matricule === undefined ? before[0].matricule : String(matricule).trim().toUpperCase();
+  const newCodename = codename === undefined ? before[0].codename : String(codename).trim();
+  if (!MATRICULE_RE.test(newBadge)) {
+    return NextResponse.json({ error: "Badge number: 3-20 characters, letters/digits/dashes only." }, { status: 400 });
+  }
+  if (!newCodename) return NextResponse.json({ error: "Codename cannot be empty." }, { status: 400 });
+  const renamed = newBadge !== before[0].matricule || newCodename !== before[0].codename;
+  try {
+    await pool.query(
+      "UPDATE users SET status = $2, clearance = $3, role = $4, division = $5, matricule = $6, codename = $7 WHERE id = $1",
+      [id, status, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null, newBadge, newCodename]
+    );
+  } catch (e: any) {
+    if (e.code === "23505") return NextResponse.json({ error: "This badge number is already taken." }, { status: 409 });
+    throw e;
+  }
+  if (renamed) audit(admin, "account_rename", `#${id} ${before[0].matricule} (${before[0].codename}) -> ${newBadge} (${newCodename})`);
   if (new_password) {
     if (new_password.length < 6) return NextResponse.json({ error: "Password: at least 6 characters." }, { status: 400 });
     await pool.query("UPDATE users SET password_hash = $2, must_change_password = true WHERE id = $1", [id, await bcrypt.hash(new_password, 10)]);
@@ -99,6 +114,12 @@ export async function PATCH(req: Request) {
   if (before[0]?.status !== "active" && status === "active") {
     await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");
+  } else if (renamed) {
+    await refreshPersonnelFile(id); // the file embeds the badge and codename, in its title too
+  }
+  // The badge IS the sign-in name: changing it locks the agent out until they know.
+  if (newBadge !== before[0].matricule) {
+    dmByUserId(id, `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your badge number is now **${newBadge}** (was ${before[0].matricule}). Use it to sign in, here and at the Academy. Your password is unchanged.`);
   }
   return NextResponse.json({ ok: true });
 }
