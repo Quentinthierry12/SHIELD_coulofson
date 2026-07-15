@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       );
       await createPersonnelFile(rows[0].id, m, codename.trim());
       // Provision the Academy account now (password available), suspended until validated.
-      syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), suspended: true }, password);
+      await syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), suspended: true }, password);
       audit({ id: rows[0].id, matricule: m }, "register", codename.trim());
       return NextResponse.json({ matricule: m });
     } catch (e: any) {

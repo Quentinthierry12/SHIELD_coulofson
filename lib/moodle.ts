@@ -20,7 +20,10 @@ async function call(fn: string, params: Record<string, string>): Promise<any> {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  return res.json();
+  const json = await res.json();
+  // Moodle reports errors in the payload (HTTP 200 + {exception}), so surface them in the logs.
+  if (json?.exception) console.error(`[moodle] ${fn}: ${json.errorcode} — ${json.message}`);
+  return json;
 }
 
 async function findByUsername(username: string): Promise<number | null> {
@@ -66,7 +69,9 @@ export async function syncMoodleUser(
       mid = Array.isArray(created) && created[0]?.id ? created[0].id : null;
     }
     if (mid) await pool.query("UPDATE users SET moodle_id = $2 WHERE id = $1", [portalUserId, mid]);
-  } catch {}
+  } catch (e) {
+    console.error("[moodle] sync failed:", e);
+  }
 }
 
 export async function setMoodlePassword(portalUserId: number, password: string) {
@@ -77,7 +82,9 @@ export async function setMoodlePassword(portalUserId: number, password: string) 
     if (rows[0]?.moodle_id) {
       await call("core_user_update_users", { "users[0][id]": String(rows[0].moodle_id), "users[0][password]": password });
     }
-  } catch {}
+  } catch (e) {
+    console.error("[moodle] sync failed:", e);
+  }
 }
 
 export async function deleteMoodleUser(portalUserId: number) {
@@ -86,5 +93,7 @@ export async function deleteMoodleUser(portalUserId: number) {
     const pool = await db();
     const { rows } = await pool.query("SELECT moodle_id FROM users WHERE id = $1", [portalUserId]);
     if (rows[0]?.moodle_id) await call("core_user_delete_users", { "userids[0]": String(rows[0].moodle_id) });
-  } catch {}
+  } catch (e) {
+    console.error("[moodle] sync failed:", e);
+  }
 }

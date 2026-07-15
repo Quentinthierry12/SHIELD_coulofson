@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     s.id,
     await bcrypt.hash(next, 10),
   ]);
-  setMoodlePassword(s.id, next); // keep Academy password in sync
+  await setMoodlePassword(s.id, next); // keep Academy password in sync
   // Refresh the session so the "must change password" gate clears immediately.
   await createSession({ ...s, mustChangePassword: false });
   audit(s, "password_change");
