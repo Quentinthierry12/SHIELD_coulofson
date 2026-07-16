@@ -167,6 +167,20 @@ export async function accessibleFolderIds(userId: number, role: string): Promise
 
 // Accès à un document : niveau d'habilitation suffisant, propriétaire, admin, ou partage explicite —
 // ET accès au dossier qui le contient.
+// Editing is decoupled from clearance: a document may only be modified by its
+// creator, by someone the creator explicitly invited (document_shares), or by an
+// officer. High clearance grants visibility, never edit rights.
+export async function userCanEditDoc(docId: number, ownerId: number | null, userId: number, role: string): Promise<boolean> {
+  if (role === "admin") return true;
+  if (ownerId != null && ownerId === userId) return true;
+  const p = await db();
+  const { rows } = await p.query(
+    "SELECT 1 FROM document_shares WHERE doc_id = $1 AND user_id = $2 LIMIT 1",
+    [docId, userId]
+  );
+  return rows.length > 0;
+}
+
 export async function getAccessibleDoc(docId: number, clearance: number, userId: number, role: string) {
   const p = await db();
   const { rows } = await p.query(
