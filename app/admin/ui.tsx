@@ -9,7 +9,7 @@ type LogRow = { id: number; matricule: string; action: string; target: string; c
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"agents" | "divisions" | "requests" | "missions" | "templates" | "settings" | "audit">("agents");
+  const [tab, setTab] = useState<"agents" | "divisions" | "documents" | "requests" | "missions" | "templates" | "settings" | "audit">("agents");
   return (
     <>
       <div className="topbar">
@@ -17,9 +17,10 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Command</h1>
         </div>
-        <div className="tabs" style={{ marginBottom: 0, width: 840 }}>
+        <div className="tabs" style={{ marginBottom: 0, width: 940 }}>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
           <button className={tab === "divisions" ? "" : "inactive"} onClick={() => setTab("divisions")}>Divisions</button>
+          <button className={tab === "documents" ? "" : "inactive"} onClick={() => setTab("documents")}>Documents</button>
           <button className={tab === "requests" ? "" : "inactive"} onClick={() => setTab("requests")}>Requests</button>
           <button className={tab === "missions" ? "" : "inactive"} onClick={() => setTab("missions")}>Missions</button>
           <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
@@ -30,6 +31,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
       <div className="container">
         {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
         {tab === "divisions" && <DivisionsTab />}
+        {tab === "documents" && <DocumentsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "missions" && <MissionsTab myClearance={myClearance} />}
         {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
@@ -302,6 +304,144 @@ function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGen
         />
       )}
     </>
+  );
+}
+
+// ---------------- Documents (officer view) ----------------
+type DocSigner = { matricule: string; codename: string; status: string; signed_at: string | null; reason: string | null; position: number };
+type AdminDoc = {
+  id: number; title: string; filetype: string; classification: number; sealed: boolean;
+  is_personnel: boolean; updated_at: string; owner: string | null; owner_badge: string | null;
+  request_id: number | null; request_status: string | null; sequential: boolean | null;
+  requested_at: string | null; completed_at: string | null; requested_by: string | null;
+  signers: DocSigner[];
+};
+
+function DocumentsTab() {
+  const router = useRouter();
+  const [docs, setDocs] = useState<AdminDoc[]>([]);
+  const [filter, setFilter] = useState<"all" | "waiting" | "unsigned" | "sealed">("waiting");
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    const res = await fetch("/api/admin/documents");
+    if (res.ok) setDocs(await res.json());
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function remind(d: AdminDoc) {
+    const late = d.signers.filter((s) => s.status === "pending").map((s) => s.codename).join(", ");
+    const ok = await confirmDialog({
+      title: `Chase the outstanding signatures on “${d.title}”?`,
+      message: `A Discord reminder goes to: ${late}.`,
+      confirmLabel: "Send reminder",
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/admin/documents/${d.id}/remind`, { method: "POST" });
+    const r = await res.json();
+    toast(res.ok ? `Reminder sent to ${r.sent} agent(s).` : r.error, res.ok ? "success" : "error");
+  }
+
+  async function unseal(d: AdminDoc) {
+    const ok = await confirmDialog({
+      title: `Unseal “${d.title}”?`,
+      message: "Every signature on this document is voided and the signers are notified.",
+      confirmLabel: "Unseal and void", danger: true,
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/documents/${d.id}`, { method: "PATCH", body: JSON.stringify({ unlock: true }) });
+    const r = await res.json();
+    if (!res.ok) return toast(r.error, "error");
+    toast(`Unsealed — ${r.voided} request(s) voided.`, "success");
+    load();
+  }
+
+  // A document is "waiting" when a request is open, "unsigned" when nobody ever asked.
+  const shown = docs.filter((d) => {
+    if (filter === "all") return true;
+    if (filter === "waiting") return d.request_status === "pending";
+    if (filter === "unsigned") return !d.request_id;
+    return d.request_status === "complete";
+  });
+  const counts = {
+    waiting: docs.filter((d) => d.request_status === "pending").length,
+    unsigned: docs.filter((d) => !d.request_id).length,
+    sealed: docs.filter((d) => d.request_status === "complete").length,
+  };
+
+  const tab = (k: typeof filter, label: string) => (
+    <button className={filter === k ? "" : "inactive"} onClick={() => setFilter(k)}>{label}</button>
+  );
+
+  return (
+    <div className="panel">
+      <h2>Documents &amp; signatures</h2>
+      <div className="tabs" style={{ width: 560 }}>
+        {tab("waiting", `Awaiting signature (${counts.waiting})`)}
+        {tab("unsigned", `Never sent (${counts.unsigned})`)}
+        {tab("sealed", `Sealed (${counts.sealed})`)}
+        {tab("all", `All (${docs.length})`)}
+      </div>
+
+      {loading && <div className="skeleton" style={{ height: 60 }} />}
+      {!loading && shown.length === 0 && <p className="muted">Nothing here.</p>}
+
+      {shown.map((d) => {
+        const pending = d.signers.filter((s) => s.status === "pending");
+        const signed = d.signers.filter((s) => s.status === "signed");
+        const declined = d.signers.filter((s) => s.status === "declined");
+        return (
+          <div key={d.id} className="mission-row">
+            <div className="mission-head">
+              <b>{d.title}</b>
+              <span className="chip lv mono">LVL. {d.classification}</span>
+              {d.is_personnel && <span className="chip">PERSONNEL</span>}
+              {d.request_status === "pending" && (
+                <span className="classif mid">{signed.length}/{d.signers.length} SIGNED</span>
+              )}
+              {d.request_status === "complete" && <span className="classif low">SEALED</span>}
+              {d.request_status === "declined" && <span className="classif high">DECLINED</span>}
+              {!d.request_id && <span className="chip">no request</span>}
+              {d.sequential && <span className="chip">CHAIN</span>}
+              <span className="agent-spacer" />
+              <button className="ghost small" onClick={() => router.push(`/doc/${d.id}`)}>Open</button>
+              {d.request_status === "pending" && pending.length > 0 && (
+                <button className="ghost small" onClick={() => remind(d)}>Chase</button>
+              )}
+              {d.sealed && <button className="ghost small danger" onClick={() => unseal(d)}>Unseal</button>}
+            </div>
+
+            <div className="mission-meta muted">
+              {d.owner ? `${d.owner_badge} · ${d.owner}` : "no owner"}
+              {d.requested_by ? ` · requested by ${d.requested_by}` : ""}
+              {d.requested_at ? ` · ${new Date(d.requested_at).toLocaleDateString()}` : ""}
+            </div>
+
+            {d.signers.length > 0 && (
+              <div className="signer-list">
+                {signed.map((s) => (
+                  <span key={s.matricule} className="sync-dot on" title={`Signed ${new Date(s.signed_at!).toLocaleString()}`}>
+                    {s.codename} ✓
+                  </span>
+                ))}
+                {/* Who is holding it up — the actual question an officer is asking. */}
+                {pending.map((s) => (
+                  <span key={s.matricule} className="sync-dot off" title="Has not signed yet">
+                    {s.codename} …
+                  </span>
+                ))}
+                {declined.map((s) => (
+                  <span key={s.matricule} className="sync-dot bad" title={s.reason || "Declined"}>
+                    {s.codename} ✕
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -955,7 +1095,7 @@ function SettingsTab() {
 
 // ---------------- Audit ----------------
 const ACTION_LABELS: Record<string, string> = {
-  doc_unseal: "Document unsealed", signature_engrave: "Signatures engraved", signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Refused to sign",
+  doc_unseal: "Document unsealed", signature_remind: "Signature chased", signature_engrave: "Signatures engraved", signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Refused to sign",
   signature_complete: "Document sealed", signature_cancel: "Request cancelled",
   signature_broken: "Request voided (content changed)", signature_upload: "Signature image",
   doc_save_blocked: "Save blocked (sealed)",
