@@ -63,6 +63,7 @@ export async function requestSignature(opts: {
   }
   // Asking for signatures seals the document — same rule as a manual request.
   await p.query("UPDATE documents SET locked = true WHERE id = $1", [docId]);
+  await renderPendingSlots(docId, reqId);
   return reqId;
 }
 
@@ -94,4 +95,30 @@ export async function requestPersonnelSignature(
     docId, signerIds: signers, requestedBy: officerId, circuit: "admin", sequential: true,
     note: "Personnel file — read and sign your oath of service.",
   });
+}
+
+// Render the slots of a freshly-raised request: no signature yet, so every [[SIGN:…]]
+// becomes "awaiting signature" and [[DATE]] a blank rule. Without this the FIRST signer
+// opens the document and is met with raw [[SIGN:AG-4782]] markers — the very thing the
+// slots were meant to replace.
+export async function renderPendingSlots(docId: number, requestId: number): Promise<void> {
+  try {
+    const { fillSignMarkers } = await import("./sigmarkers");
+    const p = await db();
+    const { rows } = await p.query(
+      "SELECT d.filetype, r.original_content FROM documents d, signature_requests r WHERE d.id = $1 AND r.id = $2",
+      [docId, requestId]
+    );
+    if (rows[0]?.filetype !== "docx" || !rows[0].original_content) return;
+    const out = await fillSignMarkers(rows[0].original_content, new Map(), [], null);
+    // `replaced` counts filled signatures — zero here by construction, so compare bytes.
+    if (out.buffer.equals(rows[0].original_content)) return; // no slots in this document
+    const { rows: up } = await p.query(
+      "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1 RETURNING content",
+      [docId, out.buffer]
+    );
+    await p.query("UPDATE signature_requests SET content_hash = $2 WHERE id = $1", [requestId, hashContent(up[0].content)]);
+  } catch (e) {
+    console.error("[signature] could not render pending slots:", e);
+  }
 }

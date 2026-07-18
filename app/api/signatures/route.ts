@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { docHash } from "@/lib/signatures";
+import { docHash, renderPendingSlots } from "@/lib/signatures";
 import { dmByUserId } from "@/lib/discord";
 
 // The inbox. One endpoint serves both sides: an agent gets what they must sign, an
@@ -110,6 +110,8 @@ export async function POST(req: Request) {
 
   // Requesting signatures seals the document: a signature on editable content is worthless.
   await pool.query("UPDATE documents SET locked = true WHERE id = $1", [docId]);
+  // Show the slots as "awaiting signature" right away, so the first signer never sees a raw marker.
+  await renderPendingSlots(docId, reqId);
 
   // In a sequential circuit only the first signer is called up; the rest are told in turn.
   const toNotify = sequential ? resolved.slice(0, 1) : resolved;
