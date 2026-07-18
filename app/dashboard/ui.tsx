@@ -123,6 +123,20 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
     load();
   }
 
+  async function unseal(doc: Doc) {
+    const ok = await confirmDialog({
+      title: `Unseal “${doc.title}”?`,
+      message: "Every signature on this document is voided and the signers are notified. The document becomes editable again.",
+      confirmLabel: "Unseal and void signatures", danger: true,
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ unlock: true }) });
+    const d = await res.json();
+    if (!res.ok) return toast(d.error, "error");
+    toast(`Unsealed — ${d.voided} signature request(s) voided.`, "success");
+    load();
+  }
+
   async function reclassify(doc: Doc, level: number) {
     const res = await fetch(`/api/documents/${doc.id}`, {
       method: "PATCH",
@@ -326,6 +340,9 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                       {(d.mine || session.role === "admin") && (
                         <>
                           {!d.sealed && <button className="ghost small" title="Request signatures" onClick={() => setSignDoc(d)}>Sign</button>}
+                          {d.sealed && session.role === "admin" && (
+                            <button className="ghost small danger" title="Unseal — voids every signature" onClick={() => unseal(d)}>Unseal</button>
+                          )}
                           {!d.sealed && <button className="ghost small" title="Rename" onClick={() => renameDoc(d)}>Rename</button>}
                           <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
                           <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>

@@ -937,7 +937,7 @@ function SettingsTab() {
 
 // ---------------- Audit ----------------
 const ACTION_LABELS: Record<string, string> = {
-  signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Refused to sign",
+  doc_unseal: "Document unsealed", signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Refused to sign",
   signature_complete: "Document sealed", signature_cancel: "Request cancelled",
   signature_broken: "Request voided (content changed)", signature_upload: "Signature image",
   doc_save_blocked: "Save blocked (sealed)",
