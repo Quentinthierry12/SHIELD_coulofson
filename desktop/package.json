@@ -23,8 +23,9 @@
     "files": [
       "main.js",
       "preload.js",
-      "assets/**",
-      "!fix-electron.js"
+      "menu.js",
+      "shortcuts.js",
+      "assets/**"
     ],
     "win": {
       "target": [
@@ -37,7 +38,15 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "S.H.I.E.L.D."
-    }
+    },
+    "protocols": [
+      {
+        "name": "S.H.I.E.L.D.",
+        "schemes": [
+          "shield"
+        ]
+      }
+    ]
   },
   "author": "Quentin Thierry"
 }
