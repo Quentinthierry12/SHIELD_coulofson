@@ -25,6 +25,7 @@
       "preload.js",
       "menu.js",
       "shortcuts.js",
+      "chrome/**",
       "assets/**"
     ],
     "win": {
