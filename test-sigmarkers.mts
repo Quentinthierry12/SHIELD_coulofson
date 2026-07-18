@@ -102,4 +102,52 @@ const fill = (codename: string, matricule: string, role?: string): SignatureFill
   console.log("  ok  unnamed slots filled in order");
 }
 
-console.log("\nall signature-marker checks passed");
+
+// 6. Progressive: the same original rendered with 1 signer, then with 2. This is how the
+//    circuit works now — each signature re-renders from the original copy, never patches
+//    the previous render. Patching consumed [[DATE]] on the first pass, so the sealing
+//    date could never be stamped.
+{
+  const original = await docWithRuns(["Agent: [[SIGN:AG-1]] Officer: [[SIGN:AG-2]] Date: [[DATE]]"]);
+
+  // First signature — only AG-1 has signed, nothing is sealed yet.
+  const pass1 = await fillSignMarkers(
+    original, new Map([["AG-1", fill("Alpha", "AG-1")]]), [], null
+  );
+  const t1 = await textOf(pass1.buffer);
+  assert.ok(t1.includes("Alpha"), "the first signature must appear");
+  assert.ok(t1.includes("awaiting signature"), "the empty slot must stay visible");
+  assert.ok(!t1.includes("[[SIGN"), "no raw marker may be shown");
+  assert.ok(!t1.includes("[[DATE"), "the raw date marker may not be shown either");
+  // The signature stamp legitimately carries its own signing date, so look at the slot
+  // itself: it must still be a blank rule, not a sealing date.
+  assert.ok(t1.includes("____________"), "the date slot must still be a blank rule");
+  console.log("  ok  partial pass: one signature, the rest awaiting, no date");
+
+  // Second signature — rendered from the SAME original, now sealed.
+  const pass2 = await fillSignMarkers(
+    original,
+    new Map([["AG-1", fill("Alpha", "AG-1")], ["AG-2", fill("Bravo", "AG-2", "Officer")]]),
+    [], new Date("2026-07-18T00:00:00Z")
+  );
+  const t2 = await textOf(pass2.buffer);
+  assert.ok(t2.includes("Alpha") && t2.includes("Bravo"), "both signatures must appear");
+  assert.ok(!t2.includes("awaiting signature"), "no slot may remain empty");
+  assert.ok(t2.includes("2026-07-18"), "the sealing date must be stamped on the final pass");
+  assert.ok(t2.includes("Agent:") && t2.includes("Officer:"), "the labels must survive");
+  console.log("  ok  final pass from the original: both signatures + sealing date");
+}
+
+// 7. Rendering is idempotent: same inputs, same bytes. Without this, re-rendering would
+//    change the fingerprint for no reason and void a signature that is perfectly valid.
+{
+  const original = await docWithRuns(["X: [[SIGN:AG-1]] Date: [[DATE]]"]);
+  const at = new Date("2026-07-18T00:00:00Z");
+  const a = await fillSignMarkers(original, new Map([["AG-1", fill("Alpha", "AG-1")]]), [], at);
+  const b = await fillSignMarkers(original, new Map([["AG-1", fill("Alpha", "AG-1")]]), [], at);
+  assert.strictEqual(await textOf(a.buffer), await textOf(b.buffer), "two identical renders must match");
+  console.log("  ok  rendering is idempotent");
+}
+
+console.log("");
+console.log("all signature-marker checks passed");

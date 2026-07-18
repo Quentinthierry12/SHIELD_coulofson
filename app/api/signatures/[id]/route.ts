@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { docHash, isMyTurn } from "@/lib/signatures";
+import { docHash, isMyTurn, hashContent } from "@/lib/signatures";
 import { appendSignatureBlock, type SignatureLine } from "@/lib/docxgen";
 import { fillSignMarkers } from "@/lib/sigmarkers";
 import { dmByUserId } from "@/lib/discord";
@@ -74,52 +74,68 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   );
   const remaining = after.filter((x: any) => x.status === "pending");
 
-  if (remaining.length === 0) {
-    // Everyone signed: engrave the block into the document and seal it for good.
-    const { rows: doc } = await pool.query("SELECT content, filetype FROM documents WHERE id = $1", [request.doc_id]);
-    if (doc[0] && doc[0].filetype === "docx") {
-      try {
-        const lines: SignatureLine[] = after.map((x: any) => ({
-          codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at),
-          kind: x.kind, role: x.role === "admin" ? "Officer" : undefined,
-        }));
-        // If the author placed [[SIGN:…]] slots, sign in place — a real document reads
-        // "Agent signature: ____ Date: ____", and a block bolted on at the end would
-        // leave those lines blank. Only fall back to appending when there are no slots.
-        const byBadge = new Map(
-          after.map((x: any) => [
-            String(x.matricule).toUpperCase(),
-            { codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at), role: x.role === "admin" ? "Officer" : undefined },
-          ])
+  // Engrave after EVERY signature, not only the last: whoever has signed must see their
+  // signature on the page, and the next signer countersigns something visible. Slots not
+  // yet filled read "awaiting signature".
+  //
+  // Always redone from the ORIGINAL copy kept with the request, never patched onto the
+  // previous render: patching consumed the [[DATE]] marker on the first signature, so the
+  // sealing date could never be stamped. Rebuilding is also idempotent.
+  //
+  // This rewrites the document, which is exactly what content_hash guards against — so the
+  // fingerprint is updated here. The guarantee is unchanged: a change that does NOT come
+  // from this circuit still fails the next signer's check.
+  const sealing = remaining.length === 0;
+  const { rows: docRow } = await pool.query(
+    "SELECT d.filetype, r.original_content FROM documents d, signature_requests r WHERE d.id = $1 AND r.id = $2",
+    [request.doc_id, id]
+  );
+  if (docRow[0]?.filetype === "docx" && docRow[0].original_content) {
+    try {
+      const signedSoFar = after.filter((x: any) => x.status === "signed");
+      const fill = (x: any) => ({
+        codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at),
+        role: x.role === "admin" ? "Officer" : undefined,
+      });
+      const byBadge = new Map<string, any>(signedSoFar.map((x: any) => [String(x.matricule).toUpperCase(), fill(x)]));
+      // Role slots take the first signer holding that role.
+      const off = signedSoFar.find((x: any) => x.role === "admin");
+      if (off) byBadge.set("OFFICER", fill(off));
+      const ag = signedSoFar.find((x: any) => x.role !== "admin");
+      if (ag) byBadge.set("AGENT", { ...fill(ag), role: undefined });
+
+      const marked = await fillSignMarkers(
+        docRow[0].original_content, byBadge, signedSoFar.map(fill), sealing ? new Date() : null
+      );
+      // No [[SIGN]] slot in the document: fall back to a block appended at the end, and
+      // only once everything is signed — appending on each signature would stack blocks.
+      const content = marked.replaced > 0
+        ? marked.buffer
+        : sealing
+          ? await appendSignatureBlock(
+              docRow[0].original_content,
+              after.map((x: any) => ({ ...fill(x), kind: x.kind })) as SignatureLine[],
+              request.content_hash
+            )
+          : null;
+
+      if (content) {
+        const { rows: up } = await pool.query(
+          "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1 RETURNING content",
+          [request.doc_id, content]
         );
-        // A role slot ([[SIGN:officer]]) takes the first signer holding that role.
-        const officer = after.find((x: any) => x.role === "admin");
-        if (officer) {
-          byBadge.set("OFFICER", { codename: officer.codename, matricule: officer.matricule, at: new Date(officer.signed_at), role: "Officer" });
-        }
-        const agent = after.find((x: any) => x.role !== "admin");
-        if (agent) {
-          byBadge.set("AGENT", { codename: agent.codename, matricule: agent.matricule, at: new Date(agent.signed_at), role: undefined });
-        }
-        const inPlace = await fillSignMarkers(
-          doc[0].content, byBadge,
-          after.map((x: any) => ({ codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at), role: x.role === "admin" ? "Officer" : undefined })),
-          new Date()
-        );
-        const sealed = inPlace.replaced > 0
-          ? inPlace.buffer
-          : await appendSignatureBlock(doc[0].content, lines, request.content_hash);
-        await pool.query(
-          "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1",
-          [request.doc_id, sealed]
-        );
-        audit(s, "signature_engrave", inPlace.replaced > 0 ? `${request.title} — ${inPlace.replaced} slot(s) filled in place` : `${request.title} — block appended`);
-      } catch (e) {
-        // The signatures stand even if the block could not be engraved — say so in the log
-        // rather than failing the signature the agent just gave.
-        console.error("[signature] could not engrave the block:", e);
+        await pool.query("UPDATE signature_requests SET content_hash = $2 WHERE id = $1", [id, hashContent(up[0].content)]);
+        audit(s, "signature_engrave",
+          `${request.title} — ${marked.replaced > 0 ? `${marked.replaced} slot(s) in place` : "block appended"}${sealing ? ", sealed" : ""}`);
       }
+    } catch (e) {
+      // The signature stands even if the page could not be rendered — log it rather than
+      // reject the signature the agent just gave.
+      console.error("[signature] engrave failed:", e);
     }
+  }
+
+  if (sealing) {
     await pool.query("UPDATE signature_requests SET status = 'complete', completed_at = now() WHERE id = $1", [id]);
     await pool.query("UPDATE documents SET locked = true WHERE id = $1", [request.doc_id]);
     const { rows: all } = await pool.query("SELECT user_id FROM signature_signers WHERE request_id = $1", [id]);

@@ -93,8 +93,8 @@ export async function POST(req: Request) {
   if (!fp) return NextResponse.json({ error: "Unknown document." }, { status: 404 });
 
   const { rows: r } = await pool.query(
-    `INSERT INTO signature_requests (doc_id, requested_by, circuit, sequential, note, doc_version, content_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    `INSERT INTO signature_requests (doc_id, requested_by, circuit, sequential, note, doc_version, content_hash, original_content)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT content FROM documents WHERE id = $1)) RETURNING id`,
     [docId, s.id, circuit || "free", !!sequential, (note || "").trim() || null, fp.version, fp.hash]
   );
   const reqId = r[0].id;

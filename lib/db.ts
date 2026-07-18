@@ -171,6 +171,11 @@ async function migrate() {
       UNIQUE (request_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS sig_signers_user_idx ON signature_signers (user_id, status);
+    -- The document exactly as it was put up for signature. Every engraving is redone from
+    -- this copy rather than patched onto the previous one: patching consumed the [[DATE]]
+    -- marker on the first signature, so the sealing date could never be stamped. Keeping
+    -- the original also makes each pass idempotent, and lets an unseal restore the page.
+    ALTER TABLE signature_requests ADD COLUMN IF NOT EXISTS original_content BYTEA;
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {

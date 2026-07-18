@@ -52,8 +52,8 @@ export async function requestSignature(opts: {
   if (!fp) return null;
 
   const { rows } = await p.query(
-    `INSERT INTO signature_requests (doc_id, requested_by, circuit, sequential, note, doc_version, content_hash)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    `INSERT INTO signature_requests (doc_id, requested_by, circuit, sequential, note, doc_version, content_hash, original_content)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, (SELECT content FROM documents WHERE id = $1)) RETURNING id`,
     [docId, requestedBy, circuit, sequential, note || null, fp.version, fp.hash]
   );
   const reqId = rows[0].id;

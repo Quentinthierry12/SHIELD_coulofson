@@ -83,11 +83,14 @@ export async function extractSignMarkers(buf: Buffer): Promise<MarkerToken[]> {
 // uppercased); unnamed [[SIGN]] slots consume `ordered` left to right. Markers with no
 // match are left visible as "awaiting signature" rather than silently deleted — a missing
 // signature should be obvious on the page.
+// `sealedAt` is null while signatures are still being collected: the date slot is the
+// date of sealing, so stamping it before everyone has signed would date the document to
+// its first signature. Slots with no signature yet stay visible as "awaiting signature".
 export async function fillSignMarkers(
   buf: Buffer,
   fills: Map<string, SignatureFill>,
   ordered: SignatureFill[],
-  sealedAt: Date
+  sealedAt: Date | null
 ): Promise<{ buffer: Buffer; replaced: number }> {
   const d = await documentXml(buf);
   if (!d) return { buffer: buf, replaced: 0 };
@@ -123,12 +126,16 @@ export async function fillSignMarkers(
     }
     DATE.lastIndex = 0;
     while ((m = DATE.exec(joined))) {
+      // Before sealing, show a blank rule rather than the raw marker — a reader must never
+      // see [[DATE]] on the page.
       hits.push({
         start: m.index,
         end: m.index + m[0].length,
-        xml: textRun(sealedAt.toISOString().slice(0, 10), ""),
+        xml: sealedAt
+          ? textRun(sealedAt.toISOString().slice(0, 10), "")
+          : textRun("____________", `<w:rPr><w:color w:val="8A97A8"/></w:rPr>`),
       });
-      replaced++;
+      if (sealedAt) replaced++;
     }
     hits.sort((a, b) => a.start - b.start);
 
