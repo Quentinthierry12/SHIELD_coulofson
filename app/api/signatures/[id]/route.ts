@@ -3,6 +3,7 @@ import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { docHash, isMyTurn } from "@/lib/signatures";
 import { appendSignatureBlock, type SignatureLine } from "@/lib/docxgen";
+import { fillSignMarkers } from "@/lib/sigmarkers";
 import { dmByUserId } from "@/lib/discord";
 
 // Sign or decline. `kind` is "typed" (codename rendered in a script face) or "image"
@@ -82,11 +83,37 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at),
           kind: x.kind, role: x.role === "admin" ? "Officer" : undefined,
         }));
-        const sealed = await appendSignatureBlock(doc[0].content, lines, request.content_hash);
+        // If the author placed [[SIGN:…]] slots, sign in place — a real document reads
+        // "Agent signature: ____ Date: ____", and a block bolted on at the end would
+        // leave those lines blank. Only fall back to appending when there are no slots.
+        const byBadge = new Map(
+          after.map((x: any) => [
+            String(x.matricule).toUpperCase(),
+            { codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at), role: x.role === "admin" ? "Officer" : undefined },
+          ])
+        );
+        // A role slot ([[SIGN:officer]]) takes the first signer holding that role.
+        const officer = after.find((x: any) => x.role === "admin");
+        if (officer) {
+          byBadge.set("OFFICER", { codename: officer.codename, matricule: officer.matricule, at: new Date(officer.signed_at), role: "Officer" });
+        }
+        const agent = after.find((x: any) => x.role !== "admin");
+        if (agent) {
+          byBadge.set("AGENT", { codename: agent.codename, matricule: agent.matricule, at: new Date(agent.signed_at), role: undefined });
+        }
+        const inPlace = await fillSignMarkers(
+          doc[0].content, byBadge,
+          after.map((x: any) => ({ codename: x.codename, matricule: x.matricule, at: new Date(x.signed_at), role: x.role === "admin" ? "Officer" : undefined })),
+          new Date()
+        );
+        const sealed = inPlace.replaced > 0
+          ? inPlace.buffer
+          : await appendSignatureBlock(doc[0].content, lines, request.content_hash);
         await pool.query(
           "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1",
           [request.doc_id, sealed]
         );
+        audit(s, "signature_engrave", inPlace.replaced > 0 ? `${request.title} — ${inPlace.replaced} slot(s) filled in place` : `${request.title} — block appended`);
       } catch (e) {
         // The signatures stand even if the block could not be engraved — say so in the log
         // rather than failing the signature the agent just gave.

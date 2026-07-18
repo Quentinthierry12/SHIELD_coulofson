@@ -593,6 +593,17 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
   const [sequential, setSequential] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [slots, setSlots] = useState<{ slots: number; agents: Agent[]; unresolved: string[] } | null>(null);
+
+  // The document declares its own signers through [[SIGN:BADGE]] slots — read them so the
+  // officer does not retype badges that are already written into the text.
+  useEffect(() => {
+    fetch(`/api/documents/${doc.id}/signers`).then((r) => r.ok && r.json()).then((d) => {
+      if (!d) return;
+      setSlots(d);
+      if (d.agents?.length) setChosen(d.agents);
+    });
+  }, [doc.id]);
 
   useEffect(() => {
     if (!q.trim()) return setResults([]);
@@ -631,6 +642,18 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
           The document is sealed as soon as the request goes out: nobody can edit it while signatures are
           being collected. Cancel the request to release it.
         </p>
+        {slots !== null && slots.slots > 0 && (
+          <p className="success" style={{ marginBottom: 10 }}>
+            ✓ {slots.slots} signature slot(s) found in the document — signatures will be placed there.
+            {slots.unresolved.length > 0 && ` Unmatched: ${slots.unresolved.join(", ")}.`}
+          </p>
+        )}
+        {slots !== null && slots.slots === 0 && (
+          <p className="muted" style={{ marginBottom: 10 }}>
+            No <span className="mono">[[SIGN:BADGE]]</span> slot in this document — the signature block
+            will be added at the end.
+          </p>
+        )}
         <input placeholder="Search an agent by badge or codename" value={q} onChange={(e) => setQ(e.target.value)} />
         {results.length > 0 && (
           <div className="search-results">
