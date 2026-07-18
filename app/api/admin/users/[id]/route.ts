@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import { db, audit, refreshPersonnelFile } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { deleteMoodleUser } from "@/lib/moodle";
+import { requestPersonnelSignature } from "@/lib/signatures";
 
 // Regenerate the agent's personnel file on demand (after a clearance/division change).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
   if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
-  await refreshPersonnelFile(id);
-  audit(s, "personnel_file", `user #${id}`);
-  return NextResponse.json({ ok: true });
+  const f = await refreshPersonnelFile(id);
+  if (f) await requestPersonnelSignature(f.docId, id, s.id);
+  audit(s, "personnel_file", `user #${id}${f?.created ? " (new file — previous one is sealed)" : ""}`);
+  return NextResponse.json({ ok: true, created: f?.created ?? false });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

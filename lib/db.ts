@@ -316,28 +316,33 @@ export async function getAccessibleDoc(docId: number, clearance: number, userId:
 // only the agent themself (owner) and officers can see it. It is generated (Document
 // Builder) pre-filled with the agent's real data. Destination folder is configurable
 // from Command settings (key: personnel_folder_id).
+// Returns the document id so the caller can raise the signature request — db.ts must not
+// import lib/signatures.ts (that module imports db, and the cycle is fragile).
 export async function createPersonnelFile(
   userId: number,
   matricule: string,
   codename: string,
   division?: string,
   clearance?: number
-) {
+): Promise<number | null> {
   try {
     const content = await buildPersonnelFile({ matricule, codename, division, clearance });
     const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
     const p = await db();
-    await p.query(
+    const { rows } = await p.query(
       `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id, is_personnel)
-       VALUES ($1, 'docx', 10, $2, $3, $4, true)`,
+       VALUES ($1, 'docx', 10, $2, $3, $4, true) RETURNING id`,
       [`PERSONNEL FILE — ${matricule} (${codename})`, userId, content, folderId]
     );
-  } catch {} // ponytail: generation must never block account creation
+    return rows[0].id;
+  } catch {
+    return null; // ponytail: generation must never block account creation
+  }
 }
 
 // (Re)generate an agent's personnel file from their current data — used on approval and
 // on-demand. Replaces the existing file's content if there is one, else creates it.
-export async function refreshPersonnelFile(userId: number) {
+export async function refreshPersonnelFile(userId: number): Promise<{ docId: number; created: boolean } | null> {
   try {
     const p = await db();
     const { rows } = await p.query(
@@ -346,26 +351,32 @@ export async function refreshPersonnelFile(userId: number) {
       [userId]
     );
     const u = rows[0];
-    if (!u) return;
+    if (!u) return null;
     const content = await buildPersonnelFile({ matricule: u.matricule, codename: u.codename, division: u.division, clearance: u.clearance });
     const title = `PERSONNEL FILE — ${u.matricule} (${u.codename})`;
     // Found by flag, never by title: the file can be renamed and the badge can change,
     // and either would make a title match miss and mint a duplicate. Only the default
     // title is refreshed — a file the agent renamed on purpose keeps its name.
-    const { rowCount } = await p.query(
-      `UPDATE documents
-          SET content = $2, version = version + 1, updated_at = now(),
-              title = CASE WHEN title LIKE 'PERSONNEL FILE — %' THEN $3 ELSE title END
-        WHERE owner_id = $1 AND is_personnel`,
+    //
+    // A SEALED file is never overwritten: it is a signed act. When the agent's data
+    // changes, the signed copy stays as the archive and a fresh file is issued for
+    // signature — the same way an administration reissues rather than rewrites.
+    const { rows: target } = await p.query(
+      "UPDATE documents SET content = $2, version = version + 1, updated_at = now(), " +
+        "title = CASE WHEN title LIKE 'PERSONNEL FILE — %' THEN $3 ELSE title END " +
+        "WHERE owner_id = $1 AND is_personnel AND NOT locked RETURNING id",
       [userId, content, title]
     );
-    if (!rowCount) {
-      const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
-      await p.query(
-        `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id, is_personnel)
-         VALUES ($1, 'docx', 10, $2, $3, $4, true)`,
-        [title, userId, content, folderId]
-      );
-    }
-  } catch {}
+    if (target[0]) return { docId: target[0].id, created: false };
+
+    const folderId = parseInt((await getSetting("personnel_folder_id")) || "", 10) || null;
+    const { rows: made } = await p.query(
+      `INSERT INTO documents (title, filetype, classification, owner_id, content, folder_id, is_personnel)
+       VALUES ($1, 'docx', 10, $2, $3, $4, true) RETURNING id`,
+      [title, userId, content, folderId]
+    );
+    return { docId: made[0].id, created: true };
+  } catch {
+    return null;
+  }
 }

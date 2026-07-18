@@ -4,6 +4,7 @@ import { db, createPersonnelFile, refreshPersonnelFile, audit, divisionIdByName 
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
 import { syncMoodleUser, setMoodlePassword } from "@/lib/moodle";
+import { requestPersonnelSignature } from "@/lib/signatures";
 
 const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
@@ -56,7 +57,10 @@ export async function POST(req: Request) {
          VALUES ($1, $2, $3, $4, $5, 'active', true, $6) RETURNING id`,
         [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent", await divisionIdByName(division)]
       );
-      await createPersonnelFile(rows[0].id, m, codename.trim(), (division || "").trim(), level);
+      const fileId = await createPersonnelFile(rows[0].id, m, codename.trim(), (division || "").trim(), level);
+      // Administrative circuit: the generated file carries [[SIGN:badge]] / [[SIGN:officer]]
+      // slots, so it asks to be signed straight away.
+      if (fileId) await requestPersonnelSignature(fileId, rows[0].id, admin.id);
       await syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), division, suspended: false }, password);
       audit(admin, "account_create", `${m} (${codename.trim()}, lvl ${level})`);
       return NextResponse.json({ matricule: m });
@@ -118,10 +122,14 @@ export async function PATCH(req: Request) {
        FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id WHERE u.id = $1`, [id]);
   if (cur[0]) await syncMoodleUser(id, { matricule: cur[0].matricule, codename: cur[0].codename, division: cur[0].division, suspended: status !== "active" });
   if (before[0]?.status !== "active" && status === "active") {
-    await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned
+    const f = await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned
+    if (f) await requestPersonnelSignature(f.docId, id, admin.id);
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");
   } else if (renamed) {
-    await refreshPersonnelFile(id); // the file embeds the badge and codename, in its title too
+    // The file embeds the badge and codename, in its title too. A regenerated file
+    // invalidates whatever was pending on it, so the signatures are asked for again.
+    const f = await refreshPersonnelFile(id);
+    if (f) await requestPersonnelSignature(f.docId, id, admin.id);
   }
   // The badge IS the sign-in name: changing it locks the agent out until they know.
   if (newBadge !== before[0].matricule) {

@@ -609,6 +609,24 @@ function DivisionsTab() {
               >
                 Rename
               </button>
+              <button
+                className="ghost small danger"
+                onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: `Delete division “${d.name}”?`,
+                    message: "The division must have no members. Its shared folder is kept.",
+                    confirmLabel: "Delete", danger: true,
+                  });
+                  if (!ok) return;
+                  const res = await fetch(`/api/divisions/${d.id}`, { method: "DELETE" });
+                  const data = await res.json();
+                  if (!res.ok) return toast(data.error, "error");
+                  toast("Division deleted.", "success");
+                  load();
+                }}
+              >
+                Delete
+              </button>
             </div>
           );
         })}
@@ -943,7 +961,7 @@ const ACTION_LABELS: Record<string, string> = {
   doc_save_blocked: "Save blocked (sealed)",
   mission_create: "Mission opened", mission_status: "Mission status", mission_report: "After-action report",
   mission_delete: "Mission deleted",
-  division_create: "Division created", division_rename: "Division renamed",
+  division_create: "Division created", division_delete: "Division deleted", division_rename: "Division renamed",
   division_lead: "Division lead set", division_folder: "Division folder",
   account_rename: "Agent renamed", academy_sync: "Academy sync",
   doc_rename: "Document renamed", doc_classify: "Reclassified", folder_rename: "Folder renamed",

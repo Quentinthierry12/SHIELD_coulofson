@@ -198,8 +198,11 @@ export async function buildPersonnelFile(agent: AgentInfo): Promise<Buffer> {
     heading("Section 4 — Oath of Service"),
     paraXml(runXml("“I pledge my service to the protection of this world and its people. I will safeguard what I am entrusted with, obey the chain of command, and hold the line when others cannot.”", { i: true, sz: 20 })),
     paraXml(runXml("")),
-    paraXml([runXml("Agent signature:  ", { b: true, sz: 20 }), runXml("________________________        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("____________", { sz: 20 })].join("")),
-    paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml("________________________        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("____________", { sz: 20 })].join("")),
+    // Real signature slots, not blank rules: these are filled in place when the file is
+    // signed (lib/sigmarkers.ts). The agent's badge is baked in so the slot can only be
+    // filled by them; the officer slot takes whoever countersigns.
+    paraXml([runXml("Agent signature:  ", { b: true, sz: 20 }), runXml(`[[SIGN:${agent.matricule}]]`, { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
+    paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml("[[SIGN:officer]]", { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
 
     centerPara(runXml("Property of S.H.I.E.L.D. — unauthorized possession, reproduction or disclosure is a Level-1 offense.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
   ].join("\n");
