@@ -50,9 +50,11 @@ export async function syncMoodleUser(
     if (mid) {
       const p: Record<string, string> = {
         "users[0][id]": String(mid),
-        // The username follows the badge: without this, renaming an agent on the portal
-        // would leave them signing in to the Academy with their old badge.
+        // Username AND email follow the badge: without this, renaming an agent on the
+        // portal would leave them signing in to the Academy with their old badge, and
+        // carrying a stale address built from it.
         "users[0][username]": username,
+        "users[0][email]": `${username}@shield.local`,
         "users[0][firstname]": agent.codename,
         "users[0][lastname]": agent.matricule,
         "users[0][suspended]": agent.suspended ? "1" : "0",
