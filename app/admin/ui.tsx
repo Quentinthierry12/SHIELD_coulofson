@@ -9,7 +9,7 @@ type LogRow = { id: number; matricule: string; action: string; target: string; c
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"agents" | "requests" | "missions" | "templates" | "settings" | "audit">("agents");
+  const [tab, setTab] = useState<"agents" | "divisions" | "requests" | "missions" | "templates" | "settings" | "audit">("agents");
   return (
     <>
       <div className="topbar">
@@ -17,8 +17,9 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Command</h1>
         </div>
-        <div className="tabs" style={{ marginBottom: 0, width: 740 }}>
+        <div className="tabs" style={{ marginBottom: 0, width: 840 }}>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
+          <button className={tab === "divisions" ? "" : "inactive"} onClick={() => setTab("divisions")}>Divisions</button>
           <button className={tab === "requests" ? "" : "inactive"} onClick={() => setTab("requests")}>Requests</button>
           <button className={tab === "missions" ? "" : "inactive"} onClick={() => setTab("missions")}>Missions</button>
           <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
@@ -28,6 +29,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
       </div>
       <div className="container">
         {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
+        {tab === "divisions" && <DivisionsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "missions" && <MissionsTab myClearance={myClearance} />}
         {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
@@ -362,46 +364,256 @@ function RequestsTab() {
 }
 
 // ---------------- Missions ----------------
+type Mission = {
+  id: number; code: string; objective: string; location: string | null; priority: string | null;
+  classification: number; status: string; doc_id: number | null; created_at: string;
+  closed_at: string | null; report: string | null; division: string;
+  created_by_codename: string | null;
+  agents: { id: number; matricule: string; codename: string }[];
+};
+
 function MissionsTab({ myClearance }: { myClearance: number }) {
   const router = useRouter();
-  const [f, setF] = useState({ code: "", objective: "", matricule: "", location: "", priority: "Routine", classification: 1, briefing: "" });
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [f, setF] = useState({ code: "", objective: "", matricule: "", location: "", priority: "Routine", classification: 1, briefing: "", division: "" });
   const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
   const set = (k: string, v: any) => setF((p) => ({ ...p, [k]: v }));
+
+  async function load() {
+    const res = await fetch("/api/missions");
+    if (res.ok) setMissions(await res.json());
+  }
+  useEffect(() => { load(); }, []);
 
   async function issue(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const res = await fetch("/api/admin/mission-order", { method: "POST", body: JSON.stringify(f) });
+    const res = await fetch("/api/missions", { method: "POST", body: JSON.stringify(f) });
     const data = await res.json();
     if (!res.ok) return setError(data.error);
-    router.push(`/doc/${data.id}`);
+    toast(`Mission ${f.code.toUpperCase()} opened.`, "success");
+    setF({ code: "", objective: "", matricule: "", location: "", priority: "Routine", classification: 1, briefing: "", division: "" });
+    setShowForm(false);
+    load();
+  }
+
+  async function setStatus(m: Mission, status: string) {
+    if (status !== "active") {
+      const ok = await confirmDialog({
+        title: `Mark ${m.code} as ${status}?`,
+        message: `The assigned agents will be notified on Discord that the mission is ${status}.`,
+        confirmLabel: status === "completed" ? "Mark completed" : "Abort mission",
+        danger: status === "aborted",
+      });
+      if (!ok) return;
+    }
+    const res = await fetch(`/api/missions/${m.id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast(`${m.code} — ${status}.`, "success");
+    load();
+  }
+
+  async function fileReport(m: Mission) {
+    const report = await promptDialog({
+      title: `After-action report — ${m.code}`,
+      message: "What happened? This is stored on the mission, not in the order document.",
+      placeholder: "Outcome, assets recovered, casualties…",
+      defaultValue: m.report || "",
+    });
+    if (report === null) return;
+    const res = await fetch(`/api/missions/${m.id}`, { method: "PATCH", body: JSON.stringify({ report }) });
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Report filed.", "success");
+    load();
+  }
+
+  const active = missions.filter((m) => m.status === "active");
+  const closed = missions.filter((m) => m.status !== "active");
+
+  return (
+    <>
+      <div className="panel">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ marginBottom: 0 }}>Missions ({active.length} active)</h2>
+          <button className="small" onClick={() => setShowForm(!showForm)}>{showForm ? "Cancel" : "New mission"}</button>
+        </div>
+        {error && <p className="error" style={{ marginTop: 12 }}>⚠ {error}</p>}
+        {showForm && (
+          <form onSubmit={issue} style={{ marginTop: 14 }}>
+            <p className="muted" style={{ marginBottom: 10 }}>
+              Opens a tracked mission and generates its classified order document. Assigned agents get the
+              order shared with them and a Discord transmission.
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <input placeholder="MISSION CODE (e.g. OP-INSIGHT)" value={f.code} onChange={(e) => set("code", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
+              <input placeholder="ASSIGNED AGENTS — badges, comma-separated" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 220 }} />
+            </div>
+            <input placeholder="OBJECTIVE" value={f.objective} onChange={(e) => set("objective", e.target.value)} style={{ marginTop: 10 }} />
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <input placeholder="LOCATION" value={f.location} onChange={(e) => set("location", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 150 }} />
+              <input placeholder="DIVISION (optional)" value={f.division} onChange={(e) => set("division", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 140 }} />
+              <select value={f.priority} onChange={(e) => set("priority", e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
+                <option>Routine</option><option>Priority</option><option>Critical</option>
+              </select>
+              <select value={f.classification} onChange={(e) => set("classification", +e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
+                {Array.from({ length: myClearance }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification {n}</option>)}
+              </select>
+            </div>
+            <textarea placeholder="BRIEFING (optional)" value={f.briefing} onChange={(e) => set("briefing", e.target.value)} rows={3} style={{ marginTop: 10 }} />
+            <button style={{ marginTop: 10 }}>Open mission</button>
+          </form>
+        )}
+      </div>
+
+      <div className="panel">
+        <h2>Active</h2>
+        {active.length === 0 && <p className="muted">No active mission.</p>}
+        {active.map((m) => <MissionRow key={m.id} m={m} onStatus={setStatus} onReport={fileReport} router={router} />)}
+      </div>
+
+      {closed.length > 0 && (
+        <div className="panel">
+          <h2>Archive ({closed.length})</h2>
+          {closed.map((m) => <MissionRow key={m.id} m={m} onStatus={setStatus} onReport={fileReport} router={router} />)}
+        </div>
+      )}
+    </>
+  );
+}
+
+function MissionRow({ m, onStatus, onReport, router }: { m: Mission; onStatus: (m: Mission, s: string) => void; onReport: (m: Mission) => void; router: any }) {
+  const cls = m.status === "active" ? "mid" : m.status === "completed" ? "low" : "high";
+  return (
+    <div className="mission-row">
+      <div className="mission-head">
+        <b className="mono">{m.code}</b>
+        <span className={`classif ${cls}`}>{m.status.toUpperCase()}</span>
+        <span className="chip lv mono">LVL. {m.classification}</span>
+        {m.priority && <span className="chip">{m.priority}</span>}
+        {m.division && <span className="chip">{m.division}</span>}
+        <span className="agent-spacer" />
+        {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Order</button>}
+        <button className="ghost small" onClick={() => onReport(m)}>{m.report ? "Report ✓" : "Report"}</button>
+        {m.status === "active" ? (
+          <>
+            <button className="ghost small" onClick={() => onStatus(m, "completed")}>Complete</button>
+            <button className="ghost small danger" onClick={() => onStatus(m, "aborted")}>Abort</button>
+          </>
+        ) : (
+          <button className="ghost small" onClick={() => onStatus(m, "active")}>Reopen</button>
+        )}
+      </div>
+      <div className="mission-obj">{m.objective}</div>
+      <div className="mission-meta muted">
+        {m.location ? `${m.location} · ` : ""}
+        {m.agents.length ? m.agents.map((a) => `${a.matricule} (${a.codename})`).join(", ") : "No agent assigned"}
+      </div>
+      {m.report && <div className="mission-report">{m.report}</div>}
+    </div>
+  );
+}
+
+// ---------------- Divisions ----------------
+type Division = {
+  id: number; name: string; lead_id: number | null; folder_id: number | null;
+  folder_name: string | null; lead_matricule: string | null; lead_codename: string | null; members: number;
+};
+
+function DivisionsTab() {
+  const [divs, setDivs] = useState<Division[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    const [d, u] = await Promise.all([fetch("/api/divisions"), fetch("/api/admin/users")]);
+    if (d.ok) setDivs(await d.json());
+    if (u.ok) setUsers(await u.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/divisions", { method: "POST", body: JSON.stringify({ name }) });
+    const data = await res.json();
+    if (!res.ok) return setError(data.error);
+    setName("");
+    toast("Division created.", "success");
+    load();
+  }
+
+  async function patch(d: Division, body: any, okMsg: string) {
+    const res = await fetch("/api/divisions", { method: "PATCH", body: JSON.stringify({ id: d.id, ...body }) });
+    const data = await res.json();
+    if (!res.ok) return toast(data.error, "error");
+    toast(okMsg, "success");
+    load();
   }
 
   return (
-    <div className="panel">
-      <h2>Issue a mission order</h2>
-      <p className="muted" style={{ marginBottom: 12 }}>Generates a classified mission order document. If an agent is assigned, it is shared with them and they receive a Discord transmission.</p>
-      {error && <p className="error">⚠ {error}</p>}
-      <form onSubmit={issue}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input placeholder="MISSION CODE (e.g. OP-INSIGHT)" value={f.code} onChange={(e) => set("code", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
-          <input placeholder="ASSIGNED AGENTS — badges, comma-separated (optional)" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 220 }} />
-        </div>
-        <input placeholder="OBJECTIVE" value={f.objective} onChange={(e) => set("objective", e.target.value)} style={{ marginTop: 10 }} />
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input placeholder="LOCATION" value={f.location} onChange={(e) => set("location", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 160 }} />
-          <select value={f.priority} onChange={(e) => set("priority", e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-            <option>Routine</option><option>Priority</option><option>Critical</option>
-          </select>
-          <select value={f.classification} onChange={(e) => set("classification", +e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-            {Array.from({ length: myClearance }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification {n}</option>)}
-          </select>
-        </div>
-        <textarea placeholder="BRIEFING (one line per paragraph)" value={f.briefing} onChange={(e) => set("briefing", e.target.value)} rows={6}
-          style={{ width: "100%", padding: "10px 12px", background: "#0a101a", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", fontFamily: "Consolas, monospace", margin: "10px 0" }} />
-        <button>Issue order</button>
-      </form>
-    </div>
+    <>
+      <div className="panel">
+        <h2>Create a division</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          A division is a real team: members, a lead, and an optional shared folder. Assign agents to it
+          from the Agents tab.
+        </p>
+        {error && <p className="error">⚠ {error}</p>}
+        <form onSubmit={create} style={{ display: "flex", gap: 10 }}>
+          <input placeholder="DIVISION NAME (e.g. Intelligence)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 1 }} />
+          <button>Create</button>
+        </form>
+      </div>
+
+      <div className="panel">
+        <h2>Divisions</h2>
+        {divs.length === 0 && <p className="muted">No division yet.</p>}
+        {divs.map((d) => {
+          const members = users.filter((u) => u.division === d.name && u.status === "active");
+          return (
+            <div key={d.id} className="agent-row">
+              <div className="agent-who">
+                <b>{d.name}</b>
+                <span>{d.members} agent{d.members > 1 ? "s" : ""}{d.lead_codename ? ` · led by ${d.lead_codename}` : ""}</span>
+              </div>
+              <select
+                value={d.lead_id ?? ""}
+                onChange={(e) => patch(d, { lead_id: e.target.value || null }, "Division lead updated.")}
+                style={{ marginBottom: 0, width: 190 }}
+                title="The lead must be a member of this division"
+              >
+                <option value="">— No lead —</option>
+                {members.map((u) => <option key={u.id} value={u.id}>{u.codename} ({u.matricule})</option>)}
+              </select>
+              {d.folder_id ? (
+                <span className="chip lv" title={d.folder_name || ""}>SHARED FOLDER</span>
+              ) : (
+                <button className="ghost small" onClick={() => patch(d, { create_folder: true }, "Shared folder created.")}>
+                  Create shared folder
+                </button>
+              )}
+              {d.folder_id && (
+                <button className="ghost small" onClick={() => patch(d, { create_folder: true }, "Members synced to the folder.")} title="Add members who joined since">
+                  Sync members
+                </button>
+              )}
+              <span className="agent-spacer" />
+              <button
+                className="ghost small"
+                onClick={async () => {
+                  const n = await promptDialog({ title: "Rename division", message: `Current name: “${d.name}”.`, placeholder: "New name", defaultValue: d.name });
+                  if (n && n.trim() !== d.name) patch(d, { name: n }, "Division renamed.");
+                }}
+              >
+                Rename
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -725,6 +937,13 @@ function SettingsTab() {
 
 // ---------------- Audit ----------------
 const ACTION_LABELS: Record<string, string> = {
+  mission_create: "Mission opened", mission_status: "Mission status", mission_report: "After-action report",
+  mission_delete: "Mission deleted",
+  division_create: "Division created", division_rename: "Division renamed",
+  division_lead: "Division lead set", division_folder: "Division folder",
+  account_rename: "Agent renamed", academy_sync: "Academy sync",
+  doc_rename: "Document renamed", doc_classify: "Reclassified", folder_rename: "Folder renamed",
+  doc_pdf: "PDF export", doc_pdf_redacted: "PDF export (redacted)",
   login: "Signed in", login_failed: "Failed sign-in", register: "Enlisted",
   discord_login: "Signed in (Discord)", discord_link: "Linked Discord",
   doc_create: "Created document", doc_import: "Imported document", doc_open: "Opened document",

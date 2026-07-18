@@ -308,3 +308,16 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);
 }
 .sheet-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+/* Missions — tracked operations, not just generated documents. */
+.mission-row { padding: 12px 4px; border-bottom: 1px solid var(--border); }
+.mission-row:last-of-type { border-bottom: none; }
+.mission-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mission-head b { font-size: 0.9rem; letter-spacing: 0.08em; color: var(--accent); }
+.mission-obj { margin-top: 6px; font-size: 0.9rem; }
+.mission-meta { margin-top: 3px; font-size: 0.75rem; }
+.mission-report {
+  margin-top: 8px; padding: 8px 10px; font-size: 0.8rem;
+  background: #0a101a; border-left: 2px solid var(--accent-dim); border-radius: 0 3px 3px 0;
+  white-space: pre-wrap;
+}

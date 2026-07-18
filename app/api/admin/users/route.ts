@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { db, createPersonnelFile, refreshPersonnelFile, audit } from "@/lib/db";
+import { db, createPersonnelFile, refreshPersonnelFile, audit, divisionIdByName } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
 import { syncMoodleUser, setMoodlePassword } from "@/lib/moodle";
@@ -16,11 +16,15 @@ export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
-    `SELECT id, matricule, codename, clearance, role, status, COALESCE(division,'') AS division,
-            discord_id IS NOT NULL AS discord_linked,
-            moodle_id IS NOT NULL AS moodle_synced,
-            created_at
-     FROM users ORDER BY status DESC, id`
+    `SELECT u.id, u.matricule, u.codename, u.clearance, u.role, u.status,
+            COALESCE(dv.name, '') AS division,
+            u.division_id,
+            (dv.lead_id = u.id) AS is_lead,
+            u.discord_id IS NOT NULL AS discord_linked,
+            u.moodle_id IS NOT NULL AS moodle_synced,
+            u.created_at
+       FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id
+      ORDER BY u.status DESC, u.id`
   );
   return NextResponse.json(rows);
 }
@@ -48,9 +52,9 @@ export async function POST(req: Request) {
     const m = custom || "AG-" + Math.floor(1000 + Math.random() * 9000);
     try {
       const { rows } = await pool.query(
-        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, must_change_password, division)
+        `INSERT INTO users (matricule, codename, password_hash, clearance, role, status, must_change_password, division_id)
          VALUES ($1, $2, $3, $4, $5, 'active', true, $6) RETURNING id`,
-        [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null]
+        [m, codename.trim(), hash, level, role === "admin" ? "admin" : "agent", await divisionIdByName(division)]
       );
       await createPersonnelFile(rows[0].id, m, codename.trim(), (division || "").trim(), level);
       await syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), division, suspended: false }, password);
@@ -93,8 +97,8 @@ export async function PATCH(req: Request) {
   const renamed = newBadge !== before[0].matricule || newCodename !== before[0].codename;
   try {
     await pool.query(
-      "UPDATE users SET status = $2, clearance = $3, role = $4, division = $5, matricule = $6, codename = $7 WHERE id = $1",
-      [id, status, level, role === "admin" ? "admin" : "agent", (division || "").trim() || null, newBadge, newCodename]
+      "UPDATE users SET status = $2, clearance = $3, role = $4, division_id = $5, matricule = $6, codename = $7 WHERE id = $1",
+      [id, status, level, role === "admin" ? "admin" : "agent", await divisionIdByName(division), newBadge, newCodename]
     );
   } catch (e: any) {
     if (e.code === "23505") return NextResponse.json({ error: "This badge number is already taken." }, { status: 409 });
@@ -109,7 +113,9 @@ export async function PATCH(req: Request) {
   }
   audit(admin, "account_update", `user #${id} status=${status} clearance=${clearance} role=${role}`);
   // Keep the Academy account in step with status changes (unsuspend on activation, etc.).
-  const { rows: cur } = await pool.query("SELECT matricule, codename, division FROM users WHERE id = $1", [id]);
+  const { rows: cur } = await pool.query(
+    `SELECT u.matricule, u.codename, COALESCE(dv.name, '') AS division
+       FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id WHERE u.id = $1`, [id]);
   if (cur[0]) await syncMoodleUser(id, { matricule: cur[0].matricule, codename: cur[0].codename, division: cur[0].division, suspended: status !== "active" });
   if (before[0]?.status !== "active" && status === "active") {
     await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned

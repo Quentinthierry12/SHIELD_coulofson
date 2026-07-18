@@ -96,6 +96,49 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     ALTER TABLE templates ADD COLUMN IF NOT EXISTS body TEXT;
+
+    -- Divisions: real teams, not just a label. Each can have a lead and a shared folder.
+    CREATE TABLE IF NOT EXISTS divisions (
+      id SERIAL PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      lead_id INT,
+      folder_id INT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS division_id INT;
+    -- Backfill from the old free-text users.division, then that column is legacy:
+    -- everything reads the name through a join on division_id.
+    -- ponytail: legacy column kept as the backfill source; drop it once this has run in prod.
+    INSERT INTO divisions (name)
+      SELECT DISTINCT trim(division) FROM users
+      WHERE division IS NOT NULL AND trim(division) <> ''
+      ON CONFLICT (name) DO NOTHING;
+    UPDATE users u SET division_id = d.id FROM divisions d
+      WHERE u.division_id IS NULL AND trim(u.division) = d.name;
+
+    -- Missions as tracked objects. The generated order stays a document (doc_id);
+    -- this table is what makes a mission followable: status, assignees, after-action report.
+    CREATE TABLE IF NOT EXISTS missions (
+      id SERIAL PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      objective TEXT NOT NULL,
+      location TEXT,
+      priority TEXT,
+      classification INT NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'active',
+      doc_id INT,
+      division_id INT,
+      created_by INT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      closed_at TIMESTAMPTZ,
+      report TEXT
+    );
+    CREATE TABLE IF NOT EXISTS mission_agents (
+      mission_id INT NOT NULL,
+      user_id INT NOT NULL,
+      PRIMARY KEY (mission_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS missions_status_idx ON missions (status, created_at DESC);
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {
@@ -149,6 +192,26 @@ export async function audit(user: { id: number; matricule: string } | null, acti
     ]);
   } catch {}
 }
+
+// ---------- Divisions ----------
+// Typing a new division name in Command creates it, so officers keep the free-text feel
+// while the division is a real row underneath (lead, shared folder, mission ownership).
+export async function divisionIdByName(name?: string | null): Promise<number | null> {
+  const clean = (name || "").trim();
+  if (!clean) return null;
+  const p = await db();
+  const { rows } = await p.query(
+    `INSERT INTO divisions (name) VALUES ($1)
+     ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+    [clean]
+  );
+  return rows[0].id;
+}
+
+// Every read of an agent's division goes through this join, so the rest of the code keeps
+// receiving a plain `division` string and did not have to change.
+export const DIVISION_JOIN = "LEFT JOIN divisions dv ON dv.id = u.division_id";
+export const DIVISION_NAME = "COALESCE(dv.name, '') AS division";
 
 // ---------- Settings ----------
 export async function getSetting(key: string): Promise<string | null> {
@@ -245,7 +308,11 @@ export async function createPersonnelFile(
 export async function refreshPersonnelFile(userId: number) {
   try {
     const p = await db();
-    const { rows } = await p.query("SELECT matricule, codename, division, clearance FROM users WHERE id = $1", [userId]);
+    const { rows } = await p.query(
+      `SELECT u.matricule, u.codename, u.clearance, COALESCE(dv.name, '') AS division
+         FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id WHERE u.id = $1`,
+      [userId]
+    );
     const u = rows[0];
     if (!u) return;
     const content = await buildPersonnelFile({ matricule: u.matricule, codename: u.codename, division: u.division, clearance: u.clearance });

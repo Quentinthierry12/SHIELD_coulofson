@@ -206,6 +206,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
         <button className={`rail-btn ${mineOnly ? "active" : ""}`} onClick={() => setMineOnly(!mineOnly)}>
           <span className="rail-label">Mine</span>
         </button>
+        <a href="/missions"><button className="rail-btn"><span className="rail-label">Missions</span></button></a>
         <a href="/roster"><button className="rail-btn"><span className="rail-label">Roster</span></button></a>
         {academyUrl && (
           // Separate system on its own domain — open it in a new tab rather than losing the Drive.

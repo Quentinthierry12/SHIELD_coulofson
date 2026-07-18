@@ -22,8 +22,11 @@ export async function POST(req: Request) {
   const pool = await db();
   const { rows } = await pool.query(
     id
-      ? "SELECT id, matricule, codename, division, status FROM users WHERE id = $1"
-      : "SELECT id, matricule, codename, division, status FROM users WHERE status = 'active' AND moodle_id IS NULL",
+      ? `SELECT u.id, u.matricule, u.codename, u.status, COALESCE(dv.name, '') AS division
+           FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id WHERE u.id = $1`
+      : `SELECT u.id, u.matricule, u.codename, u.status, COALESCE(dv.name, '') AS division
+           FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id
+          WHERE u.status = 'active' AND u.moodle_id IS NULL`,
     id ? [id] : []
   );
   if (!rows.length) {
