@@ -1,15 +1,15 @@
 {
-  "name": "S.H.I.E.L.D. Test",
-  "guid": "asc.{6C1A1B2E-3F4D-4A5B-9C8D-7E6F5A4B3C2D}",
+  "name": "S.H.I.E.L.D.",
+  "guid": "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}",
   "version": "1.0",
   "minVersion": "7.0.0",
   "variations": [
     {
-      "description": "Connectivity probe for the S.H.I.E.L.D. plugin channel",
+      "description": "Classification, signature slots and dates",
       "url": "index.html",
       "icons": ["resources/icon.png", "resources/icon@2x.png"],
       "isViewer": false,
-      "EditorsSupport": ["word", "cell", "slide"],
+      "EditorsSupport": ["word"],
       "isVisual": true,
       "isModal": false,
       "isInsideMode": false,
@@ -17,7 +17,7 @@
       "initData": "",
       "isUpdateOleOnResize": false,
       "buttons": [],
-      "size": [320, 180],
+      "size": [340, 460],
       "initOnSelectionChanged": false
     }
   ]

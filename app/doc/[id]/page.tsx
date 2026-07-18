@@ -66,7 +66,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       // Baking them in is what took the editor down twice: rolling back meant rebuilding
       // the image. From here, removing this line and redeploying takes three minutes.
       plugins: {
-        pluginsData: [`${PORTAL_URL()}/plugins/shield-hello/config.json`],
+        pluginsData: [`${PORTAL_URL()}/plugins/shield-classify/config.json`],
       },
     },
   };
