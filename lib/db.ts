@@ -139,6 +139,38 @@ async function migrate() {
       PRIMARY KEY (mission_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS missions_status_idx ON missions (status, created_at DESC);
+
+    -- Signatures. A signature is only worth something if it binds to a precise state of
+    -- the document: OnlyOffice overwrites content on every save, so we record the version
+    -- AND a hash of the bytes at request time. Requesting signatures locks the document.
+    ALTER TABLE documents ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT false;
+    -- An agent's reusable handwritten signature, uploaded once.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_image BYTEA;
+    CREATE TABLE IF NOT EXISTS signature_requests (
+      id SERIAL PRIMARY KEY,
+      doc_id INT NOT NULL,
+      requested_by INT,
+      circuit TEXT NOT NULL DEFAULT 'free',
+      sequential BOOLEAN NOT NULL DEFAULT false,
+      note TEXT,
+      doc_version INT NOT NULL,
+      content_hash TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      completed_at TIMESTAMPTZ
+    );
+    CREATE TABLE IF NOT EXISTS signature_signers (
+      id SERIAL PRIMARY KEY,
+      request_id INT NOT NULL,
+      user_id INT NOT NULL,
+      position INT NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      kind TEXT,
+      signed_at TIMESTAMPTZ,
+      reason TEXT,
+      UNIQUE (request_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS sig_signers_user_idx ON signature_signers (user_id, status);
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {

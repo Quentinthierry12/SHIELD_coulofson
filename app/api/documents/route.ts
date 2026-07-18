@@ -21,6 +21,7 @@ export async function GET() {
               OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2)) AS granted,
             (d.classification <= $1) AS clearance_ok,
             (d.folder_id IS NULL OR d.folder_id = ANY($4)) AS folder_ok,
+            d.locked AS sealed,
             (SELECT ar.status FROM access_requests ar WHERE ar.doc_id = d.id AND ar.user_id = $2) AS request_status
      FROM documents d LEFT JOIN users u ON u.id = d.owner_id
      ORDER BY d.updated_at DESC`,
@@ -32,6 +33,7 @@ export async function GET() {
       return {
         id: r.id, title: r.title, filetype: r.filetype, classification: r.classification,
         folder_id: r.folder_id, updated_at: r.updated_at, owner: r.owner, mine: r.mine,
+        sealed: r.sealed,
         locked,
         lock_reason: locked ? (!r.clearance_ok ? "clearance" : "folder") : null,
         request_status: r.request_status || null,

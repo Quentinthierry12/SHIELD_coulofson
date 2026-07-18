@@ -937,6 +937,10 @@ function SettingsTab() {
 
 // ---------------- Audit ----------------
 const ACTION_LABELS: Record<string, string> = {
+  signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Refused to sign",
+  signature_complete: "Document sealed", signature_cancel: "Request cancelled",
+  signature_broken: "Request voided (content changed)", signature_upload: "Signature image",
+  doc_save_blocked: "Save blocked (sealed)",
   mission_create: "Mission opened", mission_status: "Mission status", mission_report: "After-action report",
   mission_delete: "Mission deleted",
   division_create: "Division created", division_rename: "Division renamed",

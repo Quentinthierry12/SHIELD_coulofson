@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
-type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean; locked?: boolean; lock_reason?: string | null; request_status?: string | null };
+type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean; sealed?: boolean; locked?: boolean; lock_reason?: string | null; request_status?: string | null };
 type Folder = { id: number; name: string; parent_id: number | null; created_by: number | null; restricted: boolean; member: boolean; mine: boolean };
 type Agent = { matricule: string; codename: string; clearance: number };
 
@@ -31,6 +31,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
   const [createType, setCreateType] = useState<string | null>(null);
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
   const [publicDoc, setPublicDoc] = useState<Doc | null>(null);
+  const [signDoc, setSignDoc] = useState<Doc | null>(null);
   const [manageFolder, setManageFolder] = useState<Folder | null>(null);
   const [dragOver, setDragOver] = useState<number | "root" | null>(null);
   const [loading, setLoading] = useState(true);
@@ -206,6 +207,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
         <button className={`rail-btn ${mineOnly ? "active" : ""}`} onClick={() => setMineOnly(!mineOnly)}>
           <span className="rail-label">Mine</span>
         </button>
+        <a href="/inbox"><button className="rail-btn"><span className="rail-label">Dispatch</span></button></a>
         <a href="/missions"><button className="rail-btn"><span className="rail-label">Missions</span></button></a>
         <a href="/roster"><button className="rail-btn"><span className="rail-label">Roster</span></button></a>
         {academyUrl && (
@@ -323,7 +325,8 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                       <button className="ghost small" title="Export as PDF" onClick={() => exportPdf(d)}>PDF</button>
                       {(d.mine || session.role === "admin") && (
                         <>
-                          <button className="ghost small" title="Rename" onClick={() => renameDoc(d)}>Rename</button>
+                          {!d.sealed && <button className="ghost small" title="Request signatures" onClick={() => setSignDoc(d)}>Sign</button>}
+                          {!d.sealed && <button className="ghost small" title="Rename" onClick={() => renameDoc(d)}>Rename</button>}
                           <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
                           <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
                           <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
@@ -332,6 +335,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                     </span>
                   )}
                   {d.locked && <span className="tag t-locked">LOCKED</span>}
+                  {!d.locked && d.sealed && <span className="tag t-sealed" title="Signed and sealed — read-only">SEALED</span>}
                 </div>
                 <div className="card-title">{d.title}</div>
                 <div className="card-meta" onClick={(e) => e.stopPropagation()}>
@@ -384,6 +388,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
       {createType && (
         <CreateModal filetype={createType} folders={folders} maxLevel={session.clearance} defaultFolder={cwd ? String(cwd) : ""} onClose={() => setCreateType(null)} />
       )}
+      {signDoc && <SignRequestModal doc={signDoc} onClose={() => setSignDoc(null)} onDone={load} />}
       {shareDoc && (
         <AccessModal title={`Share “${shareDoc.title}”`} url={`/api/documents/${shareDoc.id}/share`} verb="Shared with" onClose={() => setShareDoc(null)} />
       )}
@@ -557,6 +562,86 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
           </>
         )}
         <button className="ghost" style={{ marginTop: 16, width: "100%" }} onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+// Ask for signatures on a document. Requesting seals the document straight away —
+// a signature on content that can still change is worthless, so say it plainly here.
+function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => void; onDone: () => void }) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<Agent[]>([]);
+  const [chosen, setChosen] = useState<Agent[]>([]);
+  const [sequential, setSequential] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!q.trim()) return setResults([]);
+    const t = setTimeout(async () => {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+      if (res.ok) setResults(await res.json());
+    }, 200);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  function add(a: Agent) {
+    if (!chosen.some((c) => c.matricule === a.matricule)) setChosen([...chosen, a]);
+    setQ(""); setResults([]);
+  }
+
+  async function submit() {
+    if (!chosen.length) return toast("Add at least one signer.", "error");
+    setBusy(true);
+    const res = await fetch("/api/signatures", {
+      method: "POST",
+      body: JSON.stringify({ doc_id: doc.id, signers: chosen.map((c) => c.matricule), sequential, note }),
+    });
+    const d = await res.json();
+    setBusy(false);
+    if (!res.ok) return toast(d.error, "error");
+    toast("Signature request sent. The document is now sealed.", "success");
+    onClose();
+    onDone();
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
+        <h2>Request signatures — “{doc.title}”</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          The document is sealed as soon as the request goes out: nobody can edit it while signatures are
+          being collected. Cancel the request to release it.
+        </p>
+        <input placeholder="Search an agent by badge or codename" value={q} onChange={(e) => setQ(e.target.value)} />
+        {results.length > 0 && (
+          <div className="search-results">
+            {results.map((a) => (
+              <div key={a.matricule} className="search-item" onClick={() => add(a)}>
+                <span className="mono">{a.matricule}</span> — {a.codename}
+              </div>
+            ))}
+          </div>
+        )}
+        {chosen.length > 0 && (
+          <div className="signer-list" style={{ marginBottom: 12 }}>
+            {chosen.map((c, i) => (
+              <span key={c.matricule} className="sync-dot on" onClick={() => setChosen(chosen.filter((x) => x.matricule !== c.matricule))} style={{ cursor: "pointer" }} title="Remove">
+                {sequential ? `${i + 1}. ` : ""}{c.codename} ✕
+              </span>
+            ))}
+          </div>
+        )}
+        <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", marginBottom: 10 }}>
+          <input type="checkbox" style={{ width: "auto", marginBottom: 0 }} checked={sequential} onChange={(e) => setSequential(e.target.checked)} />
+          <span>Chain of command — each signs in turn, notified when their turn comes</span>
+        </label>
+        <input placeholder="NOTE FOR THE SIGNERS (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <div className="sheet-footer">
+          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button disabled={busy || !chosen.length} onClick={submit}>{busy ? "Sending…" : "Request signatures"}</button>
+        </div>
       </div>
     </div>
   );

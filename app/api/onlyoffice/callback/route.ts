@@ -26,10 +26,17 @@ export async function POST(req: Request) {
     if (!res.ok) return NextResponse.json({ error: 1 });
     const content = Buffer.from(await res.arrayBuffer());
     const pool = await db();
-    await pool.query(
-      "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1",
+    // A sealed document must never be overwritten: signatures are bound to these exact
+    // bytes. The editor is opened read-only for locked documents, so reaching here means
+    // the lock landed mid-session — drop the save rather than void the signatures.
+    const { rowCount: written } = await pool.query(
+      "UPDATE documents SET content = $2, version = version + 1, updated_at = now() WHERE id = $1 AND NOT locked",
       [id, content]
     );
+    if (!written) {
+      audit(null, "doc_save_blocked", `#${id} sealed document`);
+      return NextResponse.json({ error: 0 });
+    }
     const editorId = parseInt(data.users?.[0], 10);
     const { rows: u } = editorId
       ? await pool.query("SELECT id, matricule FROM users WHERE id = $1", [editorId])

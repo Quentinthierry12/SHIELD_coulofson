@@ -39,8 +39,14 @@ export function fillVariables(body: string, vars: Record<string, string>): strin
   return body.replace(VAR_RE, (_, name) => vars[name] ?? `{{${name}}}`);
 }
 
-function runXml(text: string, { b = false, i = false, sz = 22, color = "" } = {}) {
-  const rPr = [b ? "<w:b/>" : "", i ? "<w:i/>" : "", `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`, color ? `<w:color w:val="${color}"/>` : ""].join("");
+function runXml(text: string, { b = false, i = false, sz = 22, color = "", font = "" } = {}) {
+  const rPr = [
+    b ? "<w:b/>" : "",
+    i ? "<w:i/>" : "",
+    font ? `<w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:cs="${font}"/>` : "",
+    `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`,
+    color ? `<w:color w:val="${color}"/>` : "",
+  ].join("");
   return `<w:r><w:rPr>${rPr}</w:rPr><w:t xml:space="preserve">${esc(text)}</w:t></w:r>`;
 }
 
@@ -199,4 +205,38 @@ export async function buildPersonnelFile(agent: AgentInfo): Promise<Buffer> {
   ].join("\n");
 
   return packDocx(body);
+}
+
+// ---------- Signature block ----------
+// Engraved into the .docx once every signer has signed, so the signed order is visible in
+// the editor AND in the PDF export — not just in the portal database.
+// A typed signature is rendered in a script font (the same look the portal shows); an
+// imported handwritten image stays in the portal for now, the block records that it was
+// used. ponytail: embedding the image needs word/media + rels plumbing — add when asked.
+export type SignatureLine = { codename: string; matricule: string; at: Date; kind: string; role?: string };
+
+export async function appendSignatureBlock(docx: Buffer, lines: SignatureLine[], hash: string): Promise<Buffer> {
+  const zip = await JSZip.loadAsync(docx);
+  const file = zip.file("word/document.xml");
+  if (!file) return docx; // not a shape we understand — leave the document untouched
+  const xml = await file.async("string");
+
+  const paras: string[] = [];
+  paras.push(paraXml(runXml("SIGNATURES", { b: true, sz: 24, color: "1C3A5E" }), { heading: true }));
+  for (const l of lines) {
+    // The signature itself, in a handwriting face.
+    paras.push(paraXml(runXml(l.codename, { sz: 34, font: "Segoe Script", color: "1C3A5E" })));
+    const stamp = `${l.matricule}${l.role ? " · " + l.role : ""} — signed ${l.at.toISOString().slice(0, 16).replace("T", " ")} UTC` +
+      (l.kind === "image" ? " (handwritten signature on file)" : "");
+    paras.push(paraXml(runXml(stamp, { sz: 16, color: "5F7590" })));
+  }
+  paras.push(
+    paraXml(runXml(`Document sealed — integrity ${hash.slice(0, 16)}`, { sz: 14, i: true, color: "5F7590" }))
+  );
+
+  // Inject before the section properties so page setup is preserved.
+  const marker = xml.includes("<w:sectPr") ? "<w:sectPr" : "</w:body>";
+  const out = xml.replace(marker, paras.join("") + marker);
+  zip.file("word/document.xml", out);
+  return zip.generateAsync({ type: "nodebuffer" });
 }
