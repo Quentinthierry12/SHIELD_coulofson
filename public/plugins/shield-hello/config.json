@@ -1,0 +1,24 @@
+{
+  "name": "S.H.I.E.L.D. Test",
+  "guid": "asc.{6C1A1B2E-3F4D-4A5B-9C8D-7E6F5A4B3C2D}",
+  "version": "1.0",
+  "minVersion": "7.0.0",
+  "variations": [
+    {
+      "description": "Connectivity probe for the S.H.I.E.L.D. plugin channel",
+      "url": "index.html",
+      "icons": ["resources/icon.png", "resources/icon@2x.png"],
+      "isViewer": false,
+      "EditorsSupport": ["word", "cell", "slide"],
+      "isVisual": true,
+      "isModal": false,
+      "isInsideMode": false,
+      "initDataType": "none",
+      "initData": "",
+      "isUpdateOleOnResize": false,
+      "buttons": [],
+      "size": [320, 180],
+      "initOnSelectionChanged": false
+    }
+  ]
+}

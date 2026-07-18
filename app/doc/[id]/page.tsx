@@ -62,6 +62,12 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       lang: "en",
       user: { id: String(session.id), name: `${session.matricule} · ${session.codename}` },
       customization: SHIELD_CUSTOMIZATION,
+      // Plugins are loaded from the PORTAL, not baked into the Document Server image.
+      // Baking them in is what took the editor down twice: rolling back meant rebuilding
+      // the image. From here, removing this line and redeploying takes three minutes.
+      plugins: {
+        pluginsData: [`${PORTAL_URL()}/plugins/shield-hello/config.json`],
+      },
     },
   };
   config.token = await signOOConfig(config);
