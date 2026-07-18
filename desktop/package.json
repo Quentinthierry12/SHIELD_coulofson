@@ -1,0 +1,28 @@
+{
+  "name": "shield-desktop",
+  "version": "1.0.0",
+  "description": "S.H.I.E.L.D. Central Document System — desktop client",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "fr.quentinthierry.shield",
+    "productName": "S.H.I.E.L.D.",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "assets/**"],
+    "win": { "target": ["nsis"], "icon": "assets/icon.ico" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "S.H.I.E.L.D."
+    }
+  }
+}
