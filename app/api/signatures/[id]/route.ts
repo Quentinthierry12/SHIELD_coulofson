@@ -5,6 +5,7 @@ import { docHash, isMyTurn, hashContent } from "@/lib/signatures";
 import { appendSignatureBlock, type SignatureLine } from "@/lib/docxgen";
 import { fillSignMarkers } from "@/lib/sigmarkers";
 import { dmByUserId } from "@/lib/discord";
+import { signatureRequestPush } from "@/lib/push";
 
 // Sign or decline. `kind` is "typed" (codename rendered in a script face) or "image"
 // (the agent's uploaded handwritten signature).
@@ -151,7 +152,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       "SELECT user_id FROM signature_signers WHERE request_id = $1 AND position = $2", [id, next.position]
     );
     if (nu[0]) {
-      dmByUserId(nu[0].user_id, `🦅 **S.H.I.E.L.D. SIGNATURE REQUEST** — It is your turn to sign **${request.title}**. ${process.env.PORTAL_URL}/inbox`);
+      dmByUserId(nu[0].user_id, `🦅 **S.H.I.E.L.D. SIGNATURE REQUEST** — It is your turn to sign **${request.title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(request.title, request.doc_id, "À votre tour de signer"));
     }
   }
 

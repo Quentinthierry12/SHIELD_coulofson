@@ -44,14 +44,20 @@ self.addEventListener("push", (event) => {
     // le logo blanc sur fond transparent → silhouette de l'aigle.
     badge: "/logo-white.png",
     tag: data.tag || undefined,
-    data: { url: data.url || "/dashboard" },
+    // Boutons d'action (ex. Signer / Voir). Android en affiche 2 au plus ; ignorés
+    // là où non supportés. On garde la carte action→URL dans `data` pour le clic.
+    actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : undefined,
+    data: { url: data.url || "/dashboard", urls: data.urls || {} },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/dashboard";
+  const data = event.notification.data || {};
+  // Un bouton précis (event.action) a sa propre cible ; sinon le clic simple.
+  const target =
+    (event.action && data.urls && data.urls[event.action]) || data.url || "/dashboard";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       // Réutiliser un onglet du portail déjà ouvert plutôt que d'en empiler un nouveau.
