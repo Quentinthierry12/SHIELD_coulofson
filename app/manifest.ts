@@ -29,12 +29,20 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "any",
         purpose: "maskable",
       },
-      // Repli raster pour les plateformes qui n'acceptent pas les icônes SVG.
+      // Repli raster OPAQUE (fond sombre + aigle) pour les plateformes qui n'acceptent
+      // pas le SVG. Remplace l'ancien logo.png (aigle sombre sur fond transparent, qui
+      // s'affichait tout blanc ou invisible selon le fond).
       {
-        src: "/logo.png",
+        src: "/icon-512.png",
         type: "image/png",
-        sizes: "1024x1024",
+        sizes: "512x512",
         purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
+        type: "image/png",
+        sizes: "512x512",
+        purpose: "maskable",
       },
     ],
   };

@@ -33,12 +33,34 @@ export function vapidPublicKey(): string | null {
   return process.env.VAPID_PUBLIC_KEY || null;
 }
 
+export type PushAction = { action: string; title: string };
 export type PushPayload = {
   title: string;
   body: string;
   url?: string;
   tag?: string;
+  // Boutons affichés sous la bannière (Android/desktop ; ignorés là où non supportés,
+  // ex. iOS — la notification reste cliquable normalement).
+  actions?: PushAction[];
+  // Cible par bouton : action → URL. Le clic simple utilise `url`.
+  urls?: Record<string, string>;
 };
+
+// Payload d'une demande de signature, avec boutons Signer / Voir. Le bouton Signer
+// (et le clic simple) ouvre le Dispatch ; Voir ouvre le document.
+export function signatureRequestPush(docTitle: string, docId: number, headline = "Signature requise"): PushPayload {
+  return {
+    title: `S.H.I.E.L.D. — ${headline}`,
+    body: docTitle,
+    url: "/inbox",
+    tag: `sig-${docId}`,
+    actions: [
+      { action: "sign", title: "Signer" },
+      { action: "view", title: "Voir" },
+    ],
+    urls: { sign: "/inbox", view: `/doc/${docId}` },
+  };
+}
 
 // Ring every device an agent has registered. Dead subscriptions (410 Gone /
 // 404 Not Found) are pruned so we don't keep hammering a browser that revoked us.

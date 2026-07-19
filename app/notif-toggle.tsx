@@ -1,16 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { toast } from "@/lib/ui-store";
-
-// VAPID keys are URL-safe base64; the browser wants the raw bytes.
-function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(b64);
-  const out = new Uint8Array(new ArrayBuffer(raw.length));
-  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-  return out;
-}
+import { pushSupported, getPushConfig, getExistingSubscription, subscribeThisDevice, unsubscribeThisDevice } from "@/lib/push-client";
 
 type State = "loading" | "unsupported" | "off" | "on" | "denied";
 
@@ -20,50 +11,29 @@ export default function NotifToggle() {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
 
-  const supported =
-    typeof window !== "undefined" &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window;
-
   useEffect(() => {
-    if (!supported) { setState("unsupported"); return; }
+    if (!pushSupported()) { setState("unsupported"); return; }
     let cancelled = false;
     (async () => {
       // Server-side switch: no VAPID key → the whole feature stays invisible.
-      const cfg = await fetch("/api/push/subscribe").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const cfg = await getPushConfig();
       if (cancelled) return;
       if (!cfg?.enabled) { setState("unsupported"); return; }
       if (Notification.permission === "denied") { setState("denied"); return; }
-      const reg = await navigator.serviceWorker.ready.catch(() => null);
-      const sub = reg ? await reg.pushManager.getSubscription() : null;
+      const sub = await getExistingSubscription();
       if (!cancelled) setState(sub ? "on" : "off");
     })();
     return () => { cancelled = true; };
-  }, [supported]);
+  }, []);
 
   async function enable() {
     setBusy(true);
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") { setState(perm === "denied" ? "denied" : "off"); return; }
-      const cfg = await fetch("/api/push/subscribe").then((r) => r.json());
-      if (!cfg?.key) { toast("Notifications indisponibles sur ce serveur.", "error"); return; }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(cfg.key),
-      });
-      const res = await fetch("/api/push/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub),
-      });
-      if (!res.ok) throw new Error("subscribe failed");
-      setState("on");
-      toast("Notifications activées sur cet appareil.", "success");
-    } catch {
-      toast("Impossible d'activer les notifications.", "error");
+      const r = await subscribeThisDevice();
+      if (r === "on") { setState("on"); toast("Notifications activées sur cet appareil.", "success"); }
+      else if (r === "denied") { setState("denied"); }
+      else if (r === "dismissed") { setState("off"); }
+      else toast("Impossible d'activer les notifications.", "error");
     } finally {
       setBusy(false);
     }
@@ -72,16 +42,7 @@ export default function NotifToggle() {
   async function disable() {
     setBusy(true);
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        await fetch("/api/push/subscribe", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
-        }).catch(() => {});
-        await sub.unsubscribe().catch(() => {});
-      }
+      await unsubscribeThisDevice();
       setState("off");
       toast("Notifications désactivées sur cet appareil.", "success");
     } finally {

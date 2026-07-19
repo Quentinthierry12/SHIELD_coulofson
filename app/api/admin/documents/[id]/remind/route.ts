@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
+import { signatureRequestPush } from "@/lib/push";
 
 // Chase whoever is holding up a signature. In a sequential circuit only the agent whose
 // turn it is gets pinged — reminding someone who cannot sign yet is just noise.
@@ -32,7 +33,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   for (const t of targets) {
     dmByUserId(
       t.user_id,
-      `🦅 **S.H.I.E.L.D. REMINDER** — Your signature is still required on **${request.title}**. ${process.env.PORTAL_URL}/inbox`
+      `🦅 **S.H.I.E.L.D. REMINDER** — Your signature is still required on **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
+      signatureRequestPush(request.title, id, "Rappel de signature")
     );
   }
   audit(s, "signature_remind", `${request.title} — ${targets.length} agent(s)`);

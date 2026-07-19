@@ -8,8 +8,8 @@
    - Tout le reste (API, OnlyOffice, POST, cross-origin) : passe-plat direct réseau,
      jamais stocké — évite de servir des données sensibles périmées. */
 
-const CACHE = "shield-shell-v1";
-const SHELL = ["/offline.html", "/icon.svg", "/logo.png", "/logo-white.png"];
+const CACHE = "shield-shell-v2";
+const SHELL = ["/offline.html", "/icon.svg", "/icon-512.png", "/logo.png", "/logo-white.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,17 +36,28 @@ self.addEventListener("push", (event) => {
   const title = data.title || "S.H.I.E.L.D.";
   const options = {
     body: data.body || "",
-    icon: "/logo.png",
-    badge: "/icon.svg",
+    // Grande icône du corps : PNG opaque (fond sombre + aigle), visible quel que soit
+    // le thème clair/sombre de la notification.
+    icon: "/icon-512.png",
+    // Badge (petite icône monochrome de la barre d'état) : Android n'utilise QUE la
+    // silhouette (canal alpha). Une image opaque donnerait un carré blanc plein, d'où
+    // le logo blanc sur fond transparent → silhouette de l'aigle.
+    badge: "/logo-white.png",
     tag: data.tag || undefined,
-    data: { url: data.url || "/dashboard" },
+    // Boutons d'action (ex. Signer / Voir). Android en affiche 2 au plus ; ignorés
+    // là où non supportés. On garde la carte action→URL dans `data` pour le clic.
+    actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : undefined,
+    data: { url: data.url || "/dashboard", urls: data.urls || {} },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/dashboard";
+  const data = event.notification.data || {};
+  // Un bouton précis (event.action) a sa propre cible ; sinon le clic simple.
+  const target =
+    (event.action && data.urls && data.urls[event.action]) || data.url || "/dashboard";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       // Réutiliser un onglet du portail déjà ouvert plutôt que d'en empiler un nouveau.
