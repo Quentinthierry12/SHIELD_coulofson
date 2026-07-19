@@ -15,7 +15,7 @@ async function canManage(folderId: number) {
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
-  if (!(await canManage(id))) return NextResponse.json({ error: "Folder owner or officers only." }, { status: 403 });
+  if (!(await canManage(id))) return NextResponse.json({ error: "Réservé au propriétaire du dossier ou aux officiers." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT u.matricule, u.codename, u.clearance FROM folder_members fm JOIN users u ON u.id = fm.user_id
@@ -28,19 +28,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const s = await canManage(id);
-  if (!s) return NextResponse.json({ error: "Folder owner or officers only." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Réservé au propriétaire du dossier ou aux officiers." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   const { rows } = await pool.query("SELECT id, codename FROM users WHERE matricule = $1 AND status = 'active'", [
     (matricule || "").trim().toUpperCase(),
   ]);
-  if (!rows[0]) return NextResponse.json({ error: "Unknown badge number or inactive agent." }, { status: 404 });
+  if (!rows[0]) return NextResponse.json({ error: "Matricule inconnu ou agent inactif." }, { status: 404 });
   await pool.query("INSERT INTO folder_members (folder_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, rows[0].id]);
   const { rows: f } = await pool.query("SELECT name FROM folders WHERE id = $1", [id]);
   audit(s, "folder_invite", `${f[0]?.name || id} -> ${(matricule || "").trim().toUpperCase()}`);
   dmByUserId(
     rows[0].id,
-    `🦅 **S.H.I.E.L.D. TRANSMISSION** — You have been granted access to restricted folder **${f[0]?.name || "?"}**. ${process.env.PORTAL_URL}/dashboard`
+    `🦅 **TRANSMISSION S.H.I.E.L.D.** — Un accès au dossier restreint vous a été accordé **${f[0]?.name || "?"}**. ${process.env.PORTAL_URL}/dashboard`
   );
   return NextResponse.json({ ok: true, codename: rows[0].codename });
 }
@@ -48,7 +48,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const s = await canManage(id);
-  if (!s) return NextResponse.json({ error: "Folder owner or officers only." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Réservé au propriétaire du dossier ou aux officiers." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   await pool.query(

@@ -8,13 +8,13 @@ import { extractSignMarkers } from "@/lib/sigmarkers";
 // badges that are already written in the document.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
   const { rows } = await pool.query("SELECT content, filetype, owner_id FROM documents WHERE id = $1", [id]);
-  if (!rows[0]) return NextResponse.json({ error: "Unknown document." }, { status: 404 });
+  if (!rows[0]) return NextResponse.json({ error: "Document inconnu." }, { status: 404 });
   if (s.role !== "admin" && rows[0].owner_id !== s.id) {
-    return NextResponse.json({ error: "Access denied." }, { status: 403 });
+    return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   }
   if (rows[0].filetype !== "docx") return NextResponse.json({ slots: [], agents: [] });
 

@@ -6,7 +6,7 @@ import { dmByUserId } from "@/lib/discord";
 // Pending access requests an officer (or a document owner) may act on.
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT ar.id, ar.doc_id, ar.reason, ar.status, ar.created_at,
@@ -26,7 +26,7 @@ export async function GET() {
 // permissions in sync: a share overrides both). Deny → just mark it.
 export async function PATCH(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const { id, approve } = await req.json();
   const pool = await db();
   const { rows } = await pool.query(
@@ -35,16 +35,16 @@ export async function PATCH(req: Request) {
     [id]
   );
   const r = rows[0];
-  if (!r) return NextResponse.json({ error: "Request not found." }, { status: 404 });
+  if (!r) return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
   if (s.role !== "admin" && r.owner_id !== s.id) {
-    return NextResponse.json({ error: "Only the document owner or an officer can decide." }, { status: 403 });
+    return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut décider." }, { status: 403 });
   }
 
   if (approve) {
     await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [r.doc_id, r.user_id]);
-    dmByUserId(r.user_id, `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your access request for **« ${r.title} »** was **approved**. ${process.env.PORTAL_URL}/doc/${r.doc_id}`);
+    dmByUserId(r.user_id, `🦅 **TRANSMISSION S.H.I.E.L.D.** — Votre demande d'accès à **« ${r.title} »** a été **approuvée**. ${process.env.PORTAL_URL}/doc/${r.doc_id}`);
   } else {
-    dmByUserId(r.user_id, `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your access request for **« ${r.title} »** was **denied**.`);
+    dmByUserId(r.user_id, `🦅 **TRANSMISSION S.H.I.E.L.D.** — Votre demande d'accès à **« ${r.title} »** a été **refusée**.`);
   }
   await pool.query("UPDATE access_requests SET status = $2, decided_by = $3, decided_at = now() WHERE id = $1", [
     id, approve ? "approved" : "denied", s.id,

@@ -8,7 +8,7 @@ import { pushEnabled, type PushPayload } from "@/lib/push";
 // report back what actually went out — so Command can confirm the setup end to end.
 export async function POST() {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
 
   const pool = await db();
   const { rows: dev } = await pool.query(

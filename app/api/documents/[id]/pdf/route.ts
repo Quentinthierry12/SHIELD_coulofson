@@ -21,10 +21,10 @@ async function convert(body: Record<string, unknown>) {
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const doc = await getAccessibleDoc(id, s.clearance, s.id, s.role);
-  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
 
   // Mirrors the editor: officers read at full clearance, everyone else gets their own.
   const effectiveClr = s.role === "admin" ? 10 : s.clearance;

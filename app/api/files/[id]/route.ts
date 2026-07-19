@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
   const pool = await db();
   const { rows } = await pool.query("SELECT filetype, content FROM documents WHERE id = $1", [id]);
-  if (!rows[0]) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!rows[0]) return NextResponse.json({ error: "introuvable" }, { status: 404 });
   // Redacted (read-only) viewers get a filtered .docx; editors get the untouched original.
   let content: Buffer = rows[0].content;
   if (tok.red && rows[0].filetype === "docx") {

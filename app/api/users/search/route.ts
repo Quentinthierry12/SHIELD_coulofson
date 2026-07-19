@@ -5,7 +5,7 @@ import { getSession } from "@/lib/session";
 // Autocomplétion pour le partage : cherche parmi les agents actifs.
 export async function GET(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const q = (new URL(req.url).searchParams.get("q") || "").trim();
   if (!q) return NextResponse.json([]);
   const pool = await db();
