@@ -3,7 +3,22 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
-type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; moodle_synced: boolean; created_at: string };
+type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; moodle_synced: boolean; created_at: string; oath_state?: string | null };
+type TimelineEvent = { at: string; kind: string; label: string };
+type AgentHistory = { agent: { matricule: string; codename: string; status: string }; state: string; statusLabel: string; summary: { notifs: number; logins: number }; events: TimelineEvent[] };
+
+// Badge de serment pour la ligne agent, dérivé de "reqStatus:myStatus".
+function oathBadge(state?: string | null): { label: string; cls: string; title: string } | null {
+  if (!state) return null;
+  const [req, my] = state.split(":");
+  if (req === "pending" && my === "pending") return { label: "SERMENT ✗", cls: "high", title: "Serment à signer — accès au système bloqué" };
+  if (req === "complete") return { label: "SCELLÉ", cls: "low", title: "Dossier scellé (contresigné)" };
+  if (my === "signed") return { label: "SIGNÉ", cls: "low", title: "Serment signé" };
+  return null;
+}
+
+const HIST_CLS: Record<string, string> = { to_sign: "high", signed: "mid", sealed: "low", none: "mid" };
+const fmtWhen = (at: string) => new Date(at).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
@@ -205,6 +220,7 @@ function AgentRow({ u, locked, onOpen }: { u: User; locked: boolean; onOpen: () 
       <span className={`classif ${statusCls}`}>
         {u.status === "active" ? "ACTIVE" : u.status === "pending" ? "PENDING" : "REVOKED"}
       </span>
+      {(() => { const b = oathBadge(u.oath_state); return b ? <span className={`classif ${b.cls}`} title={b.title}>{b.label}</span> : null; })()}
       <span className="sync-cell">
         <SyncDot on={u.discord_linked} label="DISCORD"
           title={u.discord_linked ? "Discord account linked" : "No Discord account linked — the agent signs in with their badge only"} />
@@ -235,6 +251,13 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
   const [division, setDivision] = useState(u.division);
   const [clearance, setClearance] = useState(u.clearance);
   const [role, setRole] = useState(u.role);
+  const [hist, setHist] = useState<AgentHistory | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/admin/users/${u.id}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (live) setHist(d); }).catch(() => {});
+    return () => { live = false; };
+  }, [u.id]);
 
   const dirty = matricule.trim().toUpperCase() !== u.matricule || codename.trim() !== u.codename
     || division !== u.division || clearance !== u.clearance || role !== u.role;
@@ -274,6 +297,30 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
               <option value="admin">Officer</option>
             </select>
           </div>
+        </div>
+
+        <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+          <label className="muted sheet-label">Statut &amp; historique</label>
+          {!hist ? (
+            <p className="muted" style={{ fontSize: ".8rem" }}>Chargement…</p>
+          ) : (
+            <>
+              <p style={{ marginBottom: 8 }}>
+                <span className={`classif ${HIST_CLS[hist.state] || "mid"}`}>{hist.statusLabel}</span>
+              </p>
+              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 4, fontSize: ".82rem", margin: 0, padding: 0 }}>
+                {hist.events.map((e, i) => (
+                  <li key={i} style={{ display: "flex", gap: 8 }}>
+                    <span className="mono muted" style={{ whiteSpace: "nowrap", minWidth: 132 }}>{fmtWhen(e.at)}</span>
+                    <span>{e.label}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="muted" style={{ fontSize: ".75rem", marginTop: 8 }}>
+                {hist.summary.notifs} notification(s) de serment envoyée(s) · {hist.summary.logins} connexion(s)
+              </p>
+            </>
+          )}
         </div>
 
         <div className="sheet-actions">

@@ -24,7 +24,13 @@ export async function GET() {
             (dv.lead_id = u.id) AS is_lead,
             u.discord_id IS NOT NULL AS discord_linked,
             u.moodle_id IS NOT NULL AS moodle_synced,
-            u.created_at
+            u.created_at,
+            -- État du serment (dernière demande sur le dossier de l'agent) : "reqStatus:myStatus".
+            (SELECT r.status || ':' || sg.status
+               FROM signature_requests r
+               JOIN documents d ON d.id = r.doc_id AND d.is_personnel = true AND d.owner_id = u.id
+               JOIN signature_signers sg ON sg.request_id = r.id AND sg.user_id = u.id
+              ORDER BY r.created_at DESC LIMIT 1) AS oath_state
        FROM users u LEFT JOIN divisions dv ON dv.id = u.division_id
       ORDER BY u.status DESC, u.id`
   );
