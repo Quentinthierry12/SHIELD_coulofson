@@ -253,6 +253,9 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   .login-wrap { min-height: 100dvh; }
 }
 @media (max-width: 720px) {
+  /* La barre passe en mode horizontal : elle ne doit PAS prendre 100dvh
+     (sinon @supports plus haut étire chaque bouton sur toute la hauteur). */
+  .rail { height: auto; }
   /* Barres collantes : respecter l'encoche / la barre d'état iOS. */
   .rail { padding-top: calc(8px + env(safe-area-inset-top)); }
   .main .topbar { padding-left: calc(14px + env(safe-area-inset-left));
