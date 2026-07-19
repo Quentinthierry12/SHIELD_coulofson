@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
+import NotifToggle from "../notif-toggle";
 
 type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean; sealed?: boolean; locked?: boolean; lock_reason?: string | null; request_status?: string | null };
 type Folder = { id: number; name: string; parent_id: number | null; created_by: number | null; restricted: boolean; member: boolean; mine: boolean };
@@ -240,6 +241,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
           <input className="searchbar" placeholder="Search the archives…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <span className="badge">{session.matricule} · {session.codename} · LVL.{session.clearance}</span>
+            <NotifToggle />
             <a href="/api/auth/discord"><button className="ghost small" title="Link Discord">Link Discord</button></a>
             <button className="ghost small" onClick={changePassword}>Password</button>
             <button className="ghost small" onClick={logout}>Sign out</button>
