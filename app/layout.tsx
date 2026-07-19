@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import UiHost from "./ui-host";
 import PwaRegister from "./pwa-register";
+import NotifInvite from "./notif-invite";
 
 export const metadata: Metadata = {
   title: "S.H.I.E.L.D. — Central Document System",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <UiHost />
         <PwaRegister />
+        <NotifInvite />
       </body>
     </html>
   );

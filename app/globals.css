@@ -340,3 +340,22 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
 .sig-choice:hover { border-color: var(--accent); background: #101a2a; }
 .signer-list { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
 .tag.t-sealed { background: #12301f; color: var(--ok); }
+
+/* ===== Invitation aux notifications (1er lancement PWA) ===== */
+.notif-invite {
+  position: fixed; left: 12px; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 60; max-width: 640px; margin: 0 auto;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--accent-dim);
+  border-radius: 10px; padding: 12px 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+.notif-invite-txt { flex: 1 1 220px; min-width: 0; font-size: 0.9rem; color: var(--text); }
+.notif-invite-actions { display: flex; gap: 8px; margin-left: auto; flex: 0 0 auto; flex-wrap: wrap; }
+/* Écran étroit : le texte au-dessus, les boutons dessous alignés à droite. */
+@media (max-width: 520px) {
+  .notif-invite { flex-direction: column; align-items: stretch; }
+  .notif-invite-txt { flex: 0 0 auto; }
+  .notif-invite-actions { margin-left: 0; justify-content: flex-end; }
+}
