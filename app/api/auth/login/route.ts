@@ -13,13 +13,13 @@ export async function POST(req: Request) {
   const user = rows[0];
   if (!user || !(await bcrypt.compare(password || "", user.password_hash))) {
     audit(null, "login_failed", (matricule || "").trim().toUpperCase());
-    return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    return NextResponse.json({ error: "Identifiants invalides." }, { status: 401 });
   }
   if (user.status === "pending") {
-    return NextResponse.json({ error: "Account awaiting validation by a senior officer." }, { status: 403 });
+    return NextResponse.json({ error: "Compte en attente de validation par un officier supérieur." }, { status: 403 });
   }
   if (user.status !== "active") {
-    return NextResponse.json({ error: "Access revoked." }, { status: 403 });
+    return NextResponse.json({ error: "Accès révoqué." }, { status: 403 });
   }
   await createSession({
     id: user.id,

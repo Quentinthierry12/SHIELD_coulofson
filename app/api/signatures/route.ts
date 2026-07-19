@@ -10,7 +10,7 @@ import { signatureRequestPush } from "@/lib/push";
 // building two screens for the same data would just be two things to keep in step.
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const pool = await db();
 
   const base = `
@@ -61,37 +61,37 @@ export async function GET() {
 // Create a signature request. The document owner or an officer may ask.
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const { doc_id, signers, sequential, note, circuit } = await req.json();
   const docId = parseInt(String(doc_id), 10);
   const pool = await db();
 
   const { rows: d } = await pool.query("SELECT title, owner_id, locked FROM documents WHERE id = $1", [docId]);
-  if (!d[0]) return NextResponse.json({ error: "Unknown document." }, { status: 404 });
+  if (!d[0]) return NextResponse.json({ error: "Document inconnu." }, { status: 404 });
   if (s.role !== "admin" && d[0].owner_id !== s.id) {
-    return NextResponse.json({ error: "Only the document owner or an officer can request signatures." }, { status: 403 });
+    return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut demander des signatures." }, { status: 403 });
   }
-  if (d[0].locked) return NextResponse.json({ error: "This document is already sealed." }, { status: 409 });
+  if (d[0].locked) return NextResponse.json({ error: "Ce document est déjà scellé." }, { status: 409 });
   const { rowCount: openReq } = await pool.query(
     "SELECT 1 FROM signature_requests WHERE doc_id = $1 AND status = 'pending'", [docId]
   );
-  if (openReq) return NextResponse.json({ error: "A signature request is already open on this document." }, { status: 409 });
+  if (openReq) return NextResponse.json({ error: "Une demande de signature est déjà ouverte sur ce document." }, { status: 409 });
 
   const badges = (Array.isArray(signers) ? signers : String(signers || "").split(/[\s,;]+/))
     .map((b: string) => String(b).trim().toUpperCase()).filter(Boolean);
-  if (!badges.length) return NextResponse.json({ error: "At least one signer is required." }, { status: 400 });
+  if (!badges.length) return NextResponse.json({ error: "Au moins un signataire est requis." }, { status: 400 });
 
   const resolved: { id: number; matricule: string; codename: string }[] = [];
   for (const b of [...new Set(badges)]) {
     const { rows } = await pool.query(
       "SELECT id, matricule, codename FROM users WHERE matricule = $1 AND status = 'active'", [b]
     );
-    if (!rows[0]) return NextResponse.json({ error: `Agent ${b} not found or inactive.` }, { status: 404 });
+    if (!rows[0]) return NextResponse.json({ error: `Agent ${b} introuvable ou inactif.` }, { status: 404 });
     resolved.push(rows[0]);
   }
 
   const fp = await docHash(docId);
-  if (!fp) return NextResponse.json({ error: "Unknown document." }, { status: 404 });
+  if (!fp) return NextResponse.json({ error: "Document inconnu." }, { status: 404 });
 
   const { rows: r } = await pool.query(
     `INSERT INTO signature_requests (doc_id, requested_by, circuit, sequential, note, doc_version, content_hash, original_content)
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
   // In a sequential circuit only the first signer is called up; the rest are told in turn.
   const toNotify = sequential ? resolved.slice(0, 1) : resolved;
   for (const a of toNotify) {
-    dmByUserId(a.id, `🦅 **S.H.I.E.L.D. SIGNATURE REQUEST** — Your signature is required on **${d[0].title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(d[0].title, docId));
+    dmByUserId(a.id, `🦅 **DEMANDE DE SIGNATURE S.H.I.E.L.D.** — Votre signature est requise sur **${d[0].title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(d[0].title, docId));
   }
   audit(s, "signature_request", `#${docId} ${d[0].title} -> ${resolved.map((a) => a.matricule).join(",")}`);
   return NextResponse.json({ id: reqId });

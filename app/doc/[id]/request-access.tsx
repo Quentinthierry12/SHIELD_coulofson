@@ -13,33 +13,33 @@ export default function RequestAccess({
     const data = await res.json();
     if (!res.ok) return toast(data.error, "error");
     setSent(true);
-    toast("Access request transmitted.", "success");
+    toast("Demande d'accès transmise.", "success");
   }
 
   return (
     <div className="login-wrap">
       <div className="login-box" style={{ width: 460 }}>
-        <h1 style={{ textAlign: "center", marginBottom: 4 }}>Access Restricted</h1>
+        <h1 style={{ textAlign: "center", marginBottom: 4 }}>Accès restreint</h1>
         <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>Protocol 7-Alpha</p>
         <div className="panel">
           <div className="card-meta" style={{ marginBottom: 12 }}>
             <span className={`classif ${classification >= 7 ? "high" : classification >= 4 ? "mid" : "low"}`}>
-              LVL.{classification} — {classification >= 7 ? "TOP SECRET" : classification >= 4 ? "CLASSIFIED" : "RESTRICTED"}
+              LVL.{classification} — {classification >= 7 ? "TOP SECRET" : classification >= 4 ? "CLASSIFIÉ" : "RESTREINT"}
             </span>
           </div>
           <div className="card-title" style={{ marginBottom: 10 }}>{title}</div>
           <p className="muted" style={{ marginBottom: 14 }}>
             {reason === "clearance"
-              ? "This document is classified above your clearance level."
-              : "This document sits in a restricted folder you are not cleared for."}
+              ? "Ce document est classifié au-dessus de votre niveau d'habilitation."
+              : "Ce document est dans un dossier restreint pour lequel vous n'êtes pas habilité."}
           </p>
 
           {sent ? (
-            <p className="success">✓ Request transmitted. A senior officer must approve it — you'll be notified.</p>
+            <p className="success">✓ Demande transmise. Un officier supérieur doit l'approuver — vous serez prévenu.</p>
           ) : (
             <>
-              <input placeholder="REASON FOR REQUEST (optional)" value={why} onChange={(e) => setWhy(e.target.value)} />
-              <button style={{ width: "100%" }} onClick={send}>Request access</button>
+              <input placeholder="MOTIF DE LA DEMANDE (facultatif)" value={why} onChange={(e) => setWhy(e.target.value)} />
+              <button style={{ width: "100%" }} onClick={send}>Demander l'accès</button>
             </>
           )}
           <a href="/dashboard"><button className="ghost" style={{ width: "100%", marginTop: 10 }}>← Archives</button></a>

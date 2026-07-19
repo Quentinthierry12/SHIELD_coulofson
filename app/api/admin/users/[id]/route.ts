@@ -10,13 +10,13 @@ type Ev = { at: string; kind: string; label: string };
 // existantes (users, demandes de serment, journal d'audit) — aucun schéma en plus.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
 
   const { rows: urows } = await pool.query("SELECT matricule, codename, status, created_at FROM users WHERE id = $1", [id]);
   const u = urows[0];
-  if (!u) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
+  if (!u) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
 
   // Chaque demande de serment = une notification envoyée (la 1ʳᵉ, puis les relances).
   const { rows: reqs } = await pool.query(
@@ -73,7 +73,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 // en attente, pour qu'une signature débloque bien l'agent.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const body = await req.json().catch(() => ({} as any));
 
@@ -94,15 +94,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   const id = parseInt((await params).id, 10);
-  if (id === s.id) return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
+  if (id === s.id) return NextResponse.json({ error: "Vous ne pouvez pas supprimer votre propre compte." }, { status: 400 });
   const pool = await db();
   const { rows } = await pool.query("SELECT matricule, codename, clearance FROM users WHERE id = $1", [id]);
   const target = rows[0];
-  if (!target) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
+  if (!target) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
   if (target.clearance >= s.clearance) {
-    return NextResponse.json({ error: "You cannot delete an agent at or above your own clearance." }, { status: 403 });
+    return NextResponse.json({ error: "Vous ne pouvez pas supprimer un agent d'habilitation supérieure ou égale à la vôtre." }, { status: 403 });
   }
   await deleteMoodleUser(id); // remove their Academy account too
   // Keep the agent's documents (orphaned), drop their access rows, then remove the account.

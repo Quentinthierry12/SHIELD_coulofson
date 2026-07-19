@@ -17,8 +17,8 @@ async function ownedDoc(id: number) {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await ownedDoc(id);
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT u.matricule, u.codename FROM document_shares ds JOIN users u ON u.id = ds.user_id WHERE ds.doc_id = $1`,
@@ -30,19 +30,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await ownedDoc(id);
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Only the document owner or an officer can share it." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut le partager." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   const { rows } = await pool.query("SELECT id, codename FROM users WHERE matricule = $1 AND status = 'active'", [
     (matricule || "").trim().toUpperCase(),
   ]);
-  if (!rows[0]) return NextResponse.json({ error: "Unknown badge number or inactive agent." }, { status: 404 });
+  if (!rows[0]) return NextResponse.json({ error: "Matricule inconnu ou agent inactif." }, { status: 404 });
   await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, rows[0].id]);
   audit(s, "doc_share", `#${id} ${doc.title} -> ${(matricule || "").trim().toUpperCase()}`);
   dmByUserId(
     rows[0].id,
-    `🦅 **S.H.I.E.L.D. TRANSMISSION** — Agent **${s.codename}** granted you access to classified document **« ${doc.title} »**. Open: ${process.env.PORTAL_URL}/doc/${id}`
+    `🦅 **TRANSMISSION S.H.I.E.L.D.** — Agent **${s.codename}** vous a accordé l'accès au document classifié **« ${doc.title} »**. Ouvrir : ${process.env.PORTAL_URL}/doc/${id}`
   );
   return NextResponse.json({ ok: true, codename: rows[0].codename });
 }
@@ -50,8 +50,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await ownedDoc(id);
-  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   await pool.query(

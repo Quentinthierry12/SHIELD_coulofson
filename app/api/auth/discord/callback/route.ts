@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     audit({ id: state.userId, matricule: "?" }, "discord_link", discordUser.username);
     sendDM(
       discordUser.id,
-      "🦅 **S.H.I.E.L.D. TRANSMISSION** — This Discord account is now linked to your agent credentials. You can sign in with Discord from now on."
+      "🦅 **TRANSMISSION S.H.I.E.L.D.** — Ce compte Discord est désormais lié à vos identifiants d'agent. Vous pourrez vous connecter avec Discord."
     ).catch(() => {});
     return NextResponse.redirect(`${home}/dashboard?discord=linked`);
   }

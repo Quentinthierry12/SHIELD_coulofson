@@ -25,8 +25,8 @@ export default async function PublicDocPage({ params }: { params: Promise<{ toke
     documentType: DOC_TYPES[doc.filetype].documentType,
     editorConfig: {
       mode: "view",
-      lang: "en",
-      user: { id: "public", name: "Public viewer" },
+      lang: "fr",
+      user: { id: "public", name: "Lecteur public" },
       customization: SHIELD_CUSTOMIZATION,
     },
   };

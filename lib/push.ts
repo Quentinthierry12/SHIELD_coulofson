@@ -144,7 +144,7 @@ export function pushFromDiscordContent(content: string): PushPayload {
     title = text.slice(0, dash).trim() || title;
     body = text.slice(dash + 1).trim();
   }
-  // Stripping the trailing URL can leave a dangling lead-in ("Full order:"); tidy it.
+  // Stripping the trailing URL can leave a dangling lead-in ("Ordre complet :"); tidy it.
   body = body.replace(/\s{2,}/g, " ").replace(/[\s:–—-]+$/, "").trim();
   return { title, body, url };
 }

@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
   const { rows } = await pool.query("DELETE FROM templates WHERE id = $1 RETURNING name", [id]);

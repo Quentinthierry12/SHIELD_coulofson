@@ -8,7 +8,7 @@ import { signatureRequestPush } from "@/lib/push";
 // turn it is gets pinged — reminding someone who cannot sign yet is just noise.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
 
@@ -19,7 +19,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ORDER BY r.created_at DESC LIMIT 1`,
     [id]
   );
-  if (!rows[0]) return NextResponse.json({ error: "No signature request is open on this document." }, { status: 404 });
+  if (!rows[0]) return NextResponse.json({ error: "Aucune demande de signature n'est ouverte sur ce document." }, { status: 404 });
   const request = rows[0];
 
   const { rows: pending } = await pool.query(
@@ -27,13 +27,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       WHERE sg.request_id = $1 AND sg.status = 'pending' ORDER BY sg.position`,
     [request.id]
   );
-  if (!pending.length) return NextResponse.json({ error: "Everyone has already responded." }, { status: 409 });
+  if (!pending.length) return NextResponse.json({ error: "Tout le monde a déjà répondu." }, { status: 409 });
 
   const targets = request.sequential ? pending.slice(0, 1) : pending;
   for (const t of targets) {
     dmByUserId(
       t.user_id,
-      `🦅 **S.H.I.E.L.D. REMINDER** — Your signature is still required on **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
+      `🦅 **RAPPEL S.H.I.E.L.D.** — Votre signature est toujours requise sur **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
       signatureRequestPush(request.title, id, "Rappel de signature")
     );
   }

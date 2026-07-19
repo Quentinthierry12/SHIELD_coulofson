@@ -19,6 +19,10 @@
     .row { display: flex; gap: 5px; margin-bottom: 6px; }
     .row button { flex: 1; padding: 8px; border: 1px solid #c9d6e5; border-radius: 3px; background: #fff; cursor: pointer; font-size: 11px; }
     .row button:hover { border-color: #1c3a5e; background: #eaf1f8; }
+    .stamp { font-family: Consolas, monospace; font-weight: 700; letter-spacing: .06em; }
+    .stamp.s-low { border-color: #2f8f5b; color: #14663a; }
+    .stamp.s-mid { border-color: #c8862f; color: #8a5410; }
+    .stamp.s-hi  { border-color: #b83b3b; color: #7a1010; }
     input { width: 100%; padding: 7px; border: 1px solid #c9d6e5; border-radius: 3px; font-family: Consolas, monospace; font-size: 11px; margin-bottom: 5px; }
     hr { border: none; border-top: 1px solid #e4ebf2; margin: 14px 0 10px; }
     #msg { margin-top: 10px; font-size: 11px; color: #1c3a5e; min-height: 15px; }
@@ -29,6 +33,36 @@
   <p class="hint">Place le curseur dans le paragraphe à protéger, puis choisis le niveau requis
      pour le lire. Les agents en dessous verront une barre noire.</p>
   <div class="grid" id="levels"></div>
+
+  <hr />
+
+  <h4>Tampon de classification</h4>
+  <p class="hint">Insère un tampon visuel coloré à l'emplacement du curseur (marquage, pas de
+     masquage).</p>
+  <div class="row">
+    <button class="stamp s-low" data-stamp="low">RESTREINT</button>
+    <button class="stamp s-mid" data-stamp="mid">CLASSIFIÉ</button>
+    <button class="stamp s-hi" data-stamp="hi">TOP SECRET</button>
+  </div>
+
+  <hr />
+
+  <h4>Caviardage</h4>
+  <p class="hint">Sélectionne le texte à masquer, puis applique une barre noire (texte et fond
+     noircis).</p>
+  <div class="row">
+    <button id="redact">Caviarder la sélection</button>
+    <button id="unredact">Retirer</button>
+  </div>
+
+  <hr />
+
+  <h4>Filigrane</h4>
+  <p class="hint">Appose un filigrane diagonal sur toutes les pages du document.</p>
+  <div class="row">
+    <button id="watermark">Filigrane « TOP SECRET »</button>
+    <button id="watermarkOff">Retirer</button>
+  </div>
 
   <hr />
 

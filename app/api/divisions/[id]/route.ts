@@ -7,7 +7,7 @@ import { getSession } from "@/lib/session";
 // documents, and folder deletion has its own rules.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
 
@@ -19,7 +19,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   );
   if (c[0].n > 0) {
     return NextResponse.json(
-      { error: `${c[0].n} agent(s) still belong to this division. Reassign them first.` },
+      { error: `${c[0].n} agent(s) appartiennent encore à cette division. Réaffectez-les d'abord.` },
       { status: 409 }
     );
   }

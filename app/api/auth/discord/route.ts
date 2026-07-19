@@ -4,7 +4,7 @@ import { discordAuthUrl, discordEnabled } from "@/lib/discord";
 
 export async function GET() {
   if (!discordEnabled()) {
-    return NextResponse.json({ error: "Discord integration is not configured yet." }, { status: 503 });
+    return NextResponse.json({ error: "L'intégration Discord n'est pas encore configurée." }, { status: 503 });
   }
   const s = await getSession();
   // Logged in → link flow ; anonymous → login flow

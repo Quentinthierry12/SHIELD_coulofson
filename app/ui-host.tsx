@@ -45,7 +45,7 @@ export default function UiHost() {
                 {modal.kind === "confirm" ? modal.confirmLabel : "OK"}
               </button>
               <button className="ghost" style={{ flex: 1 }} onClick={() => closeModal(modal.kind === "prompt" ? null : false)}>
-                Cancel
+                Annuler
               </button>
             </div>
           </div>

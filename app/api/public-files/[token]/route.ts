@@ -9,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const token = (await params).token;
   const pool = await db();
   const { rows } = await pool.query("SELECT filetype, content FROM documents WHERE public_token = $1", [token]);
-  if (!rows[0]) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!rows[0]) return NextResponse.json({ error: "introuvable" }, { status: 404 });
   let content: Buffer = rows[0].content;
   if (rows[0].filetype === "docx") content = await redactDocx(content, 0);
   return new NextResponse(new Uint8Array(content), {
