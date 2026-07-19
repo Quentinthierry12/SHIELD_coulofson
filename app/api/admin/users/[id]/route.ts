@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { deleteMoodleUser } from "@/lib/moodle";
-import { requirePersonnelOath } from "@/lib/onboarding";
+import { requirePersonnelOath, voidPendingPersonnelRequests } from "@/lib/onboarding";
 
 type Ev = { at: string; kind: string; label: string };
 
@@ -75,6 +75,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const s = await getSession();
   if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
+  const body = await req.json().catch(() => ({} as any));
+
+  // Override : débloquer l'accès SANS signature (secours). On annule la demande de serment
+  // en attente → l'agent n'est plus bloqué. Sert quand la signature coince ou pour un cas
+  // particulier décidé par un officier.
+  if (body?.override) {
+    await voidPendingPersonnelRequests(id);
+    audit(s, "onboarding_override", `user #${id} — accès débloqué sans signature`);
+    return NextResponse.json({ ok: true, override: true });
+  }
+
+  // Sinon : exiger (à nouveau) la signature du dossier.
   const reqId = await requirePersonnelOath(id);
   audit(s, "personnel_file", `user #${id}${reqId ? "" : " (génération impossible)"}`);
   return NextResponse.json({ ok: true, requested: reqId !== null });

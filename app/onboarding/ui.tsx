@@ -41,7 +41,14 @@ export default function OnboardingUI({ session, requestId, docId, title }: Props
         body: JSON.stringify({ kind }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { toast(d.error || "Échec de la signature.", "error"); return; }
+      if (!res.ok) {
+        // La demande a pu être remplacée/réglée entre-temps (relance ou override admin,
+        // autre onglet…) : on ré-évalue au lieu de rester coincé sur une page périmée.
+        // Si l'agent est en règle, /onboarding redirige de lui-même vers le Dashboard.
+        toast(d.error || "Impossible de signer — actualisation…", "error");
+        router.refresh();
+        return;
+      }
       toast("Serment signé. Accès accordé, agent.", "success");
       router.replace("/dashboard");
     } finally {
