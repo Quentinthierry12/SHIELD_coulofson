@@ -1,22 +1,24 @@
 {
-    "name": "S.H.I.E.L.D. Classify",
-    "nameLocale": { "fr": "Classifier S.H.I.E.L.D." },
-    "guid": "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}",
-    "baseUrl": "",
-    "variations": [
-        {
-            "description": "Add a Classify tab to mark paragraphs as classified",
-            "url": "index.html",
-            "icons": ["resources/img/icon.png", "resources/img/icon@2x.png"],
-            "isViewer": false,
-            "EditorsSupport": ["word"],
-            "isVisual": false,
-            "isModal": false,
-            "isInsideMode": false,
-            "isSystem": false,
-            "initDataType": "none",
-            "initData": "",
-            "buttons": []
-        }
-    ]
+  "name": "S.H.I.E.L.D.",
+  "guid": "asc.{7A1E1D02-9C3B-4F5A-B7E1-51D3C0FFEE01}",
+  "version": "1.1",
+  "minVersion": "7.0.0",
+  "variations": [
+    {
+      "description": "Classification, stamps, redaction, watermark, signature slots and dates",
+      "url": "index.html",
+      "icons": ["resources/icon.png", "resources/icon@2x.png"],
+      "isViewer": false,
+      "EditorsSupport": ["word"],
+      "isVisual": true,
+      "isModal": false,
+      "isInsideMode": false,
+      "initDataType": "none",
+      "initData": "",
+      "isUpdateOleOnResize": false,
+      "buttons": [],
+      "size": [340, 720],
+      "initOnSelectionChanged": false
+    }
+  ]
 }
