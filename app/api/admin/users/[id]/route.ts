@@ -1,29 +1,20 @@
 import { NextResponse } from "next/server";
-import { db, audit, refreshPersonnelFile } from "@/lib/db";
+import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { dmByUserId } from "@/lib/discord";
-import { personnelFilePush } from "@/lib/push";
 import { deleteMoodleUser } from "@/lib/moodle";
-import { requestPersonnelSignature } from "@/lib/signatures";
+import { requirePersonnelOath } from "@/lib/onboarding";
 
-// Exiger (à nouveau) la signature du dossier : régénère la fiche, relance le circuit de
-// serment et notifie l'agent. Tant qu'il ne l'a pas signé, son accès au système est bloqué
-// (voir lib/onboarding). Sert aussi à re-forcer une signature après un changement de données.
+// Exiger (à nouveau) la signature du dossier : purge les demandes en attente, régénère la
+// fiche, relance le serment et notifie l'agent. Tant qu'il ne l'a pas signé, son accès au
+// système est bloqué (voir lib/onboarding). requirePersonnelOath garantit UNE seule demande
+// en attente, pour qu'une signature débloque bien l'agent.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
   if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
-  const f = await refreshPersonnelFile(id);
-  const rq = f ? await requestPersonnelSignature(f.docId, id, s.id) : null;
-  if (rq) {
-    dmByUserId(
-      id,
-      `🦅 **S.H.I.E.L.D. — DOSSIER D'AGENT** — Signe ton serment de service pour accéder au système. ${process.env.PORTAL_URL}/onboarding`,
-      personnelFilePush()
-    );
-  }
-  audit(s, "personnel_file", `user #${id}${f?.created ? " (new file — previous one is sealed)" : ""}`);
-  return NextResponse.json({ ok: true, created: f?.created ?? false, requested: !!rq });
+  const reqId = await requirePersonnelOath(id);
+  audit(s, "personnel_file", `user #${id}${reqId ? "" : " (génération impossible)"}`);
+  return NextResponse.json({ ok: true, requested: reqId !== null });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/ui-store";
+import NotifToggle from "../notif-toggle";
 
 type Props = {
   session: { matricule: string; codename: string; clearance: number };
@@ -103,7 +104,12 @@ export default function OnboardingUI({ session, requestId, docId, title }: Props
             />
           </div>
 
-          <p className="muted" style={{ marginTop: 16, fontSize: "0.8rem" }}>
+          <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span className="muted" style={{ fontSize: "0.8rem" }}>Être prévenu des prochaines signatures :</span>
+            <NotifToggle />
+          </div>
+
+          <p className="muted" style={{ marginTop: 12, fontSize: "0.8rem" }}>
             Un officier contresignera ensuite ton dossier — tu n'as pas besoin d'attendre cette
             validation pour accéder au système.
           </p>
