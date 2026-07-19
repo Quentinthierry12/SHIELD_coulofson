@@ -10,22 +10,38 @@ import type { Session } from "./session";
 // features sont bloquées (redirection vers /onboarding). Les officiers/admins
 // ne sont jamais concernés. Le déblocage est immédiat dès que l'agent signe :
 // on lit la base en direct, sans dépendre du jeton de session.
+//
+// Le verrou se base UNIQUEMENT sur la demande de serment la plus récente de
+// l'agent. C'est volontaire : régénérer un dossier verrouillé crée un nouveau
+// document (refreshPersonnelFile), donc plusieurs demandes en attente peuvent
+// coexister. Regarder « la dernière » garantit qu'une signature débloque bien
+// (sinon une vieille demande orpheline continuait de bloquer après signature),
+// tout en laissant « Exiger signature » re-bloquer via une nouvelle demande.
 
 const OATH_NOTE = "Personnel file — read and sign your oath of service.";
 
-// La demande de serment en attente POUR cet agent sur son propre dossier, s'il y en a
-// une. C'est le verrou léger, appelé à chaque chargement de page.
-export async function pendingPersonnelRequestId(userId: number): Promise<number | null> {
+type LatestReq = { id: number; status: string; my_status: string };
+
+// La demande de serment la plus récente de l'agent sur son propre dossier (peu importe
+// son état), ou null s'il n'en a jamais eu.
+async function latestPersonnelRequest(userId: number): Promise<LatestReq | null> {
   const pool = await db();
   const { rows } = await pool.query(
-    `SELECT r.id FROM signature_requests r
+    `SELECT r.id, r.status, sg.status AS my_status
+       FROM signature_requests r
        JOIN documents d ON d.id = r.doc_id AND d.is_personnel = true AND d.owner_id = $1
        JOIN signature_signers sg ON sg.request_id = r.id AND sg.user_id = $1
-      WHERE r.status = 'pending' AND sg.status = 'pending'
       ORDER BY r.created_at DESC LIMIT 1`,
     [userId]
   );
-  return rows[0]?.id ?? null;
+  return rows[0] ?? null;
+}
+
+// La demande de serment que l'agent doit encore signer (verrou léger, appelé à chaque
+// chargement de page). Null s'il est en règle.
+export async function pendingPersonnelRequestId(userId: number): Promise<number | null> {
+  const r = await latestPersonnelRequest(userId);
+  return r && r.status === "pending" && r.my_status === "pending" ? r.id : null;
 }
 
 // Faut-il bloquer cet agent ? (admins jamais)
@@ -34,47 +50,58 @@ export async function needsOnboarding(session: Session): Promise<boolean> {
   return (await pendingPersonnelRequestId(session.id)) !== null;
 }
 
-// A-t-il déjà signé son serment par le passé ? Alors on ne le re-bloque jamais,
-// même si le dossier a été régénéré depuis.
-async function hasSignedOath(userId: number): Promise<boolean> {
+// Annule toutes les demandes de serment EN ATTENTE de l'agent et déverrouille les
+// documents correspondants. Appelé avant d'en lancer une nouvelle, pour ne jamais
+// empiler plusieurs demandes en attente (et pour que refreshPersonnelFile réutilise
+// le document au lieu d'en créer un neuf parce que l'ancien était verrouillé).
+export async function voidPendingPersonnelRequests(userId: number): Promise<void> {
   const pool = await db();
-  const { rowCount } = await pool.query(
-    `SELECT 1 FROM signature_signers sg
-       JOIN signature_requests r ON r.id = sg.request_id
+  const { rows } = await pool.query(
+    `SELECT r.id, r.doc_id FROM signature_requests r
        JOIN documents d ON d.id = r.doc_id AND d.is_personnel = true AND d.owner_id = $1
-      WHERE sg.user_id = $1 AND sg.status = 'signed' LIMIT 1`,
+      WHERE r.status = 'pending'`,
     [userId]
   );
-  return !!rowCount;
+  for (const r of rows) {
+    await pool.query("UPDATE signature_requests SET status = 'cancelled', completed_at = now() WHERE id = $1", [r.id]);
+    await pool.query("UPDATE documents SET locked = false WHERE id = $1", [r.doc_id]);
+  }
+}
+
+// Lance (ou relance) la demande de serment pour l'agent : purge les demandes en attente,
+// régénère le dossier, lève une nouvelle demande et notifie. Renvoie l'id de la demande,
+// ou null si la génération a échoué (auquel cas on ne bloque pas l'agent).
+export async function requirePersonnelOath(userId: number): Promise<number | null> {
+  await voidPendingPersonnelRequests(userId);
+  const f = await refreshPersonnelFile(userId);
+  if (!f) return null;
+  const reqId = await requestSignature({
+    docId: f.docId,
+    signerIds: [userId],
+    requestedBy: null,
+    circuit: "admin",
+    sequential: true,
+    note: OATH_NOTE,
+  });
+  if (reqId) {
+    dmByUserId(
+      userId,
+      `🦅 **S.H.I.E.L.D. — DOSSIER D'AGENT** — Signe ton serment de service pour accéder au système. ${process.env.PORTAL_URL}/onboarding`,
+      personnelFilePush()
+    );
+  }
+  return reqId;
 }
 
 // À la connexion (déploiement rétroactif : « bloqué au prochain login ») : si l'agent
-// n'a jamais signé et n'a pas de demande ouverte, on génère son dossier, on lance la
-// demande de serment et on envoie la notif dédiée. Idempotent et sans effet pour les
-// admins, ceux déjà en règle, ou ceux ayant déjà une demande en cours. Ne jette jamais :
-// un échec de génération ne doit ni bloquer le login ni enfermer l'agent sans dossier.
+// n'a AUCUNE demande de serment (jamais généré), on la crée. S'il en a déjà une (en
+// attente → il devra signer ; signée → il est en règle), on ne touche à rien. Idempotent,
+// sans effet pour les admins. Ne jette jamais : un échec ne doit pas casser le login.
 export async function ensurePersonnelOnboarding(session: Session): Promise<void> {
   try {
     if (session.role === "admin") return;
-    if (await pendingPersonnelRequestId(session.id)) return; // déjà une demande ouverte
-    if (await hasSignedOath(session.id)) return; // déjà en règle
-    const f = await refreshPersonnelFile(session.id);
-    if (!f) return; // génération impossible → on ne bloque pas
-    const reqId = await requestSignature({
-      docId: f.docId,
-      signerIds: [session.id],
-      requestedBy: null,
-      circuit: "admin",
-      sequential: true,
-      note: OATH_NOTE,
-    });
-    if (reqId) {
-      dmByUserId(
-        session.id,
-        `🦅 **S.H.I.E.L.D. — DOSSIER D'AGENT** — Signe ton serment de service pour accéder au système. ${process.env.PORTAL_URL}/onboarding`,
-        personnelFilePush()
-      );
-    }
+    if (await latestPersonnelRequest(session.id)) return; // déjà une demande (en cours ou signée)
+    await requirePersonnelOath(session.id);
   } catch {
     /* le login ne doit jamais casser sur l'onboarding */
   }
