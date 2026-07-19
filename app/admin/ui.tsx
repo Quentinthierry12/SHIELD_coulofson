@@ -82,9 +82,17 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     load();
   }
 
+  // Régénère le dossier ET relance le serment : l'agent est notifié et son accès au
+  // système reste bloqué tant qu'il n'a pas signé (les officiers ne sont jamais bloqués).
   async function genFile(u: User) {
+    const ok = await confirmDialog({
+      title: `Exiger la signature du dossier — ${u.matricule} ?`,
+      message: `${u.codename} recevra une notification « Dossier d'agent » et devra signer son serment. Tant que ce n'est pas signé, son accès au système est bloqué (archives, missions, transmissions).`,
+      confirmLabel: "Exiger la signature",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin/users/${u.id}`, { method: "POST" });
-    toast(res.ok ? "Personnel file regenerated." : "Failed.", res.ok ? "success" : "error");
+    toast(res.ok ? "Signature exigée — l'agent est notifié et bloqué jusqu'à signature." : "Échec.", res.ok ? "success" : "error");
   }
 
   // Renaming rewrites the agent's identity everywhere: personnel file, Academy username.
@@ -271,7 +279,7 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
         <div className="sheet-actions">
           {u.status !== "active" && <button className="small" onClick={() => { onUpdate(u, { status: "active" }); onClose(); }}>Validate</button>}
           {u.status === "active" && <button className="ghost small" onClick={() => { onUpdate(u, { status: "revoked" }); onClose(); }}>Revoke</button>}
-          <button className="ghost small" onClick={() => onGenFile(u)} title="Regenerate personnel file with current data">Gen. file</button>
+          <button className="ghost small" onClick={() => { onGenFile(u); onClose(); }} title="Régénère le dossier et exige la signature — bloque l'accès de l'agent jusqu'à ce qu'il signe">Exiger signature</button>
           {!u.moodle_synced && <button className="ghost small" onClick={() => { onAcademySync(u); onClose(); }}>Sync Academy</button>}
           <button className="ghost small" onClick={() => { onResetPassword(u); onClose(); }}>Reset pwd</button>
           <button className="ghost small danger" onClick={() => { onDelete(u); onClose(); }}>Delete agent</button>
