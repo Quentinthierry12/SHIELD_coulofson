@@ -110,6 +110,22 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     toast(res.ok ? "Signature exigée — l'agent est notifié et bloqué jusqu'à signature." : "Échec.", res.ok ? "success" : "error");
   }
 
+  // Override de secours : donner l'accès SANS signature (annule la demande de serment).
+  async function overrideAccess(u: User) {
+    const ok = await confirmDialog({
+      title: `Débloquer l'accès (override) — ${u.matricule} ?`,
+      message: `${u.codename} pourra accéder au système SANS signer son dossier. À utiliser en secours (signature qui coince, cas particulier). La demande de serment en attente est annulée.`,
+      confirmLabel: "Débloquer sans signature",
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ override: true }),
+    });
+    toast(res.ok ? "Accès débloqué (override) — l'agent n'a plus besoin de signer." : "Échec.", res.ok ? "success" : "error");
+  }
+
   // Renaming rewrites the agent's identity everywhere: personnel file, Academy username.
   // Confirm the badge change explicitly — it is what the agent signs in with.
   async function rename(u: User, patch: { matricule?: string; codename?: string }) {
@@ -186,12 +202,12 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
+          <UserTable users={pending} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
+        <UserTable users={others} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
@@ -239,12 +255,12 @@ function AgentRow({ u, locked, onOpen }: { u: User; locked: boolean; onOpen: () 
 
 // Full edit sheet. Fields are applied on Save, not on every keystroke, so a half-typed
 // badge is never sent — the badge is the sign-in name.
-function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onAcademySync }: {
+function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onOverride, onAcademySync }: {
   u: User; maxLevel: number; onClose: () => void;
   onUpdate: (u: User, p: Partial<User>) => void;
   onRename: (u: User, p: { matricule?: string; codename?: string }) => void;
   onResetPassword: (u: User) => void; onDelete: (u: User) => void;
-  onGenFile: (u: User) => void; onAcademySync: (u: User) => void;
+  onGenFile: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void;
 }) {
   const [matricule, setMatricule] = useState(u.matricule);
   const [codename, setCodename] = useState(u.codename);
@@ -327,6 +343,9 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
           {u.status !== "active" && <button className="small" onClick={() => { onUpdate(u, { status: "active" }); onClose(); }}>Validate</button>}
           {u.status === "active" && <button className="ghost small" onClick={() => { onUpdate(u, { status: "revoked" }); onClose(); }}>Revoke</button>}
           <button className="ghost small" onClick={() => { onGenFile(u); onClose(); }} title="Régénère le dossier et exige la signature — bloque l'accès de l'agent jusqu'à ce qu'il signe">Exiger signature</button>
+          {u.oath_state && u.oath_state.startsWith("pending:") && (
+            <button className="ghost small" onClick={() => { onOverride(u); onClose(); }} title="Débloque l'accès sans signature (secours) — annule la demande de serment en attente">Débloquer (override)</button>
+          )}
           {!u.moodle_synced && <button className="ghost small" onClick={() => { onAcademySync(u); onClose(); }}>Sync Academy</button>}
           <button className="ghost small" onClick={() => { onResetPassword(u); onClose(); }}>Reset pwd</button>
           <button className="ghost small danger" onClick={() => { onDelete(u); onClose(); }}>Delete agent</button>
@@ -341,7 +360,7 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
   );
 }
 
-function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
+function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onOverride, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
   const [open, setOpen] = useState<User | null>(null);
   if (!users.length) return <p className="muted">Nobody.</p>;
   return (
@@ -355,7 +374,7 @@ function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGen
         <AgentSheet
           u={open} maxLevel={maxLevel} onClose={() => setOpen(null)}
           onUpdate={onUpdate} onRename={onRename} onResetPassword={onResetPassword}
-          onDelete={onDelete} onGenFile={onGenFile} onAcademySync={onAcademySync}
+          onDelete={onDelete} onGenFile={onGenFile} onOverride={onOverride} onAcademySync={onAcademySync}
         />
       )}
     </>
@@ -1209,7 +1228,7 @@ const ACTION_LABELS: Record<string, string> = {
   doc_save: "Saved document", doc_destroy: "Destroyed document", doc_share: "Shared document", doc_unshare: "Revoked share",
   folder_create: "Created folder", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
   account_create: "Created account", account_update: "Updated account", account_delete: "Deleted account", password_reset: "Reset password",
-  password_change: "Changed password", settings_update: "Updated settings", push_test: "Sent test notification",
+  password_change: "Changed password", settings_update: "Updated settings", push_test: "Sent test notification", onboarding_override: "Onboarding override (accès sans signature)",
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
   doc_public_on: "Enabled public link", doc_public_off: "Disabled public link", mission_order: "Issued mission order",
