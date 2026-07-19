@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast, promptDialog, confirmDialog } from "@/lib/ui-store";
 import type { Session } from "@/lib/session";
+import NotifToggle from "../notif-toggle";
 
 type Signer = {
   user_id: number; position: number; status: string; kind: string | null;
@@ -88,7 +89,10 @@ export default function Inbox({ session }: { session: Session }) {
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Dispatch</h1>
         </div>
-        <span className="badge">{session.matricule} · LVL. {session.clearance}</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <NotifToggle />
+          <span className="badge">{session.matricule} · LVL. {session.clearance}</span>
+        </div>
       </div>
 
       <div className="container">

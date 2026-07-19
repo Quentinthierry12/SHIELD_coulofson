@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { db } from "./db";
+import { sendPushToUser, pushFromDiscordContent, type PushPayload } from "./push";
 
 const API = "https://discord.com/api/v10";
 const secret = () => new TextEncoder().encode(process.env.APP_SECRET!);
@@ -72,8 +73,13 @@ export async function sendDM(discordId: string, content: string) {
   } catch {}
 }
 
-export async function dmByUserId(userId: number, content: string) {
+// Notify an agent on every channel we have. Discord DM (if they linked their account)
+// and a PWA Web Push banner (on every device they enabled). Both are fire-and-forget:
+// a dead channel must never break the action that triggered the notification.
+// `push` overrides the banner text; omitted, it is derived from the Discord content.
+export async function dmByUserId(userId: number, content: string, push?: PushPayload) {
   const pool = await db();
   const { rows } = await pool.query("SELECT discord_id FROM users WHERE id = $1", [userId]);
   if (rows[0]?.discord_id) sendDM(rows[0].discord_id, content).catch(() => {});
+  sendPushToUser(userId, push ?? pushFromDiscordContent(content)).catch(() => {});
 }

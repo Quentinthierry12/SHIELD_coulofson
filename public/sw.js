@@ -26,6 +26,44 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/* ===== Web Push =====
+   Le serveur envoie un petit JSON { title, body, url, tag } — jamais de contenu
+   classifié : juste de quoi afficher une bannière et savoir quoi ouvrir au clic.
+   Le détail se charge depuis le portail (authentifié) une fois la page ouverte. */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
+  const title = data.title || "S.H.I.E.L.D.";
+  const options = {
+    body: data.body || "",
+    icon: "/logo.png",
+    badge: "/icon.svg",
+    tag: data.tag || undefined,
+    data: { url: data.url || "/dashboard" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/dashboard";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Réutiliser un onglet du portail déjà ouvert plutôt que d'en empiler un nouveau.
+      for (const c of clients) {
+        try {
+          const u = new URL(c.url);
+          if (u.origin === self.location.origin && "focus" in c) {
+            c.navigate(target);
+            return c.focus();
+          }
+        } catch (e) { /* ignore */ }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);

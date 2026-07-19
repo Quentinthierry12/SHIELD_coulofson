@@ -176,6 +176,18 @@ async function migrate() {
     -- marker on the first signature, so the sealing date could never be stamped. Keeping
     -- the original also makes each pass idempotent, and lets an unseal restore the page.
     ALTER TABLE signature_requests ADD COLUMN IF NOT EXISTS original_content BYTEA;
+
+    -- Web Push (PWA) subscriptions. One agent can be reachable on several devices,
+    -- so the endpoint is the key, not the user. We never store any document content
+    -- here — a subscription is only an address the browser gave us to ring.
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      endpoint TEXT PRIMARY KEY,
+      user_id INT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subscriptions (user_id);
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {
