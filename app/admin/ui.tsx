@@ -1060,6 +1060,7 @@ function SettingsTab() {
   return (
     <>
     <IntegrationsPanel />
+    <NotifTestPanel />
     <div className="panel">
       <h2>Automatic documents</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
@@ -1093,6 +1094,47 @@ function SettingsTab() {
   );
 }
 
+// A one-click check that the notification pipeline works: sends a test alert to the
+// signed-in officer on every channel (Web Push + Discord) and reports what went out.
+function NotifTestPanel() {
+  const [busy, setBusy] = useState(false);
+
+  async function sendTest() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/push/test", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(d.error || "Échec de l'envoi.", "error"); return; }
+      const channels: string[] = [];
+      if (d.pushServerEnabled && d.pushDevices > 0) channels.push(`Web Push (${d.pushDevices} appareil${d.pushDevices > 1 ? "s" : ""})`);
+      if (d.discordLinked) channels.push("Discord");
+      if (channels.length) {
+        toast(`Test envoyé → ${channels.join(" + ")}. Regarde la bannière / ton DM.`, "success");
+      } else if (!d.pushServerEnabled) {
+        toast("Aucun canal : Web Push non configuré côté serveur (clés VAPID) et Discord non lié.", "error");
+      } else {
+        toast("Aucun appareil abonné et Discord non lié. Active 🔔 Notifs, puis réessaie.", "error");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>Notifications</h2>
+      <p className="muted" style={{ marginBottom: 12 }}>
+        Envoie une notification de test à <strong>ton propre compte</strong>, sur tous tes canaux
+        (bannière PWA Web Push + DM Discord si lié). Utile pour vérifier le paramétrage après un déploiement.
+        Pense à activer <strong>🔔 Notifs</strong> sur cet appareil au préalable.
+      </p>
+      <button onClick={sendTest} disabled={busy}>
+        {busy ? "Envoi…" : "🔔 Envoyer une notification de test"}
+      </button>
+    </div>
+  );
+}
+
 // ---------------- Audit ----------------
 const ACTION_LABELS: Record<string, string> = {
   doc_unseal: "Document unsealed", signature_remind: "Signature chased", signature_engrave: "Signatures engraved", signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Refused to sign",
@@ -1112,7 +1154,7 @@ const ACTION_LABELS: Record<string, string> = {
   doc_save: "Saved document", doc_destroy: "Destroyed document", doc_share: "Shared document", doc_unshare: "Revoked share",
   folder_create: "Created folder", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
   account_create: "Created account", account_update: "Updated account", account_delete: "Deleted account", password_reset: "Reset password",
-  password_change: "Changed password", settings_update: "Updated settings",
+  password_change: "Changed password", settings_update: "Updated settings", push_test: "Sent test notification",
   template_upload: "Uploaded template", template_create: "Created template", template_delete: "Deleted template", doc_from_template: "Created from template",
   folder_delete: "Deleted folder", doc_open_redacted: "Opened (redacted)", doc_move: "Moved document",
   doc_public_on: "Enabled public link", doc_public_off: "Disabled public link", mission_order: "Issued mission order",
