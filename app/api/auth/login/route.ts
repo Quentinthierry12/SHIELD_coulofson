@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db, audit } from "@/lib/db";
 import { createSession } from "@/lib/session";
+import { ensurePersonnelOnboarding } from "@/lib/onboarding";
 
 export async function POST(req: Request) {
   const { matricule, password } = await req.json();
@@ -29,5 +30,11 @@ export async function POST(req: Request) {
     mustChangePassword: user.must_change_password,
   });
   audit(user, "login");
+  // Déploiement rétroactif « bloqué au prochain login » : on s'assure que l'agent a bien
+  // une demande de serment ouverte (générée si besoin) avant qu'il n'atteigne le portail.
+  await ensurePersonnelOnboarding({
+    id: user.id, matricule: user.matricule, codename: user.codename,
+    clearance: user.clearance, role: user.role,
+  });
   return NextResponse.json({ ok: true, mustChangePassword: user.must_change_password });
 }

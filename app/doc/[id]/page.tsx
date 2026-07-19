@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAccessibleDoc, audit, db, accessibleFolderIds } from "@/lib/db";
 import RequestAccess from "./request-access";
 import { getSession, signFileToken } from "@/lib/session";
+import { needsOnboarding } from "@/lib/onboarding";
 import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION } from "@/lib/onlyoffice";
 import { extractLevels } from "@/lib/redact";
 import Editor from "./editor";
@@ -10,6 +11,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
   const session = await getSession();
   if (!session) redirect("/");
   if (session.mustChangePassword) redirect("/change-password");
+  if (await needsOnboarding(session)) redirect("/onboarding");
   const id = parseInt((await params).id, 10);
   const doc = await getAccessibleDoc(id, session.clearance, session.id, session.role);
   if (!doc) {

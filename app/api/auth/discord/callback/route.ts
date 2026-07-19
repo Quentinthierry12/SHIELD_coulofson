@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { createSession } from "@/lib/session";
 import { exchangeCode, verifyState, sendDM } from "@/lib/discord";
+import { ensurePersonnelOnboarding } from "@/lib/onboarding";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -41,5 +42,9 @@ export async function GET(req: Request) {
     role: user.role,
   });
   audit(user, "discord_login", discordUser.username);
+  await ensurePersonnelOnboarding({
+    id: user.id, matricule: user.matricule, codename: user.codename,
+    clearance: user.clearance, role: user.role,
+  });
   return NextResponse.redirect(`${home}/dashboard`);
 }

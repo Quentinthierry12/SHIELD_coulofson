@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { db, createPersonnelFile, refreshPersonnelFile, audit, divisionIdByName } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
+import { personnelFilePush } from "@/lib/push";
 import { syncMoodleUser, setMoodlePassword } from "@/lib/moodle";
 import { requestPersonnelSignature } from "@/lib/signatures";
 
@@ -123,8 +124,11 @@ export async function PATCH(req: Request) {
   if (cur[0]) await syncMoodleUser(id, { matricule: cur[0].matricule, codename: cur[0].codename, division: cur[0].division, suspended: status !== "active" });
   if (before[0]?.status !== "active" && status === "active") {
     const f = await refreshPersonnelFile(id); // regenerate with the clearance/division just assigned
-    if (f) await requestPersonnelSignature(f.docId, id, admin.id);
+    const rq = f ? await requestPersonnelSignature(f.docId, id, admin.id) : null;
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report to https://shield.quentinthierry.fr");
+    // Notif dédiée « dossier d'agent » : l'accès au système est bloqué tant qu'il n'a
+    // pas signé son serment, autant le lui dire tout de suite.
+    if (rq) dmByUserId(id, `🦅 **S.H.I.E.L.D. — DOSSIER D'AGENT** — Signe ton serment de service pour accéder au système. ${process.env.PORTAL_URL}/onboarding`, personnelFilePush());
   } else if (renamed) {
     // The file embeds the badge and codename, in its title too. A regenerated file
     // invalidates whatever was pending on it, so the signatures are asked for again.

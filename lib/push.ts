@@ -46,6 +46,19 @@ export type PushPayload = {
   urls?: Record<string, string>;
 };
 
+// Notification dédiée « dossier d'agent » : type à part, plus insistant (l'agent est
+// bloqué tant qu'il n'a pas signé). Clic / bouton Signer → l'écran d'accueil obligatoire.
+export function personnelFilePush(): PushPayload {
+  return {
+    title: "S.H.I.E.L.D. — Dossier d'agent",
+    body: "Signe ton serment de service pour accéder au système.",
+    url: "/onboarding",
+    tag: "personnel-file",
+    actions: [{ action: "sign", title: "Signer" }],
+    urls: { sign: "/onboarding" },
+  };
+}
+
 // Payload d'une demande de signature, avec boutons Signer / Voir. Le bouton Signer
 // (et le clic simple) ouvre le Dispatch ; Voir ouvre le document.
 export function signatureRequestPush(docTitle: string, docId: number, headline = "Signature requise"): PushPayload {
