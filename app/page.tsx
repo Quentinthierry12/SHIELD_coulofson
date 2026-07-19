@@ -4,9 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 const DISCORD_ERRORS: Record<string, string> = {
-  error: "Discord sign-in failed. Please try again.",
-  unknown: "No agent account is linked to this Discord account. Sign in with your badge number first, then link Discord from the dashboard.",
-  inactive: "Your account is not active yet.",
+  error: "Échec de la connexion Discord. Veuillez réessayer.",
+  unknown: "Aucun compte agent n'est lié à ce compte Discord. Connectez-vous d'abord avec votre matricule, puis liez Discord depuis le tableau de bord.",
+  inactive: "Votre compte n'est pas encore actif.",
 };
 
 function LoginPage() {
@@ -40,8 +40,8 @@ function LoginPage() {
       const data = await res.json();
       if (!res.ok) return setError(data.error);
       setSuccess(
-        `Application filed. Your badge number: ${data.matricule} — write it down. ` +
-          `A senior officer must validate your clearance before your first sign-in.`
+        `Demande enregistrée. Votre matricule : ${data.matricule} — notez-le. ` +
+          `Un officier supérieur doit valider votre habilitation avant votre première connexion.`
       );
       setMode("login");
       setMatricule(data.matricule);
@@ -62,36 +62,36 @@ function LoginPage() {
         <div className="panel">
           <div className="tabs">
             <button className={mode === "login" ? "" : "inactive"} onClick={() => setMode("login")} type="button">
-              Sign in
+              Se connecter
             </button>
             <button className={mode === "register" ? "" : "inactive"} onClick={() => setMode("register")} type="button">
-              Enlist
+              S'enrôler
             </button>
           </div>
           {error && <p className="error">⚠ {error}</p>}
           {success && <p className="success">✓ {success}</p>}
           <form onSubmit={submit}>
             {mode === "login" ? (
-              <input placeholder="BADGE NUMBER (e.g. AG-4782)" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
+              <input placeholder="MATRICULE (ex. AG-4782)" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
             ) : (
               <>
-                <input placeholder="CODENAME" value={codename} onChange={(e) => setCodename(e.target.value)} />
-                <input placeholder="CUSTOM BADGE NUMBER (optional — auto if empty)" value={customBadge} onChange={(e) => setCustomBadge(e.target.value)} />
+                <input placeholder="NOM DE CODE" value={codename} onChange={(e) => setCodename(e.target.value)} />
+                <input placeholder="MATRICULE PERSONNALISÉ (facultatif — auto si vide)" value={customBadge} onChange={(e) => setCustomBadge(e.target.value)} />
               </>
             )}
-            <input type="password" placeholder="PASSWORD" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button style={{ width: "100%" }}>{mode === "login" ? "Sign in" : "Request access"}</button>
+            <input type="password" placeholder="MOT DE PASSE" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button style={{ width: "100%" }}>{mode === "login" ? "Se connecter" : "Demander l'accès"}</button>
           </form>
           {mode === "login" && (
             <a href="/api/auth/discord">
               <button type="button" className="ghost" style={{ width: "100%", marginTop: 10 }}>
-                Sign in with Discord
+                Se connecter avec Discord
               </button>
             </a>
           )}
         </div>
         <p className="muted" style={{ textAlign: "center", fontSize: "0.7rem" }}>
-          Unauthorized access will be prosecuted — Protocol 7-Alpha
+          Tout accès non autorisé fera l'objet de poursuites — Protocole 7-Alpha
         </p>
       </div>
     </div>
