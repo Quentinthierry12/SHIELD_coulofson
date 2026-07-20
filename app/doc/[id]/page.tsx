@@ -59,7 +59,9 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       key: redacted ? `shield-${doc.id}-v${doc.version}-r${effectiveClr}` : `shield-${doc.id}-v${doc.version}${doc.locked ? "-sealed" : ""}`,
       title: `${doc.title}.${doc.filetype}`,
       url: `${PORTAL_URL()}/api/files/${doc.id}?t=${t}`,
-      permissions: { edit: !readOnly, download: !redacted, print: !redacted },
+      // Comments are enabled only where the document is editable — a comment change is saved
+      // through the same callback, and read-only/redacted/sealed views have no callback.
+      permissions: { edit: !readOnly, comment: !readOnly, download: !redacted, print: !redacted },
     },
     documentType: DOC_TYPES[doc.filetype].documentType,
     editorConfig: {
@@ -67,7 +69,9 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
       callbackUrl: readOnly ? undefined : `${PORTAL_URL()}/api/onlyoffice/callback?id=${doc.id}&t=${t}`,
       lang: "en",
       user: { id: String(session.id), name: `${session.matricule} · ${session.codename}` },
-      customization: SHIELD_CUSTOMIZATION,
+      // Show the comments panel (base config hides the right menu) and drop the "share by
+      // email" prompt on a mention — the portal handles the notification itself.
+      customization: { ...SHIELD_CUSTOMIZATION, hideRightMenu: false, mentionShare: false },
       // Plugins are loaded from the PORTAL, not baked into the Document Server image.
       // Baking them in is what took the editor down twice: rolling back meant rebuilding
       // the image. From here, removing this line and redeploying takes three minutes.
@@ -78,5 +82,5 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
   };
   config.token = await signOOConfig(config);
 
-  return <Editor dsUrl={DS_URL()} config={config} title={doc.title} redacted={redacted} />;
+  return <Editor dsUrl={DS_URL()} config={config} title={doc.title} redacted={redacted} docId={doc.id} />;
 }
