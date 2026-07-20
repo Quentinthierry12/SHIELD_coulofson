@@ -368,9 +368,10 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   .notif-invite-actions { margin-left: 0; justify-content: flex-end; }
 }
 
-/* ===== Page d'accueil publique (landing) =====
-   Les visuels sont des fonds d'image : dépose public/landing/hero.jpg et
-   public/landing/about.jpg pour les personnaliser. Absents → dégradé sombre. */
+/* ===== Public landing page =====
+   Photos are uploaded in Command → Settings → Landing photos and applied as inline
+   background-images on the elements below. These rules are the dark-gradient fallback
+   shown when a slot has no photo. */
 .lp-nav { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px;
   border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
   background: rgba(7, 11, 18, 0.85); backdrop-filter: blur(8px); }
@@ -378,7 +379,6 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   letter-spacing: 0.14em; font-weight: 700; color: var(--accent); }
 .lp-hero { min-height: 60vh; display: flex; align-items: center; padding: 60px 24px;
   background: linear-gradient(rgba(7,11,18,0.72), rgba(7,11,18,0.92)),
-              url("/landing/hero.jpg") center/cover no-repeat,
               radial-gradient(ellipse at 30% 20%, #0f1e33, var(--bg)); }
 .lp-hero-inner { max-width: 900px; margin: 0 auto; width: 100%; }
 .lp-hero-logo { height: clamp(72px, 12vw, 120px); width: auto; margin-bottom: 18px;
@@ -395,9 +395,7 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
 .lp-section { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
 .lp-about { display: flex; gap: 24px; flex-wrap: wrap; }
 .lp-about-photo { flex: 1 1 280px; min-height: 200px; border-radius: 10px; border: 1px solid var(--border);
-  background: linear-gradient(rgba(7,11,18,0.3), rgba(7,11,18,0.6)),
-              url("/landing/about.jpg") center/cover no-repeat,
-              linear-gradient(135deg, #12223a, #0a1220); }
+  background: linear-gradient(135deg, #12223a, #0a1220); }
 .lp-about-text { flex: 2 1 340px; line-height: 1.7; }
 .lp-about-text p { margin-bottom: 12px; }
 .lp-divisions { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
