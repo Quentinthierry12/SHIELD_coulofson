@@ -7,7 +7,7 @@ const KEYS = ["personnel_folder_id", "onboarding_enabled", "public_registration"
 
 export async function GET() {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const out: Record<string, string | null> = {};
   for (const k of KEYS) out[k] = await getSetting(k);
   // Provide the folder list too so the UI can offer a dropdown.
@@ -18,7 +18,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const body = await req.json();
   for (const k of KEYS) {
     if (k in body) await setSetting(k, String(body[k] ?? ""));

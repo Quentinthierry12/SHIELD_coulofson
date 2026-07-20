@@ -12,7 +12,7 @@ import { dmByUserId } from "@/lib/discord";
 // assigned to. Classification applies on top, exactly like documents.
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT m.id, m.code, m.objective, m.location, m.priority, m.classification,
@@ -37,7 +37,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const { code, objective, matricule, location, priority, classification, briefing, folder_id, division } =
     await req.json();
   if (!code?.trim() || !objective?.trim()) {
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     // The order document is already written; don't leave it orphaned behind a failed insert.
     if (e.code === "23505") {
       await pool.query("DELETE FROM documents WHERE id = $1", [docId]);
-      return NextResponse.json({ error: `La mission ${missionCode} existe déjà.` }, { status: 409 });
+      return NextResponse.json({ error: `Mission ${missionCode} already exists.` }, { status: 409 });
     }
     throw e;
   }
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [docId, a.id]);
     dmByUserId(
       a.id,
-      `🦅 **ORDRE DE MISSION S.H.I.E.L.D.** — Vous êtes affecté à **${missionCode}**. Objectif : ${objective.trim()}. Ordre complet : ${process.env.PORTAL_URL}/doc/${docId}`
+      `🦅 **S.H.I.E.L.D. MISSION ORDER** — You are assigned to **${missionCode}**. Objective: ${objective.trim()}. Full order: ${process.env.PORTAL_URL}/doc/${docId}`
     );
   }
   audit(s, "mission_create", `${missionCode}${assigned.length ? " -> " + assigned.map((a) => a.matricule).join(",") : ""}`);

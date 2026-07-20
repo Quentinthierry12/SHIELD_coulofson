@@ -10,14 +10,14 @@ type Folder = { id: number; name: string; parent_id: number | null; created_by: 
 type Agent = { matricule: string; codename: string; clearance: number };
 
 const TYPES: Record<string, { label: string; tag: string; cls: string }> = {
-  docx: { label: "Rapport", tag: "DOC", cls: "t-docx" },
-  xlsx: { label: "Registre", tag: "XLS", cls: "t-xlsx" },
+  docx: { label: "Report", tag: "DOC", cls: "t-docx" },
+  xlsx: { label: "Registry", tag: "XLS", cls: "t-xlsx" },
   pptx: { label: "Briefing", tag: "PPT", cls: "t-pptx" },
 };
 
 function classifBadge(level: number) {
   const cls = level >= 7 ? "high" : level >= 4 ? "mid" : "low";
-  const label = level >= 7 ? "TOP SECRET" : level >= 4 ? "CLASSIFIÉ" : "RESTREINT";
+  const label = level >= 7 ? "TOP SECRET" : level >= 4 ? "CLASSIFIED" : "RESTRICTED";
   return <span className={`classif ${cls}`}>LVL.{level} — {label}</span>;
 }
 
@@ -63,18 +63,18 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
   }
 
   async function createFolder() {
-    const name = await promptDialog({ title: "Nouveau dossier", placeholder: "Nom du dossier" });
+    const name = await promptDialog({ title: "New folder", placeholder: "Folder name" });
     if (!name?.trim()) return;
     const res = await fetch("/api/folders", { method: "POST", body: JSON.stringify({ name, parent_id: cwd }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Dossier créé.", "success");
+    toast("Folder created.", "success");
     load();
   }
 
   async function moveDoc(docId: number, folderId: number | null) {
     const res = await fetch(`/api/documents/${docId}`, { method: "PATCH", body: JSON.stringify({ folder_id: folderId }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Document déplacé.", "success");
+    toast("Document moved.", "success");
     load();
   }
 
@@ -88,53 +88,53 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
   }
 
   async function deleteFolder(f: Folder) {
-    const ok = await confirmDialog({ title: `Supprimer le dossier « ${f.name} » ?`, message: "Le dossier doit être vide. Action irréversible.", confirmLabel: "Supprimer", danger: true });
+    const ok = await confirmDialog({ title: `Delete folder “${f.name}”?`, message: "The folder must be empty. This cannot be undone.", confirmLabel: "Delete", danger: true });
     if (!ok) return;
     const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
     if (!res.ok) return toast((await res.json()).error, "error");
     if (cwd === f.id) setCwd(f.parent_id ?? null);
-    toast("Dossier supprimé.", "success");
+    toast("Folder deleted.", "success");
     load();
   }
 
   async function destroy(doc: Doc) {
-    const ok = await confirmDialog({ title: `Détruire « ${doc.title} » ?`, message: "Protocole de destruction 4-Delta — c'est définitif.", confirmLabel: "Détruire", danger: true });
+    const ok = await confirmDialog({ title: `Destroy “${doc.title}”?`, message: "Destruction Protocol 4-Delta — this is permanent.", confirmLabel: "Destroy", danger: true });
     if (!ok) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Document détruit.", "success");
+    toast("Document destroyed.", "success");
     load();
   }
 
   async function renameDoc(doc: Doc) {
-    const name = await promptDialog({ title: "Renommer le document", message: `Nom actuel : « ${doc.title} ».`, placeholder: "Nouveau nom", defaultValue: doc.title });
+    const name = await promptDialog({ title: "Rename document", message: `Current name: “${doc.title}”.`, placeholder: "New name", defaultValue: doc.title });
     if (!name || name.trim() === doc.title) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ title: name }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Document renommé.", "success");
+    toast("Document renamed.", "success");
     load();
   }
 
   async function renameFolder(f: Folder) {
-    const name = await promptDialog({ title: "Renommer le dossier", message: `Nom actuel : « ${f.name} ».`, placeholder: "Nouveau nom", defaultValue: f.name });
+    const name = await promptDialog({ title: "Rename folder", message: `Current name: “${f.name}”.`, placeholder: "New name", defaultValue: f.name });
     if (!name || name.trim() === f.name) return;
     const res = await fetch(`/api/folders/${f.id}`, { method: "PATCH", body: JSON.stringify({ name }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Dossier renommé.", "success");
+    toast("Folder renamed.", "success");
     load();
   }
 
   async function unseal(doc: Doc) {
     const ok = await confirmDialog({
-      title: `Desceller « ${doc.title} » ?`,
-      message: "Toutes les signatures de ce document sont annulées et les signataires sont prévenus. Le document redevient modifiable.",
-      confirmLabel: "Desceller et annuler les signatures", danger: true,
+      title: `Unseal “${doc.title}”?`,
+      message: "All signatures on this document are voided and the signers are notified. The document becomes editable again.",
+      confirmLabel: "Unseal and void signatures", danger: true,
     });
     if (!ok) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ unlock: true }) });
     const d = await res.json();
     if (!res.ok) return toast(d.error, "error");
-    toast(`Descellé — ${d.voided} demande(s) de signature annulée(s).`, "success");
+    toast(`Unsealed — ${d.voided} signature request(s) voided.`, "success");
     load();
   }
 
@@ -144,33 +144,33 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
       body: JSON.stringify({ classification: level }),
     });
     if (!res.ok) { toast((await res.json()).error, "error"); return load(); }
-    toast(`« ${doc.title} » est désormais niveau ${level}.`, "success");
+    toast(`“${doc.title}” is now level ${level}.`, "success");
     load();
   }
 
   // Conversion runs on the Document Server and takes a moment on big files, so tell the
   // agent it started rather than leaving the button dead.
   async function exportPdf(doc: Doc) {
-    toast(`Génération du PDF — « ${doc.title} »…`);
+    toast(`Generating PDF — “${doc.title}”…`);
     const res = await fetch(`/api/documents/${doc.id}/pdf`);
-    if (!res.ok) return toast((await res.json()).error || "Échec de la conversion.", "error");
+    if (!res.ok) return toast((await res.json()).error || "Conversion failed.", "error");
     const url = URL.createObjectURL(await res.blob());
     const a = document.createElement("a");
     a.href = url;
     a.download = `${doc.title}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
-    toast("PDF prêt.", "success");
+    toast("PDF ready.", "success");
   }
 
   async function changePassword() {
-    const current = await promptDialog({ title: "Changer le mot de passe", message: "Saisissez votre mot de passe actuel.", placeholder: "Mot de passe actuel", password: true });
+    const current = await promptDialog({ title: "Change password", message: "Enter your current password.", placeholder: "Current password", password: true });
     if (!current) return;
-    const next = await promptDialog({ title: "Changer le mot de passe", message: "Saisissez un nouveau mot de passe (min. 6 caractères).", placeholder: "Nouveau mot de passe", password: true });
+    const next = await promptDialog({ title: "Change password", message: "Enter a new password (min. 6 characters).", placeholder: "New password", password: true });
     if (!next) return;
     const res = await fetch("/api/auth/password", { method: "POST", body: JSON.stringify({ current, next }) });
     const data = await res.json();
-    toast(res.ok ? "Mot de passe mis à jour." : data.error, res.ok ? "success" : "error");
+    toast(res.ok ? "Password updated." : data.error, res.ok ? "success" : "error");
   }
 
   async function logout() {
@@ -200,9 +200,9 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
   const shownDocs = flatMode ? flatDocs : docsHere;
 
   const railApps = [
-    { key: "all", label: "Accueil" },
-    { key: "docx", label: "Rapports" },
-    { key: "xlsx", label: "Registres" },
+    { key: "all", label: "Home" },
+    { key: "docx", label: "Reports" },
+    { key: "xlsx", label: "Registries" },
     { key: "pptx", label: "Briefings" },
   ];
 
@@ -220,31 +220,31 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
           </button>
         ))}
         <button className={`rail-btn ${mineOnly ? "active" : ""}`} onClick={() => setMineOnly(!mineOnly)}>
-          <span className="rail-label">Miens</span>
+          <span className="rail-label">Mine</span>
         </button>
         <a href="/inbox"><button className="rail-btn"><span className="rail-label">Transmissions</span></button></a>
         <a href="/missions"><button className="rail-btn"><span className="rail-label">Missions</span></button></a>
-        <a href="/roster"><button className="rail-btn"><span className="rail-label">Effectifs</span></button></a>
+        <a href="/roster"><button className="rail-btn"><span className="rail-label">Roster</span></button></a>
         {academyUrl && (
           // Separate system on its own domain — open it in a new tab rather than losing the Drive.
           <a href={academyUrl} target="_blank" rel="noopener noreferrer" title="S.H.I.E.L.D. Academy — training">
-            <button className="rail-btn"><span className="rail-label">Académie</span></button>
+            <button className="rail-btn"><span className="rail-label">Academy</span></button>
           </a>
         )}
         {session.role === "admin" && (
-          <a href="/admin"><button className="rail-btn"><span className="rail-label">Commandement</span></button></a>
+          <a href="/admin"><button className="rail-btn"><span className="rail-label">Command</span></button></a>
         )}
       </nav>
 
       <div className="main">
         <div className="topbar">
-          <input className="searchbar" placeholder="Rechercher dans les archives…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="searchbar" placeholder="Search the archives…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <span className="badge">{session.matricule} · {session.codename} · LVL.{session.clearance}</span>
             <NotifToggle />
-            <a href="/api/auth/discord"><button className="ghost small" title="Lier Discord">Lier Discord</button></a>
-            <button className="ghost small" onClick={changePassword}>Mot de passe</button>
-            <button className="ghost small" onClick={logout}>Déconnexion</button>
+            <a href="/api/auth/discord"><button className="ghost small" title="Link Discord">Link Discord</button></a>
+            <button className="ghost small" onClick={changePassword}>Password</button>
+            <button className="ghost small" onClick={logout}>Sign out</button>
           </div>
         </div>
 
@@ -252,21 +252,21 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
           <div className="tiles">
             {Object.entries(TYPES).map(([ext, t]) => (
               <button key={ext} className={`tile ${t.cls}`} onClick={() => setCreateType(ext)}>
-                <span className={`tag ${t.cls}`}>{t.tag}</span><span>Nouveau {t.label}</span>
+                <span className={`tag ${t.cls}`}>{t.tag}</span><span>New {t.label}</span>
               </button>
             ))}
             <button className="tile t-import" onClick={() => fileInput.current?.click()}>
-              <span className="tag t-import">FICH</span><span>Importer un fichier</span>
+              <span className="tag t-import">FILE</span><span>Import a file</span>
             </button>
             <button className="tile t-folder" onClick={createFolder}>
-              <span className="tag t-folder">DIR</span><span>Nouveau dossier</span>
+              <span className="tag t-folder">DIR</span><span>New folder</span>
             </button>
             <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
           </div>
 
           {flatMode ? (
             <h2 style={{ marginTop: 26 }}>
-              {mineOnly ? "Mes documents" : q ? "Résultats de recherche" : `${TYPES[typeFilter].label}s`}
+              {mineOnly ? "My documents" : q ? "Search results" : `${TYPES[typeFilter].label}s`}
               <span className="muted" style={{ marginLeft: 8, textTransform: "none" }}>({shownDocs.length})</span>
             </h2>
           ) : (
@@ -309,14 +309,14 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                     <span className="tag t-folder">DIR</span>
                     {(f.mine || session.role === "admin") && (
                       <span className="card-actions" onClick={(e) => e.stopPropagation()}>
-                        <button className="ghost small" title="Renommer le dossier" onClick={() => renameFolder(f)}>Renommer</button>
-                        <button className="ghost small" title="Membres / invitations" onClick={() => setManageFolder(f)}>Inviter</button>
-                        <button className="ghost small" title="Supprimer le dossier" onClick={() => deleteFolder(f)}>✕</button>
+                        <button className="ghost small" title="Rename folder" onClick={() => renameFolder(f)}>Rename</button>
+                        <button className="ghost small" title="Members / invites" onClick={() => setManageFolder(f)}>Invite</button>
+                        <button className="ghost small" title="Delete folder" onClick={() => deleteFolder(f)}>✕</button>
                       </span>
                     )}
                   </div>
                   <div className="card-title">{f.restricted ? "🔒 " : ""}{f.name}</div>
-                  <div className="card-meta muted">{f.restricted ? "Restreint" : "Ouvert"}</div>
+                  <div className="card-meta muted">{f.restricted ? "Restricted" : "Open"}</div>
                 </div>
               ))}
             </div>
@@ -332,29 +332,29 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                 onClick={() => router.push(`/doc/${d.id}`)}
                 draggable={!d.locked && (d.mine || session.role === "admin")}
                 onDragStart={(e) => { e.dataTransfer.setData("text/doc-id", String(d.id)); e.dataTransfer.effectAllowed = "move"; }}
-                title={d.locked ? "Restreint — cliquez pour demander l'accès" : (d.mine || session.role === "admin") ? "Glissez sur un dossier pour déplacer" : undefined}
+                title={d.locked ? "Restricted — click to request access" : (d.mine || session.role === "admin") ? "Drag onto a folder to move" : undefined}
               >
                 <div className="card-top">
                   <span className={`tag ${TYPES[d.filetype].cls}`}>{TYPES[d.filetype].tag}</span>
                   {!d.locked && (
                     <span className="card-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="ghost small" title="Exporter en PDF" onClick={() => exportPdf(d)}>PDF</button>
+                      <button className="ghost small" title="Export to PDF" onClick={() => exportPdf(d)}>PDF</button>
                       {(d.mine || session.role === "admin") && (
                         <>
-                          {!d.sealed && <button className="ghost small" title="Demander des signatures" onClick={() => setSignDoc(d)}>Signer</button>}
+                          {!d.sealed && <button className="ghost small" title="Request signatures" onClick={() => setSignDoc(d)}>Sign</button>}
                           {d.sealed && session.role === "admin" && (
-                            <button className="ghost small danger" title="Desceller — annule toutes les signatures" onClick={() => unseal(d)}>Desceller</button>
+                            <button className="ghost small danger" title="Unseal — voids all signatures" onClick={() => unseal(d)}>Unseal</button>
                           )}
-                          {!d.sealed && <button className="ghost small" title="Renommer" onClick={() => renameDoc(d)}>Renommer</button>}
-                          <button className="ghost small" title="Partager" onClick={() => setShareDoc(d)}>Partager</button>
-                          <button className="ghost small" title="Lien public" onClick={() => setPublicDoc(d)}>Lien</button>
+                          {!d.sealed && <button className="ghost small" title="Rename" onClick={() => renameDoc(d)}>Rename</button>}
+                          <button className="ghost small" title="Share" onClick={() => setShareDoc(d)}>Share</button>
+                          <button className="ghost small" title="Public link" onClick={() => setPublicDoc(d)}>Link</button>
                           <button className="ghost small" title="Destroy" onClick={() => destroy(d)}>✕</button>
                         </>
                       )}
                     </span>
                   )}
-                  {d.locked && <span className="tag t-locked">VERROUILLÉ</span>}
-                  {!d.locked && d.sealed && <span className="tag t-sealed" title="Signé et scellé — lecture seule">SCELLÉ</span>}
+                  {d.locked && <span className="tag t-locked">LOCKED</span>}
+                  {!d.locked && d.sealed && <span className="tag t-sealed" title="Signed and sealed — read-only">SEALED</span>}
                 </div>
                 <div className="card-title">{d.title}</div>
                 <div className="card-meta" onClick={(e) => e.stopPropagation()}>
@@ -365,14 +365,14 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                       className={`classif-select ${d.classification >= 7 ? "high" : d.classification >= 4 ? "mid" : "low"}`}
                       value={d.classification}
                       onChange={(e) => reclassify(d, +e.target.value)}
-                      title="Niveau de classification"
+                      title="Classification level"
                     >
                       {/* All ten levels are listed so a file already above your clearance
                           (personnel files start at 10) still shows its real level; the ones
                           you may not assign are disabled, and the API refuses them anyway. */}
                       {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n} disabled={n > session.clearance}>
-                          LVL.{n} — {n >= 7 ? "TOP SECRET" : n >= 4 ? "CLASSIFIÉ" : "RESTREINT"}
+                          LVL.{n} — {n >= 7 ? "TOP SECRET" : n >= 4 ? "CLASSIFIED" : "RESTRICTED"}
                         </option>
                       ))}
                     </select>
@@ -381,14 +381,14 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
                 {d.locked ? (
                   <div className="card-meta muted">
                     {d.request_status === "pending"
-                      ? "Accès demandé — en attente d'approbation"
+                      ? "Access requested — awaiting approval"
                       : d.lock_reason === "folder"
-                        ? "Dossier restreint — demander l'accès"
-                        : "Au-dessus de votre habilitation — demander l'accès"}
+                        ? "Restricted folder — request access"
+                        : "Above your clearance — request access"}
                   </div>
                 ) : (
                   <div className="card-meta muted">
-                    {d.owner} · {new Date(d.updated_at).toLocaleDateString("fr-FR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {d.owner} · {new Date(d.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </div>
                 )}
               </div>
@@ -396,8 +396,8 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
             {!loading && shownDocs.length === 0 && (!flatMode ? childFolders.length === 0 : true) && (
               <div className="empty">
                 <div className="empty-mark">[ ▚ ]</div>
-                <div className="empty-title">{q ? "Aucun résultat" : mineOnly ? "Aucun document pour l'instant" : "Protocole vide"}</div>
-                <div>{q ? "Aucune archive ne correspond à votre recherche à ce niveau d'habilitation." : "Aucun document ici à votre niveau d'habilitation. Créez-en un ci-dessus."}</div>
+                <div className="empty-title">{q ? "No results" : mineOnly ? "No documents yet" : "Empty protocol"}</div>
+                <div>{q ? "No archive matches your search at this clearance level." : "No documents here at your clearance level. Create one above."}</div>
               </div>
             )}
           </div>
@@ -409,14 +409,14 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
       )}
       {signDoc && <SignRequestModal doc={signDoc} onClose={() => setSignDoc(null)} onDone={load} />}
       {shareDoc && (
-        <AccessModal title={`Partager « ${shareDoc.title} »`} url={`/api/documents/${shareDoc.id}/share`} verb="Partagé avec" onClose={() => setShareDoc(null)} />
+        <AccessModal title={`Share “${shareDoc.title}”`} url={`/api/documents/${shareDoc.id}/share`} verb="Shared with" onClose={() => setShareDoc(null)} />
       )}
       {manageFolder && (
         <AccessModal
-          title={`Invitations au dossier — « ${manageFolder.name} »`}
+          title={`Folder invites — “${manageFolder.name}”`}
           url={`/api/folders/${manageFolder.id}/members`}
-          verb="Invité"
-          note="Un dossier sans membre est ouvert à tous les agents. Dès qu'il a des membres, seuls eux (et les officiers) le voient, ainsi que tout son contenu."
+          verb="Invited"
+          note="A folder with no members is open to all agents. As soon as it has members, only they (and officers) can see it, along with everything inside it."
           onClose={() => { setManageFolder(null); load(); }}
         />
       )}
@@ -453,23 +453,23 @@ function PublicLinkModal({ doc, onClose }: { doc: Doc; onClose: () => void }) {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2>Lien public — « {doc.title} »</h2>
+        <h2>Public link — “{doc.title}”</h2>
         <p className="muted" style={{ marginBottom: 12 }}>
-          Toute personne disposant du lien peut consulter ce document en lecture seule, sans compte.
-          Classified sections marked <span className="mono">{"[[CLR:n]]"}</span> restent masquées.
+          Anyone with the link can view this document read-only, without an account.
+          Classified sections marked <span className="mono">{"[[CLR:n]]"}</span> stay hidden.
         </p>
         {!loaded ? <p className="muted">…</p> : token ? (
           <>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <input readOnly value={url} style={{ marginBottom: 0, flex: 1 }} onFocus={(e) => e.target.select()} />
-              <button onClick={copy}>{copied ? "Copié" : "Copier"}</button>
+              <button onClick={copy}>{copied ? "Copied" : "Copy"}</button>
             </div>
-            <button className="ghost" style={{ width: "100%" }} onClick={revoke}>Désactiver le lien public</button>
+            <button className="ghost" style={{ width: "100%" }} onClick={revoke}>Disable public link</button>
           </>
         ) : (
-          <button style={{ width: "100%" }} onClick={enable}>Créer un lien public</button>
+          <button style={{ width: "100%" }} onClick={enable}>Create a public link</button>
         )}
-        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Fermer</button>
+        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Close</button>
       </div>
     </div>
   );
@@ -500,20 +500,20 @@ function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2>Nouveau {t.label}</h2>
+        <h2>New {t.label}</h2>
         {error && <p className="error">⚠ {error}</p>}
         <form onSubmit={create}>
-          <input autoFocus placeholder="TITRE DU DOCUMENT" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
           <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
-            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Niveau de classification {n}</option>)}
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification level {n}</option>)}
           </select>
           <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-            <option value="">— Racine du Drive —</option>
+            <option value="">— Drive root —</option>
             {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
-          <button style={{ width: "100%" }}>Créer</button>
+          <button style={{ width: "100%" }}>Create</button>
         </form>
-        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Annuler</button>
+        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Cancel</button>
       </div>
     </div>
   );
@@ -521,9 +521,9 @@ function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
 
 type Share = Agent & { role?: string };
 const ROLE_OPTS: { v: string; label: string }[] = [
-  { v: "viewer", label: "Lecteur" },
-  { v: "editor", label: "Éditeur" },
-  { v: "manager", label: "Gestionnaire" },
+  { v: "viewer", label: "Viewer" },
+  { v: "editor", label: "Editor" },
+  { v: "manager", label: "Manager" },
 ];
 
 function AccessModal({ title, url, verb, note, onClose }: { title: string; url: string; verb: string; note?: string; onClose: () => void }) {
@@ -572,8 +572,8 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
         <h2>{title}</h2>
         {note && <p className="muted" style={{ marginBottom: 10 }}>{note}</p>}
         <div style={{ display: "flex", gap: 8 }}>
-          <input autoFocus placeholder="Tapez un nom de code ou un matricule…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
-          <select value={role} onChange={(e) => setRole(e.target.value)} style={{ marginBottom: 12, width: 130 }} title="Rôle accordé">
+          <input autoFocus placeholder="Type a code name or badge number…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
+          <select value={role} onChange={(e) => setRole(e.target.value)} style={{ marginBottom: 12, width: 130 }} title="Role granted">
             {ROLE_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
           </select>
         </div>
@@ -589,7 +589,7 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
         {msg && <p className={msg.startsWith("✓") ? "success" : "error"}>{msg}</p>}
         {shares.length > 0 && (
           <>
-            <h2 style={{ marginTop: 14 }}>Accès actuels</h2>
+            <h2 style={{ marginTop: 14 }}>Current access</h2>
             {shares.map((a) => (
               <div key={a.matricule} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 0" }}>
                 <span><span className="mono">{a.matricule}</span> · {a.codename}</span>
@@ -597,13 +597,13 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
                   <select value={a.role || "viewer"} onChange={(e) => changeRole(a, e.target.value)} style={{ marginBottom: 0, width: 130 }}>
                     {ROLE_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
                   </select>
-                  <button className="ghost small" onClick={() => remove(a)}>Retirer</button>
+                  <button className="ghost small" onClick={() => remove(a)}>Remove</button>
                 </span>
               </div>
             ))}
           </>
         )}
-        <button className="ghost" style={{ marginTop: 16, width: "100%" }} onClick={onClose}>Fermer</button>
+        <button className="ghost" style={{ marginTop: 16, width: "100%" }} onClick={onClose}>Close</button>
       </div>
     </div>
   );
@@ -645,7 +645,7 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
   }
 
   async function submit() {
-    if (!chosen.length) return toast("Ajoutez au moins un signataire.", "error");
+    if (!chosen.length) return toast("Add at least one signer.", "error");
     setBusy(true);
     const res = await fetch("/api/signatures", {
       method: "POST",
@@ -654,7 +654,7 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
     const d = await res.json();
     setBusy(false);
     if (!res.ok) return toast(d.error, "error");
-    toast("Demande de signature envoyée. Le document est désormais scellé.", "success");
+    toast("Signature request sent. The document is now sealed.", "success");
     onClose();
     onDone();
   }
@@ -662,24 +662,24 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2>Demander des signatures — « {doc.title} »</h2>
+        <h2>Request signatures — “{doc.title}”</h2>
         <p className="muted" style={{ marginBottom: 12 }}>
-          Le document est scellé dès l'envoi de la demande : personne ne peut le modifier pendant la collecte des
-          signatures. Annulez la demande pour le libérer.
+          The document is sealed as soon as the request is sent: no one can edit it while signatures are being
+          collected. Cancel the request to release it.
         </p>
         {slots !== null && slots.slots > 0 && (
           <p className="success" style={{ marginBottom: 10 }}>
-            ✓ {slots.slots} emplacement(s) de signature trouvé(s) dans le document — les signatures y seront placées.
-            {slots.unresolved.length > 0 && ` Non trouvés : ${slots.unresolved.join(", ")}.`}
+            ✓ {slots.slots} signature slot(s) found in the document — signatures will be placed there.
+            {slots.unresolved.length > 0 && ` Not found: ${slots.unresolved.join(", ")}.`}
           </p>
         )}
         {slots !== null && slots.slots === 0 && (
           <p className="muted" style={{ marginBottom: 10 }}>
-            Aucun emplacement <span className="mono">[[SIGN:BADGE]]</span> dans ce document — le bloc de signature
-            sera ajouté à la fin.
+            No <span className="mono">[[SIGN:BADGE]]</span> slot in this document — the signature block
+            will be appended at the end.
           </p>
         )}
-        <input placeholder="Rechercher un agent par matricule ou nom de code" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder="Search an agent by badge number or code name" value={q} onChange={(e) => setQ(e.target.value)} />
         {results.length > 0 && (
           <div className="search-results">
             {results.map((a) => (
@@ -692,7 +692,7 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
         {chosen.length > 0 && (
           <div className="signer-list" style={{ marginBottom: 12 }}>
             {chosen.map((c, i) => (
-              <span key={c.matricule} className="sync-dot on" onClick={() => setChosen(chosen.filter((x) => x.matricule !== c.matricule))} style={{ cursor: "pointer" }} title="Retirer">
+              <span key={c.matricule} className="sync-dot on" onClick={() => setChosen(chosen.filter((x) => x.matricule !== c.matricule))} style={{ cursor: "pointer" }} title="Remove">
                 {sequential ? `${i + 1}. ` : ""}{c.codename} ✕
               </span>
             ))}
@@ -700,12 +700,12 @@ function SignRequestModal({ doc, onClose, onDone }: { doc: Doc; onClose: () => v
         )}
         <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", marginBottom: 10 }}>
           <input type="checkbox" style={{ width: "auto", marginBottom: 0 }} checked={sequential} onChange={(e) => setSequential(e.target.checked)} />
-          <span>Chaîne de commandement — chacun signe à son tour, prévenu quand vient le sien</span>
+          <span>Chain of command — each signs in turn, notified when it's their turn</span>
         </label>
-        <input placeholder="NOTE POUR LES SIGNATAIRES (facultatif)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <input placeholder="NOTE FOR THE SIGNERS (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="sheet-footer">
-          <button className="ghost" onClick={onClose}>Annuler</button>
-          <button disabled={busy || !chosen.length} onClick={submit}>{busy ? "Envoi…" : "Demander les signatures"}</button>
+          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button disabled={busy || !chosen.length} onClick={submit}>{busy ? "Sending…" : "Request signatures"}</button>
         </div>
       </div>
     </div>

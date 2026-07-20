@@ -7,7 +7,7 @@ import { dmByUserId } from "@/lib/discord";
 // Readable by any signed-in agent (the roster is public internally); only officers change them.
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT d.id, d.name, d.lead_id, d.folder_id,
@@ -24,7 +24,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const { name } = await req.json();
   const clean = String(name || "").trim();
   if (!clean) return NextResponse.json({ error: "Le nom de la division est requis." }, { status: 400 });
@@ -34,14 +34,14 @@ export async function POST(req: Request) {
     audit(s, "division_create", clean);
     return NextResponse.json({ id: rows[0].id });
   } catch (e: any) {
-    if (e.code === "23505") return NextResponse.json({ error: "Cette division existe déjà." }, { status: 409 });
+    if (e.code === "23505") return NextResponse.json({ error: "This division already exists." }, { status: 409 });
     throw e;
   }
 }
 
 export async function PATCH(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const { id, name, lead_id, create_folder } = await req.json();
   const pool = await db();
   const { rows: cur } = await pool.query("SELECT * FROM divisions WHERE id = $1", [id]);
@@ -50,11 +50,11 @@ export async function PATCH(req: Request) {
 
   if (name !== undefined) {
     const clean = String(name).trim();
-    if (!clean) return NextResponse.json({ error: "Le nom de la division ne peut pas être vide." }, { status: 400 });
+    if (!clean) return NextResponse.json({ error: "The division name cannot be empty." }, { status: 400 });
     try {
       await pool.query("UPDATE divisions SET name = $2 WHERE id = $1", [id, clean]);
     } catch (e: any) {
-      if (e.code === "23505") return NextResponse.json({ error: "Cette division existe déjà." }, { status: 409 });
+      if (e.code === "23505") return NextResponse.json({ error: "This division already exists." }, { status: 409 });
       throw e;
     }
     audit(s, "division_rename", `${div.name} -> ${clean}`);
@@ -68,9 +68,9 @@ export async function PATCH(req: Request) {
       const { rows: u } = await pool.query("SELECT division_id, codename FROM users WHERE id = $1", [lead]);
       if (!u[0]) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
       if (u[0].division_id !== id) {
-        return NextResponse.json({ error: "Le chef doit être membre de cette division." }, { status: 400 });
+        return NextResponse.json({ error: "The lead must be a member of this division." }, { status: 400 });
       }
-      dmByUserId(lead, `🦅 **TRANSMISSION S.H.I.E.L.D.** — Vous êtes désormais **chef de division** de ${div.name}.`);
+      dmByUserId(lead, `🦅 **S.H.I.E.L.D. TRANSMISSION** — You are now the **division lead** of ${div.name}.`);
     }
     await pool.query("UPDATE divisions SET lead_id = $2 WHERE id = $1", [id, lead]);
     audit(s, "division_lead", `${div.name} -> ${lead ?? "none"}`);

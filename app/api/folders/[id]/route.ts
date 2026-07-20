@@ -5,18 +5,18 @@ import { getSession } from "@/lib/session";
 // Rename a folder. Creator or officer only, same rule as deletion.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const { name } = await req.json();
   const clean = String(name || "").trim();
-  if (!clean) return NextResponse.json({ error: "Le nom ne peut pas être vide." }, { status: 400 });
-  if (clean.length > 100) return NextResponse.json({ error: "Le nom est trop long (100 caractères max)." }, { status: 400 });
+  if (!clean) return NextResponse.json({ error: "The name cannot be empty." }, { status: 400 });
+  if (clean.length > 100) return NextResponse.json({ error: "The name is too long (100 characters max)." }, { status: 400 });
   const pool = await db();
   const { rows: fr } = await pool.query("SELECT name, created_by FROM folders WHERE id = $1", [id]);
   const folder = fr[0];
   if (!folder) return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
   if (s.role !== "admin" && folder.created_by !== s.id) {
-    return NextResponse.json({ error: "Seul le créateur du dossier ou un officier peut le renommer." }, { status: 403 });
+    return NextResponse.json({ error: "Only the folder creator or an officer can rename it." }, { status: 403 });
   }
   await pool.query("UPDATE folders SET name = $2 WHERE id = $1", [id, clean]);
   audit(s, "folder_rename", `${folder.name} -> ${clean}`);
@@ -27,14 +27,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 // (no sub-folders and no documents), to avoid accidental mass destruction.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
   const { rows: fr } = await pool.query("SELECT name, created_by FROM folders WHERE id = $1", [id]);
   const folder = fr[0];
   if (!folder) return NextResponse.json({ error: "Dossier introuvable." }, { status: 404 });
   if (s.role !== "admin" && folder.created_by !== s.id) {
-    return NextResponse.json({ error: "Seul le créateur du dossier ou un officier peut le supprimer." }, { status: 403 });
+    return NextResponse.json({ error: "Only the folder creator or an officer can delete it." }, { status: 403 });
   }
   const { rows: c } = await pool.query(
     `SELECT (SELECT COUNT(*) FROM folders WHERE parent_id = $1)::int AS subfolders,
@@ -43,7 +43,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   );
   if (c[0].subfolders > 0 || c[0].docs > 0) {
     return NextResponse.json(
-      { error: `Le dossier n'est pas vide (${c[0].docs} document(s), ${c[0].subfolders} sous-dossier(s)). Videz-le ou déplacez-les d'abord.` },
+      { error: `The folder is not empty (${c[0].docs} document(s), ${c[0].subfolders} subfolder(s)). Empty it or move them first.` },
       { status: 409 }
     );
   }

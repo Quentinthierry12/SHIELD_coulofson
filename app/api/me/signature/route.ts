@@ -7,11 +7,11 @@ const MAX = 512 * 1024; // a scanned signature is small; refuse anything that is
 // The agent's reusable handwritten signature: uploaded once, applied to any document.
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   const { rows } = await pool.query("SELECT signature_image FROM users WHERE id = $1", [s.id]);
   const img: Buffer | null = rows[0]?.signature_image ?? null;
-  if (!img) return NextResponse.json({ error: "Aucune signature enregistrée." }, { status: 404 });
+  if (!img) return NextResponse.json({ error: "No signature saved." }, { status: 404 });
   return new NextResponse(new Uint8Array(img), {
     headers: { "Content-Type": "image/png", "Cache-Control": "private, no-store" },
   });
@@ -19,10 +19,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const form = await req.formData();
   const file = form.get("file") as File | null;
-  if (!file) return NextResponse.json({ error: "Aucune image reçue." }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "No image received." }, { status: 400 });
   if (file.size > MAX) return NextResponse.json({ error: "Image trop volumineuse (512 Ko max)." }, { status: 400 });
   if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
     return NextResponse.json({ error: "PNG, JPEG ou WebP uniquement." }, { status: 400 });
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
 export async function DELETE() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   await pool.query("UPDATE users SET signature_image = NULL WHERE id = $1", [s.id]);
   audit(s, "signature_upload", "handwritten signature removed");

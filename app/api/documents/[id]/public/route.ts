@@ -18,8 +18,8 @@ async function ownedDoc(id: number) {
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await ownedDoc(id);
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   return NextResponse.json({ token: doc.public_token || null });
 }
 
@@ -28,8 +28,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await ownedDoc(id);
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut le partager publiquement." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Only the document owner or an officer can share it publicly." }, { status: 403 });
   const token = doc.public_token || randomBytes(12).toString("hex");
   const pool = await db();
   await pool.query("UPDATE documents SET public_token = $2 WHERE id = $1", [id, token]);
@@ -40,8 +40,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await ownedDoc(id);
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
   await pool.query("UPDATE documents SET public_token = NULL WHERE id = $1", [id]);
   audit(s, "doc_public_off", `#${id} ${doc.title}`);

@@ -29,62 +29,61 @@
   </style>
 </head>
 <body>
-  <h4>Classification du paragraphe</h4>
-  <p class="hint">Place le curseur dans le paragraphe à protéger, puis choisis le niveau requis
-     pour le lire. Les agents en dessous verront une barre noire.</p>
+  <h4>Paragraph classification</h4>
+  <p class="hint">Place the cursor in the paragraph to protect, then choose the level required
+     to read it. Agents below that level will see a black bar.</p>
   <div class="grid" id="levels"></div>
 
   <hr />
 
-  <h4>Tampon de classification</h4>
-  <p class="hint">Insère un tampon visuel coloré à l'emplacement du curseur (marquage, pas de
-     masquage).</p>
+  <h4>Classification stamp</h4>
+  <p class="hint">Inserts a colored visual stamp at the cursor (marking, not masking).</p>
   <div class="row">
-    <button class="stamp s-low" data-stamp="low">RESTREINT</button>
-    <button class="stamp s-mid" data-stamp="mid">CLASSIFIÉ</button>
+    <button class="stamp s-low" data-stamp="low">RESTRICTED</button>
+    <button class="stamp s-mid" data-stamp="mid">CLASSIFIED</button>
     <button class="stamp s-hi" data-stamp="hi">TOP SECRET</button>
   </div>
 
   <hr />
 
-  <h4>Caviardage</h4>
-  <p class="hint">Sélectionne le texte à masquer, puis applique une barre noire (texte et fond
-     noircis).</p>
+  <h4>Redaction</h4>
+  <p class="hint">Select the text to hide, then apply a black bar (text and background
+     blacked out).</p>
   <div class="row">
-    <button id="redact">Caviarder la sélection</button>
-    <button id="unredact">Retirer</button>
+    <button id="redact">Redact selection</button>
+    <button id="unredact">Remove</button>
   </div>
 
   <hr />
 
-  <h4>Filigrane</h4>
-  <p class="hint">Appose un filigrane diagonal sur toutes les pages du document.</p>
+  <h4>Watermark</h4>
+  <p class="hint">Applies a diagonal watermark to every page of the document.</p>
   <div class="row">
-    <button id="watermark">Filigrane « TOP SECRET »</button>
-    <button id="watermarkOff">Retirer</button>
+    <button id="watermark">“TOP SECRET” watermark</button>
+    <button id="watermarkOff">Remove</button>
   </div>
 
   <hr />
 
-  <h4>Emplacement de signature</h4>
-  <p class="hint">Insère un emplacement là où se trouve le curseur. Il sera rempli par la
-     signature réelle quand le document sera signé.</p>
+  <h4>Signature slot</h4>
+  <p class="hint">Inserts a slot where the cursor is. It will be filled with the real
+     signature when the document is signed.</p>
   <div class="row">
-    <button data-ins="[[SIGN:officer]]">Officier</button>
+    <button data-ins="[[SIGN:officer]]">Officer</button>
     <button data-ins="[[SIGN:agent]]">Agent</button>
-    <button data-ins="[[SIGN]]">Au suivant</button>
+    <button data-ins="[[SIGN]]">Next signer</button>
   </div>
-  <input id="badge" placeholder="MATRICULE PRÉCIS (ex. AG-4782)" />
+  <input id="badge" placeholder="SPECIFIC BADGE (e.g. AG-4782)" />
   <div class="row">
-    <button id="byBadge">Insérer pour ce matricule</button>
+    <button id="byBadge">Insert for this badge</button>
   </div>
 
   <hr />
 
   <h4>Date</h4>
-  <p class="hint">Se remplit automatiquement au scellement du document.</p>
+  <p class="hint">Auto-filled when the document is sealed.</p>
   <div class="row">
-    <button data-ins="[[DATE]]">Insérer la date de scellement</button>
+    <button data-ins="[[DATE]]">Insert seal date</button>
   </div>
 
   <div id="msg"></div>

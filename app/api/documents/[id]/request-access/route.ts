@@ -7,7 +7,7 @@ import { dmByUserId } from "@/lib/discord";
 // (blocked by clearance or by a private folder).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const { reason } = await req.json().catch(() => ({ reason: "" }));
 
@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Already allowed? Nothing to request.
   if (await getAccessibleDoc(id, s.clearance, s.id, s.role)) {
-    return NextResponse.json({ error: "Vous avez déjà accès." }, { status: 400 });
+    return NextResponse.json({ error: "You already have access." }, { status: 400 });
   }
 
   await pool.query(
@@ -36,7 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   for (const uid of targets) {
     dmByUserId(
       uid,
-      `🦅 **DEMANDE D'ACCÈS S.H.I.E.L.D.** — Agent **${s.matricule} · ${s.codename}** demande l'accès à **« ${doc.title} »** (LVL.${doc.classification}).${reason ? ` Motif : ${reason}` : ""} À examiner : ${process.env.PORTAL_URL}/admin`
+      `🦅 **S.H.I.E.L.D. ACCESS REQUEST** — Agent **${s.matricule} · ${s.codename}** is requesting access to **“${doc.title}”** (LVL.${doc.classification}).${reason ? ` Reason: ${reason}` : ""} Review: ${process.env.PORTAL_URL}/admin`
     );
   }
   return NextResponse.json({ ok: true });

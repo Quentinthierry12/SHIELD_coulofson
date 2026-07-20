@@ -39,37 +39,37 @@ export type PushPayload = {
   body: string;
   url?: string;
   tag?: string;
-  // Boutons affichés sous la bannière (Android/desktop ; ignorés là où non supportés,
-  // ex. iOS — la notification reste cliquable normalement).
+  // Buttons shown under the banner (Android/desktop; ignored where unsupported,
+  // e.g. iOS — the notification stays clickable as usual).
   actions?: PushAction[];
-  // Cible par bouton : action → URL. Le clic simple utilise `url`.
+  // Per-button target: action → URL. A plain tap uses `url`.
   urls?: Record<string, string>;
 };
 
-// Notification dédiée « dossier d'agent » : type à part, plus insistant (l'agent est
-// bloqué tant qu'il n'a pas signé). Clic / bouton Signer → l'écran d'accueil obligatoire.
+// Dedicated "personnel file" notification: a distinct, more insistent type (the agent is
+// locked out until they sign). Tap / Sign button → the mandatory onboarding screen.
 export function personnelFilePush(): PushPayload {
   return {
-    title: "S.H.I.E.L.D. — Dossier d'agent",
-    body: "Signe ton serment de service pour accéder au système.",
+    title: "S.H.I.E.L.D. — Personnel File",
+    body: "Sign your oath of service to access the system.",
     url: "/onboarding",
     tag: "personnel-file",
-    actions: [{ action: "sign", title: "Signer" }],
+    actions: [{ action: "sign", title: "Sign" }],
     urls: { sign: "/onboarding" },
   };
 }
 
-// Payload d'une demande de signature, avec boutons Signer / Voir. Le bouton Signer
-// (et le clic simple) ouvre le Dispatch ; Voir ouvre le document.
-export function signatureRequestPush(docTitle: string, docId: number, headline = "Signature requise"): PushPayload {
+// Signature-request payload, with Sign / View buttons. The Sign button (and a plain tap)
+// opens Dispatch; View opens the document.
+export function signatureRequestPush(docTitle: string, docId: number, headline = "Signature required"): PushPayload {
   return {
     title: `S.H.I.E.L.D. — ${headline}`,
     body: docTitle,
     url: "/inbox",
     tag: `sig-${docId}`,
     actions: [
-      { action: "sign", title: "Signer" },
-      { action: "view", title: "Voir" },
+      { action: "sign", title: "Sign" },
+      { action: "view", title: "View" },
     ],
     urls: { sign: "/inbox", view: `/doc/${docId}` },
   };

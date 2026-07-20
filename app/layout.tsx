@@ -5,8 +5,8 @@ import PwaRegister from "./pwa-register";
 import NotifInvite from "./notif-invite";
 
 export const metadata: Metadata = {
-  title: "S.H.I.E.L.D. — Système Documentaire Central",
-  description: "Portail documentaire classifié de la division — rapports, registres et circuits de signature.",
+  title: "S.H.I.E.L.D. — Central Document System",
+  description: "The division's classified document portal — reports, registries and signature workflows.",
   applicationName: "S.H.I.E.L.D.",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
       { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
-    // Icône de l'écran d'accueil iOS : DOIT être un PNG opaque. L'ancien logo-white.png
-    // (aigle blanc sur fond transparent) s'affichait tout blanc une fois installé.
+    // iOS home-screen icon: MUST be an opaque PNG. The old logo-white.png (white eagle on a
+    // transparent background) showed up all-white once installed.
     apple: [{ url: "/icon-512.png" }],
   },
   appleWebApp: {
@@ -34,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="en">
       <body>
         {children}
         <UiHost />

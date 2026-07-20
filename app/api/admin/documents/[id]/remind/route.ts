@@ -8,7 +8,7 @@ import { signatureRequestPush } from "@/lib/push";
 // turn it is gets pinged — reminding someone who cannot sign yet is just noise.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
 
@@ -27,14 +27,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       WHERE sg.request_id = $1 AND sg.status = 'pending' ORDER BY sg.position`,
     [request.id]
   );
-  if (!pending.length) return NextResponse.json({ error: "Tout le monde a déjà répondu." }, { status: 409 });
+  if (!pending.length) return NextResponse.json({ error: "Everyone has already responded." }, { status: 409 });
 
   const targets = request.sequential ? pending.slice(0, 1) : pending;
   for (const t of targets) {
     dmByUserId(
       t.user_id,
-      `🦅 **RAPPEL S.H.I.E.L.D.** — Votre signature est toujours requise sur **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
-      signatureRequestPush(request.title, id, "Rappel de signature")
+      `🦅 **S.H.I.E.L.D. REMINDER** — Your signature is still required on **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
+      signatureRequestPush(request.title, id, "Signature reminder")
     );
   }
   audit(s, "signature_remind", `${request.title} — ${targets.length} agent(s)`);

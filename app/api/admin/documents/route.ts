@@ -7,7 +7,7 @@ import { getSession } from "@/lib/session";
 // "what is out there, and who has not signed yet?"
 export async function GET() {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT d.id, d.title, d.filetype, d.classification, d.locked AS sealed, d.is_personnel,

@@ -7,7 +7,7 @@ import { DOC_TYPES } from "@/lib/onlyoffice";
 
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const pool = await db();
   const folderIds = await accessibleFolderIds(s.id, s.role);
   // Everything is listed; what the agent may not open comes back flagged `locked`
@@ -44,7 +44,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { title, filetype, classification, folder_id } = await req.json();
   if (!title?.trim() || !DOC_TYPES[filetype]) {
     return NextResponse.json({ error: "Le titre et le type sont requis." }, { status: 400 });

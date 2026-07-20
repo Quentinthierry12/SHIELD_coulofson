@@ -4,7 +4,7 @@ import { discordAuthUrl, discordEnabled, readPendingLinkToken } from "@/lib/disc
 
 export async function GET(req: Request) {
   if (!discordEnabled()) {
-    return NextResponse.json({ error: "L'intégration Discord n'est pas encore configurée." }, { status: 503 });
+    return NextResponse.json({ error: "The Discord integration is not configured yet." }, { status: 503 });
   }
   // Recrue en attente qui vient de s'enrôler : jeton de liaison (pas de session encore).
   const link = new URL(req.url).searchParams.get("link");

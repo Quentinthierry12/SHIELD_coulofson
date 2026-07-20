@@ -7,13 +7,13 @@ import { buildDocx, fillVariables, systemValues } from "@/lib/docxgen";
 // render a fresh .docx; file templates copy their stored content verbatim.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const { title, classification, folder_id, vars } = await req.json();
   if (!title?.trim()) return NextResponse.json({ error: "Titre requis." }, { status: 400 });
   const pool = await db();
   const { rows: t } = await pool.query("SELECT filetype, content, body FROM templates WHERE id = $1", [id]);
-  if (!t[0]) return NextResponse.json({ error: "Modèle introuvable." }, { status: 404 });
+  if (!t[0]) return NextResponse.json({ error: "Template not found." }, { status: 404 });
   const level = Math.min(Math.max(1, classification || 1), s.clearance);
   const content: Buffer = t[0].body != null
     ? await buildDocx(fillVariables(t[0].body, { ...(vars || {}), ...systemValues(s) }))

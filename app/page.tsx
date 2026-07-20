@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 
-// Page d'accueil PUBLIQUE. Composant serveur : lit des agrégats non classifiés directement
-// en base (jamais de détail sensible). Doit s'afficher même si la base est injoignable.
+// PUBLIC landing page. Server component: reads unclassified aggregates straight from the
+// database (never any sensitive detail). Must render even if the database is unreachable.
 async function overview() {
   try {
     const pool = await db();
@@ -29,57 +29,57 @@ export default async function Landing() {
           <img src="/logo.png" alt="" className="logo-img" style={{ height: 34 }} />
           <span>S.H.I.E.L.D.</span>
         </div>
-        <a href="/login"><button className="small">Accéder au portail</button></a>
+        <a href="/login"><button className="small">Enter the portal</button></a>
       </header>
 
-      {/* Les visuels sont des fonds d'image : pour les changer, dépose des fichiers dans
-          public/landing/ (hero.jpg, about.jpg). Absents, un dégradé sombre s'affiche. */}
+      {/* The visuals are background images: to change them, drop files into
+          public/landing/ (hero.jpg, about.jpg). If absent, a dark gradient shows instead. */}
       <section className="lp-hero">
         <div className="lp-hero-inner">
+          <img src="/logo.png" alt="S.H.I.E.L.D." className="lp-hero-logo" />
           <h1>S.H.I.E.L.D.</h1>
           <p className="muted" style={{ fontFamily: "Consolas, monospace", letterSpacing: "0.1em", margin: "6px 0 0" }}>
-            Système Documentaire Central
+            Central Document System
           </p>
           <p className="lp-tagline">
-            Portail documentaire classifié — rapports, registres, ordres de mission et circuits
-            de signature de la division.
+            Classified document portal — reports, registries, mission orders and the division's
+            signature workflows.
           </p>
           <div className="lp-cta">
-            <a href="/login"><button>Se connecter</button></a>
-            <a href="/login?mode=register"><button className="ghost">S'enrôler</button></a>
+            <a href="/login"><button>Sign in</button></a>
+            <a href="/login?mode=register"><button className="ghost">Enlist</button></a>
           </div>
         </div>
       </section>
 
       <section className="lp-stats">
-        <div className="lp-stat"><span className="lp-num">{agents}</span><span className="lp-lbl">Agents actifs</span></div>
-        <div className="lp-stat"><span className="lp-num">{missions}</span><span className="lp-lbl">Opérations en cours</span></div>
+        <div className="lp-stat"><span className="lp-num">{agents}</span><span className="lp-lbl">Active agents</span></div>
+        <div className="lp-stat"><span className="lp-num">{missions}</span><span className="lp-lbl">Ongoing operations</span></div>
         <div className="lp-stat"><span className="lp-num">{divisions.length}</span><span className="lp-lbl">Divisions</span></div>
       </section>
 
       <section className="lp-section">
-        <h2>La division</h2>
+        <h2>The division</h2>
         <div className="lp-about">
           <div className="lp-about-photo" />
           <div className="lp-about-text">
             <p>
-              Le S.H.I.E.L.D. centralise toute la documentation opérationnelle : chaque rapport,
-              registre et briefing porte un niveau de classification, et n'est visible que des
-              agents disposant de l'habilitation requise.
+              S.H.I.E.L.D. centralizes all operational documentation: every report, registry and
+              briefing carries a classification level, and is only visible to agents holding the
+              required clearance.
             </p>
             <p>
-              Les ordres de mission sont suivis de bout en bout — de l'affectation au rapport
-              d'après-action — et les documents officiels passent par un circuit de signature
-              gravé dans le fichier.
+              Mission orders are tracked end to end — from assignment to after-action report — and
+              official documents go through a signature workflow engraved into the file itself.
             </p>
           </div>
         </div>
       </section>
 
       <section className="lp-section">
-        <h2>Divisions présentes</h2>
+        <h2>Active divisions</h2>
         {divisions.length === 0 ? (
-          <p className="muted">Aucune division déclarée pour le moment.</p>
+          <p className="muted">No division declared yet.</p>
         ) : (
           <div className="lp-divisions">
             {divisions.map((d) => (
@@ -96,20 +96,20 @@ export default async function Landing() {
       </section>
 
       <section className="lp-section">
-        <h2>Opérations</h2>
+        <h2>Operations</h2>
         <p className="muted" style={{ maxWidth: 640 }}>
           {missions > 0
-            ? `${missions} opération${missions > 1 ? "s" : ""} en cours. Le détail des missions est classifié — connecte-toi pour accéder à celles qui te sont assignées.`
-            : "Aucune opération publique. Le détail des missions est classifié — connecte-toi pour accéder à celles qui te sont assignées."}
+            ? `${missions} ongoing operation${missions > 1 ? "s" : ""}. Mission details are classified — sign in to access the ones assigned to you.`
+            : "No public operations. Mission details are classified — sign in to access the ones assigned to you."}
         </p>
         <div className="lp-cta" style={{ marginTop: 16 }}>
-          <a href="/login"><button>Accéder au portail</button></a>
+          <a href="/login"><button>Enter the portal</button></a>
         </div>
       </section>
 
       <footer className="lp-footer">
-        <span>S.H.I.E.L.D. — Système Documentaire Central</span>
-        <span className="muted">Tout accès non autorisé fera l'objet de poursuites — Protocole 7-Alpha</span>
+        <span>S.H.I.E.L.D. — Central Document System</span>
+        <span className="muted">Unauthorized access will be prosecuted — Protocol 7-Alpha</span>
       </footer>
     </div>
   );

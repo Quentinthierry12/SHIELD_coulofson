@@ -381,6 +381,8 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
               url("/landing/hero.jpg") center/cover no-repeat,
               radial-gradient(ellipse at 30% 20%, #0f1e33, var(--bg)); }
 .lp-hero-inner { max-width: 900px; margin: 0 auto; width: 100%; }
+.lp-hero-logo { height: clamp(72px, 12vw, 120px); width: auto; margin-bottom: 18px;
+  filter: drop-shadow(0 4px 18px rgba(0,0,0,0.55)); }
 .lp-hero h1 { color: #dfe9f6; font-size: clamp(1.5rem, 4vw, 2.6rem); line-height: 1.15;
   text-transform: none; letter-spacing: 0.02em; }
 .lp-tagline { color: var(--muted); max-width: 620px; margin: 16px 0 26px; font-size: 1.05rem; line-height: 1.6; }

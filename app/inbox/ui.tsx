@@ -40,7 +40,7 @@ export default function Inbox({ session }: { session: Session }) {
     fd.append("file", file);
     const res = await fetch("/api/me/signature", { method: "POST", body: fd });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Signature manuscrite enregistrée.", "success");
+    toast("Handwritten signature saved.", "success");
     load();
   }
 
@@ -49,34 +49,34 @@ export default function Inbox({ session }: { session: Session }) {
     const d = await res.json();
     if (!res.ok) return toast(d.error, "error");
     setSigning(null);
-    toast(d.remaining ? `Signé. ${d.remaining} signature(s) encore requise(s).` : "Signé — le document est désormais scellé.", "success");
+    toast(d.remaining ? `Signed. ${d.remaining} signature(s) still required.` : "Signed — the document is now sealed.", "success");
     load();
   }
 
   async function decline(r: Request) {
     const reason = await promptDialog({
-      title: `Refuser de signer « ${r.title} » ?`,
-      message: "Le demandeur sera prévenu avec votre motif, et le document est libéré pour correction.",
-      placeholder: "Motif du refus",
+      title: `Decline to sign “${r.title}”?`,
+      message: "The requester will be notified with your reason, and the document is released for correction.",
+      placeholder: "Reason for declining",
     });
     if (reason === null) return;
     const res = await fetch(`/api/signatures/${r.id}`, { method: "POST", body: JSON.stringify({ decline: true, reason }) });
     if (!res.ok) return toast((await res.json()).error, "error");
     setSigning(null);
-    toast("Refus enregistré.", "success");
+    toast("Decline recorded.", "success");
     load();
   }
 
   async function cancel(r: Request) {
     const ok = await confirmDialog({
-      title: `Annuler la demande sur « ${r.title} » ?`,
-      message: "Les signatures déjà données sont rejetées et le document est descellé.",
-      confirmLabel: "Annuler la demande", danger: true,
+      title: `Cancel the request on “${r.title}”?`,
+      message: "Signatures already given are voided and the document is unsealed.",
+      confirmLabel: "Cancel request", danger: true,
     });
     if (!ok) return;
     const res = await fetch(`/api/signatures/${r.id}`, { method: "DELETE" });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Demande annulée.", "success");
+    toast("Request cancelled.", "success");
     load();
   }
 
@@ -100,22 +100,22 @@ export default function Inbox({ session }: { session: Session }) {
 
         {!loading && (
           <div className="panel" style={data.to_sign.length ? { borderColor: "#665520" } : undefined}>
-            <h2>En attente de votre signature ({data.to_sign.length})</h2>
-            {data.to_sign.length === 0 && <p className="muted">Rien à signer.</p>}
+            <h2>Awaiting your signature ({data.to_sign.length})</h2>
+            {data.to_sign.length === 0 && <p className="muted">Nothing to sign.</p>}
             {data.to_sign.map((r) => (
               <div key={r.id} className="mission-row">
                 <div className="mission-head">
                   <b>{r.title}</b>
                   <span className="chip lv mono">LVL. {r.classification}</span>
-                  {r.sequential && <span className="chip">CHAÎNE</span>}
-                  <span className="chip">{progress(r)} signé(s)</span>
+                  {r.sequential && <span className="chip">CHAIN</span>}
+                  <span className="chip">{progress(r)} signed</span>
                   <span className="agent-spacer" />
-                  <button className="ghost small" onClick={() => router.push(`/doc/${r.doc_id}`)}>Lire</button>
-                  <button className="small" onClick={() => setSigning(r)}>Signer</button>
-                  <button className="ghost small danger" onClick={() => decline(r)}>Refuser</button>
+                  <button className="ghost small" onClick={() => router.push(`/doc/${r.doc_id}`)}>Read</button>
+                  <button className="small" onClick={() => setSigning(r)}>Sign</button>
+                  <button className="ghost small danger" onClick={() => decline(r)}>Decline</button>
                 </div>
                 <div className="mission-meta muted">
-                  Demandé par {r.requested_by_codename || "—"}
+                  Requested by {r.requested_by_codename || "—"}
                   {r.note ? ` · ${r.note}` : ""}
                 </div>
                 <SignerList signers={r.signers} />
@@ -126,15 +126,15 @@ export default function Inbox({ session }: { session: Session }) {
 
         {!loading && data.waiting.length > 0 && (
           <div className="panel">
-            <h2>En attente des autres ({data.waiting.length})</h2>
+            <h2>Awaiting others ({data.waiting.length})</h2>
             {data.waiting.map((r) => (
               <div key={r.id} className="mission-row">
                 <div className="mission-head">
                   <b>{r.title}</b>
-                  <span className="chip">{progress(r)} signé(s)</span>
+                  <span className="chip">{progress(r)} signed</span>
                   <span className="agent-spacer" />
-                  <button className="ghost small" onClick={() => router.push(`/doc/${r.doc_id}`)}>Lire</button>
-                  <button className="ghost small danger" onClick={() => cancel(r)}>Annuler</button>
+                  <button className="ghost small" onClick={() => router.push(`/doc/${r.doc_id}`)}>Read</button>
+                  <button className="ghost small danger" onClick={() => cancel(r)}>Cancel</button>
                 </div>
                 <SignerList signers={r.signers} />
               </div>
@@ -144,16 +144,16 @@ export default function Inbox({ session }: { session: Session }) {
 
         {!loading && data.done.length > 0 && (
           <div className="panel">
-            <h2>Réglées</h2>
+            <h2>Settled</h2>
             {data.done.map((r) => (
               <div key={r.id} className="mission-row">
                 <div className="mission-head">
                   <b>{r.title}</b>
                   <span className={`classif ${r.status === "complete" ? "low" : "high"}`}>
-                    {r.status === "complete" ? "SCELLÉ" : r.status.toUpperCase()}
+                    {r.status === "complete" ? "SEALED" : r.status.toUpperCase()}
                   </span>
                   <span className="agent-spacer" />
-                  <button className="ghost small" onClick={() => router.push(`/doc/${r.doc_id}`)}>Lire</button>
+                  <button className="ghost small" onClick={() => router.push(`/doc/${r.doc_id}`)}>Read</button>
                 </div>
                 <SignerList signers={r.signers} />
               </div>
@@ -162,22 +162,22 @@ export default function Inbox({ session }: { session: Session }) {
         )}
 
         <div className="panel">
-          <h2>Ma signature</h2>
+          <h2>My signature</h2>
           <p className="muted" style={{ marginBottom: 12 }}>
-            Signez avec votre nom de code, rendu dans une écriture manuscrite, ou avec un scan de votre propre
-            signature. Les deux sont enregistrés sous votre matricule.
+            Sign with your code name, rendered in a handwriting style, or with a scan of your own
+            signature. Both are stored under your badge number.
           </p>
           <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
             <div>
-              <div className="muted sheet-label">Dactylographiée</div>
+              <div className="muted sheet-label">Typed</div>
               <div className="sig-preview">{session.codename}</div>
             </div>
             <div>
-              <div className="muted sheet-label">Manuscrite</div>
+              <div className="muted sheet-label">Handwritten</div>
               {hasImage ? (
                 <img src="/api/me/signature" alt="" className="sig-image" />
               ) : (
-                <span className="muted" style={{ fontSize: ".8rem" }}>Aucune enregistrée</span>
+                <span className="muted" style={{ fontSize: ".8rem" }}>None saved</span>
               )}
             </div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -186,14 +186,14 @@ export default function Inbox({ session }: { session: Session }) {
                 onChange={(e) => e.target.files?.[0] && uploadSignature(e.target.files[0])}
               />
               <button className="ghost small" onClick={() => fileInput.current?.click()}>
-                {hasImage ? "Remplacer" : "Importer une signature"}
+                {hasImage ? "Replace" : "Upload a signature"}
               </button>
               {hasImage && (
                 <button className="ghost small danger" onClick={async () => {
                   await fetch("/api/me/signature", { method: "DELETE" });
-                  toast("Signature supprimée.", "success");
+                  toast("Signature deleted.", "success");
                   load();
-                }}>Retirer</button>
+                }}>Remove</button>
               )}
             </div>
           </div>
@@ -203,24 +203,24 @@ export default function Inbox({ session }: { session: Session }) {
       {signing && (
         <div className="overlay" onClick={() => setSigning(null)}>
           <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-            <h2>Signer « {signing.title} »</h2>
+            <h2>Sign “{signing.title}”</h2>
             <p className="muted" style={{ marginBottom: 14 }}>
-              Signer appose votre nom sur cette version exacte du document. Une fois que tous ont signé,
-              il ne peut plus être modifié.
+              Signing puts your name on this exact version of the document. Once everyone has signed,
+              it can no longer be edited.
             </p>
             <div className="sig-choice" onClick={() => sign(signing, "typed")}>
               <div className="sig-preview">{session.codename}</div>
-              <div className="muted" style={{ fontSize: ".75rem" }}>Signer avec mon nom de code</div>
+              <div className="muted" style={{ fontSize: ".75rem" }}>Sign with my code name</div>
             </div>
             {hasImage && (
               <div className="sig-choice" onClick={() => sign(signing, "image")}>
                 <img src="/api/me/signature" alt="" className="sig-image" />
-                <div className="muted" style={{ fontSize: ".75rem" }}>Signer avec ma signature manuscrite</div>
+                <div className="muted" style={{ fontSize: ".75rem" }}>Sign with my handwritten signature</div>
               </div>
             )}
             <div className="sheet-footer">
-              <button className="ghost" onClick={() => setSigning(null)}>Annuler</button>
-              <button className="ghost danger" onClick={() => decline(signing)}>Refuser</button>
+              <button className="ghost" onClick={() => setSigning(null)}>Cancel</button>
+              <button className="ghost danger" onClick={() => decline(signing)}>Decline</button>
             </div>
           </div>
         </div>
@@ -234,7 +234,7 @@ function SignerList({ signers }: { signers: Signer[] }) {
     <div className="signer-list">
       {signers.map((s) => (
         <span key={s.user_id} className={`sync-dot ${s.status === "signed" ? "on" : s.status === "declined" ? "bad" : "off"}`}
-              title={s.status === "signed" ? `Signé ${new Date(s.signed_at!).toLocaleString("fr-FR")}` : s.reason || s.status}>
+              title={s.status === "signed" ? `Signed ${new Date(s.signed_at!).toLocaleString("en-US")}` : s.reason || s.status}>
           {s.codename}
         </span>
       ))}

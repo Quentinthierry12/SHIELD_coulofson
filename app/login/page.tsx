@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 const COMMANDS_CHANNEL = "https://discord.com/channels/1371057544579252224/1513475225474306069";
 
 const DISCORD_MSG: Record<string, { text: string; ok?: boolean }> = {
-  error: { text: "Échec de la connexion Discord. Veuillez réessayer." },
-  unknown: { text: "Aucun compte agent n'est lié à ce compte Discord. Connectez-vous d'abord avec votre matricule, puis liez Discord." },
-  inactive: { text: "Votre compte n'est pas encore actif — un officier doit valider votre habilitation." },
-  linked: { text: "Discord lié ✓ Vous recevrez les mises à jour de votre compte en message privé.", ok: true },
-  taken: { text: "Ce compte Discord est déjà lié à un autre agent." },
+  error: { text: "Discord sign-in failed. Please try again." },
+  unknown: { text: "No agent account is linked to this Discord account. Sign in with your badge number first, then link Discord." },
+  inactive: { text: "Your account is not active yet — an officer must validate your clearance." },
+  linked: { text: "Discord linked ✓ You'll receive account updates by direct message.", ok: true },
+  taken: { text: "This Discord account is already linked to another agent." },
 };
 
 function LoginPage() {
@@ -51,35 +51,35 @@ function LoginPage() {
           <img src="/logo.png" alt="" className="logo-img" style={{ height: 90 }} onError={(e) => (e.currentTarget.style.display = "none")} />
         </div>
         <h1 style={{ textAlign: "center", marginBottom: 4 }}>S.H.I.E.L.D.</h1>
-        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>Système Documentaire Central — Accès restreint</p>
+        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>Central Document System — Restricted access</p>
 
         {registered ? (
           <div className="panel">
-            <p className="success" style={{ marginBottom: 10 }}>✓ Demande d'enrôlement enregistrée.</p>
+            <p className="success" style={{ marginBottom: 10 }}>✓ Enlistment request submitted.</p>
             <p style={{ marginBottom: 8 }}>
-              Ton matricule : <strong className="mono">{registered.matricule}</strong> — note-le.
-              Un officier supérieur doit valider ton habilitation avant ta première connexion.
+              Your badge number: <strong className="mono">{registered.matricule}</strong> — write it down.
+              A senior officer must validate your clearance before your first sign-in.
             </p>
             {registered.discord && registered.linkToken && (
               <>
                 <p className="muted" style={{ marginBottom: 8, fontSize: ".85rem" }}>
-                  Lie ton Discord maintenant pour être <strong>prévenu par message privé</strong> dès que ton
-                  compte avance (validation, habilitation…).
+                  Link your Discord now to get <strong>notified by direct message</strong> as soon as your
+                  account progresses (validation, clearance…).
                 </p>
                 <a href={`/api/auth/discord?link=${encodeURIComponent(registered.linkToken)}`}>
-                  <button type="button" style={{ width: "100%", marginBottom: 8 }}>🔗 Lier mon Discord</button>
+                  <button type="button" style={{ width: "100%", marginBottom: 8 }}>🔗 Link my Discord</button>
                 </a>
               </>
             )}
             <button type="button" className="ghost" style={{ width: "100%" }} onClick={() => { setRegistered(null); setMode("login"); }}>
-              Aller à la connexion
+              Go to sign-in
             </button>
           </div>
         ) : (
           <div className="panel">
             <div className="tabs">
-              <button className={mode === "login" ? "" : "inactive"} onClick={() => setMode("login")} type="button">Se connecter</button>
-              <button className={mode === "register" ? "" : "inactive"} onClick={() => setMode("register")} type="button">S'enrôler</button>
+              <button className={mode === "login" ? "" : "inactive"} onClick={() => setMode("login")} type="button">Sign in</button>
+              <button className={mode === "register" ? "" : "inactive"} onClick={() => setMode("register")} type="button">Enlist</button>
             </div>
 
             {dmsg && <p className={dmsg.ok ? "success" : "error"}>{dmsg.ok ? "✓" : "⚠"} {dmsg.text}</p>}
@@ -87,38 +87,38 @@ function LoginPage() {
 
             {mode === "register" && (
               <div className="enlist-help">
-                <p style={{ margin: "0 0 6px", fontWeight: 600 }}>Créer ton compte, étape par étape :</p>
+                <p style={{ margin: "0 0 6px", fontWeight: 600 }}>Create your account, step by step:</p>
                 <ol style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-                  <li>Va dans le salon <strong>#commands</strong> du Discord — <a href={COMMANDS_CHANNEL} target="_blank" rel="noopener noreferrer">ouvrir</a>.</li>
-                  <li>Tape la commande <span className="mono">/profile</span>.</li>
-                  <li>Copie ton <strong>AGENT-ID</strong> et colle-le dans <strong>Matricule</strong> ci-dessous.</li>
-                  <li>Ton <strong>nom de code</strong> = ton pseudo <strong>Roblox</strong>.</li>
+                  <li>Go to the <strong>#commands</strong> channel on Discord — <a href={COMMANDS_CHANNEL} target="_blank" rel="noopener noreferrer">open</a>.</li>
+                  <li>Type the <span className="mono">/profile</span> command.</li>
+                  <li>Copy your <strong>AGENT-ID</strong> and paste it into <strong>Badge number</strong> below.</li>
+                  <li>Your <strong>code name</strong> = your <strong>Roblox</strong> username.</li>
                 </ol>
               </div>
             )}
 
             <form onSubmit={submit}>
               {mode === "login" ? (
-                <input placeholder="MATRICULE (ex. AG-4782)" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
+                <input placeholder="BADGE NUMBER (e.g. AG-4782)" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
               ) : (
                 <>
-                  <input placeholder="NOM DE CODE (ton pseudo Roblox)" value={codename} onChange={(e) => setCodename(e.target.value)} />
-                  <input placeholder="MATRICULE — ton AGENT-ID (/profile)" value={customBadge} onChange={(e) => setCustomBadge(e.target.value)} />
+                  <input placeholder="CODE NAME (your Roblox username)" value={codename} onChange={(e) => setCodename(e.target.value)} />
+                  <input placeholder="BADGE NUMBER — your AGENT-ID (/profile)" value={customBadge} onChange={(e) => setCustomBadge(e.target.value)} />
                 </>
               )}
-              <input type="password" placeholder="MOT DE PASSE" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button style={{ width: "100%" }}>{mode === "login" ? "Se connecter" : "Demander l'accès"}</button>
+              <input type="password" placeholder="PASSWORD" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <button style={{ width: "100%" }}>{mode === "login" ? "Sign in" : "Request access"}</button>
             </form>
 
             {mode === "login" && (
               <a href="/api/auth/discord">
-                <button type="button" className="ghost" style={{ width: "100%", marginTop: 10 }}>Se connecter avec Discord</button>
+                <button type="button" className="ghost" style={{ width: "100%", marginTop: 10 }}>Sign in with Discord</button>
               </a>
             )}
           </div>
         )}
 
-        <a href="/"><button type="button" className="ghost small" style={{ marginTop: 14 }}>← Accueil</button></a>
+        <a href="/"><button type="button" className="ghost small" style={{ marginTop: 14 }}>← Home</button></a>
       </div>
     </div>
   );

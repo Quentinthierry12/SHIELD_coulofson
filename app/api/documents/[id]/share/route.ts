@@ -19,13 +19,13 @@ async function managedDoc(id: number) {
   return { s, doc: atLeast(role, "manager") ? doc : null };
 }
 
-const ROLE_FR: Record<Role, string> = { viewer: "lecture seule", editor: "édition", manager: "gestion" };
+const ROLE_FR: Record<Role, string> = { viewer: "view", editor: "edit", manager: "manage" };
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await managedDoc(id);
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT u.matricule, u.codename, ds.role FROM document_shares ds JOIN users u ON u.id = ds.user_id WHERE ds.doc_id = $1`,
@@ -37,8 +37,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await managedDoc(id);
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Rôle Gestionnaire requis pour partager ce document." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Manager role required to share this document." }, { status: 403 });
   const { matricule, role } = await req.json();
   const r = normalizeRole(role);
   const pool = await db();
@@ -53,7 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   audit(s, "doc_share", `#${id} ${doc.title} -> ${(matricule || "").trim().toUpperCase()} (${r})`);
   dmByUserId(
     rows[0].id,
-    `🦅 **TRANSMISSION S.H.I.E.L.D.** — Agent **${s.codename}** vous a accordé l'accès (**${ROLE_FR[r]}**) au document classifié **« ${doc.title} »**. Ouvrir : ${process.env.PORTAL_URL}/doc/${id}`
+    `🦅 **S.H.I.E.L.D. TRANSMISSION** — Agent **${s.codename}** granted you access (**${ROLE_FR[r]}**) to the classified document **“${doc.title}”**. Open: ${process.env.PORTAL_URL}/doc/${id}`
   );
   return NextResponse.json({ ok: true, codename: rows[0].codename, role: r });
 }
@@ -61,8 +61,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const { s, doc } = await managedDoc(id);
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!doc) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   await pool.query(

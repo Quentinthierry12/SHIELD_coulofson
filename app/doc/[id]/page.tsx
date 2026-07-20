@@ -65,7 +65,7 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
     editorConfig: {
       mode: readOnly ? "view" : "edit",
       callbackUrl: readOnly ? undefined : `${PORTAL_URL()}/api/onlyoffice/callback?id=${doc.id}&t=${t}`,
-      lang: "fr",
+      lang: "en",
       user: { id: String(session.id), name: `${session.matricule} · ${session.codename}` },
       customization: SHIELD_CUSTOMIZATION,
       // Plugins are loaded from the PORTAL, not baked into the Document Server image.

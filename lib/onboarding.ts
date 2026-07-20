@@ -86,7 +86,7 @@ export async function requirePersonnelOath(userId: number): Promise<number | nul
   if (reqId) {
     dmByUserId(
       userId,
-      `🦅 **S.H.I.E.L.D. — DOSSIER D'AGENT** — Signe ton serment de service pour accéder au système. ${process.env.PORTAL_URL}/onboarding`,
+      `🦅 **S.H.I.E.L.D. — PERSONNEL FILE** — Sign your oath of service to access the system. ${process.env.PORTAL_URL}/onboarding`,
       personnelFilePush()
     );
   }

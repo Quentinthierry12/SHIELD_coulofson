@@ -8,7 +8,7 @@ import { pushEnabled, type PushPayload } from "@/lib/push";
 // report back what actually went out — so Command can confirm the setup end to end.
 export async function POST() {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
 
   const pool = await db();
   const { rows: dev } = await pool.query(
@@ -23,18 +23,18 @@ export async function POST() {
   // boutons d'action pour que l'officier vérifie aussi Signer / Voir dans la bannière.
   const demoPush: PushPayload = {
     title: "S.H.I.E.L.D. — Test",
-    body: "Notification de test. Les boutons ci-dessous ouvrent le Dispatch.",
+    body: "Test notification. The buttons below open Dispatch.",
     url: "/inbox",
     tag: "shield-test",
     actions: [
-      { action: "sign", title: "Signer" },
-      { action: "view", title: "Voir" },
+      { action: "sign", title: "Sign" },
+      { action: "view", title: "View" },
     ],
     urls: { sign: "/inbox", view: "/inbox" },
   };
   dmByUserId(
     s.id,
-    `🦅 **S.H.I.E.L.D. TEST** — Notification de test. Si tu vois ceci, le canal fonctionne. ${process.env.PORTAL_URL}/inbox`,
+    `🦅 **S.H.I.E.L.D. TEST** — Test notification. If you see this, the channel works. ${process.env.PORTAL_URL}/inbox`,
     demoPush
   );
   audit(s, "push_test", `push:${pushDevices} discord:${discordLinked ? "yes" : "no"}`);

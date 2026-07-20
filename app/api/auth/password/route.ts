@@ -6,7 +6,7 @@ import { setMoodlePassword } from "@/lib/moodle";
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { current, next } = await req.json();
   if (!next || next.length < 6) return NextResponse.json({ error: "New password: at least 6 characters." }, { status: 400 });
   const pool = await db();

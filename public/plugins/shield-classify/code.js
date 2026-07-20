@@ -22,15 +22,15 @@
   // is already writing — not in a new one.
   function insert(text, label) {
     window.Asc.plugin.executeMethod("PasteText", [text], function () {
-      say(label + " inséré.");
+      say(label + " inserted.");
     });
   }
 
   // Visual classification stamps — inserted as styled HTML at the cursor (marking only,
   // no redaction). Colours mirror the portal's classification tiers.
   const STAMPS = {
-    low: { label: "RESTREINT",  bg: "#0e3322", fg: "#ffffff" },
-    mid: { label: "CLASSIFIÉ",  bg: "#3a2312", fg: "#ffffff" },
+    low: { label: "RESTRICTED", bg: "#0e3322", fg: "#ffffff" },
+    mid: { label: "CLASSIFIED", bg: "#3a2312", fg: "#ffffff" },
     hi:  { label: "TOP SECRET", bg: "#7a1010", fg: "#ffffff" },
   };
   function stamp(kind) {
@@ -41,7 +41,7 @@
       ';font-family:Consolas,monospace;font-weight:bold;padding:1px 8px;letter-spacing:.12em;">' +
       "■ S.H.I.E.L.D. // " + s.label + " ■</span>";
     window.Asc.plugin.executeMethod("PasteHtml", [html], function () {
-      say("Tampon " + s.label + " inséré.");
+      say(s.label + " stamp inserted.");
     });
   }
 
@@ -52,9 +52,9 @@
       b.className = "lvl" + (n >= 7 ? " hi" : "");
       b.textContent = n;
       b.title =
-        "Niveau " + n + " — " +
-        (n >= 7 ? "TOP SECRET" : n >= 4 ? "CLASSIFIÉ" : "RESTREINT");
-      b.onclick = () => insert("[[CLR:" + n + "]]", "Niveau " + n);
+        "Level " + n + " — " +
+        (n >= 7 ? "TOP SECRET" : n >= 4 ? "CLASSIFIED" : "RESTRICTED");
+      b.onclick = () => insert("[[CLR:" + n + "]]", "Level " + n);
       grid.appendChild(b);
     }
 
@@ -71,25 +71,25 @@
       window.Asc.plugin.callCommand(function () {
         var oRange = Api.GetDocument().GetRangeBySelect();
         if (oRange) { oRange.SetHighlight("black"); oRange.SetColor(0, 0, 0, false); }
-      }, false, false, function () { say("Sélection caviardée."); });
+      }, false, false, function () { say("Selection redacted."); });
     };
     window.document.getElementById("unredact").onclick = function () {
       window.Asc.plugin.callCommand(function () {
         var oRange = Api.GetDocument().GetRangeBySelect();
         if (oRange) { oRange.SetHighlight("none"); oRange.SetColor(0, 0, 0, true); }
-      }, false, false, function () { say("Caviardage retiré."); });
+      }, false, false, function () { say("Redaction removed."); });
     };
 
     // Filigrane diagonal « TOP SECRET » sur tout le document.
     window.document.getElementById("watermark").onclick = function () {
       window.Asc.plugin.callCommand(function () {
         Api.GetDocument().InsertWatermark("TOP SECRET", true);
-      }, false, false, function () { say("Filigrane appliqué."); });
+      }, false, false, function () { say("Watermark applied."); });
     };
     window.document.getElementById("watermarkOff").onclick = function () {
       window.Asc.plugin.callCommand(function () {
         Api.GetDocument().InsertWatermark("", true);
-      }, false, false, function () { say("Filigrane retiré."); });
+      }, false, false, function () { say("Watermark removed."); });
     };
 
     window.document.getElementById("byBadge").onclick = function () {
@@ -98,10 +98,10 @@
       // The portal only resolves a slot whose badge matches an active agent; inserting a
       // malformed one would leave an "awaiting signature" that can never be filled.
       if (!/^[A-Z0-9][A-Z0-9-]{2,19}$/.test(badge)) {
-        say("Matricule invalide — 3 à 20 caractères, lettres, chiffres et tirets.");
+        say("Invalid badge — 3 to 20 characters, letters, digits and dashes.");
         return;
       }
-      insert("[[SIGN:" + badge + "]]", "Emplacement pour " + badge);
+      insert("[[SIGN:" + badge + "]]", "Slot for " + badge);
       field.value = "";
     };
 

@@ -38,10 +38,10 @@ export default function NotifInvite() {
     setBusy(true);
     try {
       const r = await subscribeThisDevice();
-      if (r === "on") { toast("Notifications activées.", "success"); setShow(false); }
-      else if (r === "denied") { toast("Notifications refusées. Réactivables via 🔔 Notifs.", "error"); remember(); setShow(false); }
+      if (r === "on") { toast("Notifications enabled.", "success"); setShow(false); }
+      else if (r === "denied") { toast("Notifications blocked. Re-enable them via 🔔 Alerts.", "error"); remember(); setShow(false); }
       else if (r === "dismissed") { setShow(false); } // keep the invite for next time
-      else toast("Impossible d'activer les notifications.", "error");
+      else toast("Couldn't enable notifications.", "error");
     } finally {
       setBusy(false);
     }
@@ -52,13 +52,13 @@ export default function NotifInvite() {
   if (!show) return null;
 
   return (
-    <div className="notif-invite" role="dialog" aria-label="Activer les notifications">
+    <div className="notif-invite" role="dialog" aria-label="Enable notifications">
       <span className="notif-invite-txt">
-        🔔 Active les notifications pour être prévenu dès qu'un document attend ta signature.
+        🔔 Turn on notifications to get alerted the moment a document is waiting for your signature.
       </span>
       <div className="notif-invite-actions">
-        <button className="small" onClick={enable} disabled={busy}>{busy ? "Activation…" : "Activer"}</button>
-        <button className="ghost small" onClick={later} disabled={busy}>Plus tard</button>
+        <button className="small" onClick={enable} disabled={busy}>{busy ? "Enabling…" : "Enable"}</button>
+        <button className="ghost small" onClick={later} disabled={busy}>Later</button>
       </div>
     </div>
   );

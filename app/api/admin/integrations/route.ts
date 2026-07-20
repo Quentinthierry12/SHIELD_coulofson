@@ -19,7 +19,7 @@ async function ping(url: string, ms = 4000): Promise<boolean> {
 
 export async function GET() {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
 
   const pool = await db();
   const { rows } = await pool.query(

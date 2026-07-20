@@ -7,12 +7,12 @@ const MAX_SIZE = 25 * 1024 * 1024; // 25 Mo
 
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const classification = Math.min(Math.max(1, parseInt(String(form.get("classification")), 10) || 1), s.clearance);
   const folderId = parseInt(String(form.get("folder_id")), 10) || null;
-  if (!file) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "No file received." }, { status: 400 });
   if (file.size > MAX_SIZE) return NextResponse.json({ error: "Fichier trop volumineux (25 Mo max)." }, { status: 400 });
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (!DOC_TYPES[ext]) {

@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "S.H.I.E.L.D. — Système Documentaire Central",
+    name: "S.H.I.E.L.D. — Central Document System",
     short_name: "S.H.I.E.L.D.",
-    description: "Portail documentaire classifié de la division — rapports, registres et circuits de signature.",
+    description: "The division's classified document portal — reports, registries and signature workflows.",
     id: "/",
     start_url: "/",
     scope: "/",
@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "any",
     background_color: "#070b12",
     theme_color: "#070b12",
-    lang: "fr",
+    lang: "en",
     categories: ["productivity", "business"],
     icons: [
       {

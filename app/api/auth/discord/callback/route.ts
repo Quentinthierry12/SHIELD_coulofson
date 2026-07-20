@@ -27,8 +27,8 @@ export async function GET(req: Request) {
     sendDM(
       discordUser.id,
       state.pending
-        ? "🦅 **TRANSMISSION S.H.I.E.L.D.** — Ton Discord est lié à ta demande d'enrôlement. Tu recevras ici les mises à jour de ton compte (validation, habilitation…)."
-        : "🦅 **TRANSMISSION S.H.I.E.L.D.** — Ce compte Discord est désormais lié à vos identifiants d'agent. Vous pourrez vous connecter avec Discord."
+        ? "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your Discord is linked to your enlistment request. You'll get account updates here (validation, clearance…)."
+        : "🦅 **S.H.I.E.L.D. TRANSMISSION** — This Discord account is now linked to your agent credentials. You can sign in with Discord."
     ).catch(() => {});
     return NextResponse.redirect(`${home}/${back}?discord=linked`);
   }
