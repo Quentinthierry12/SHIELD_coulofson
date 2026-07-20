@@ -420,7 +420,8 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
           title={`Folder invites — “${manageFolder.name}”`}
           url={`/api/folders/${manageFolder.id}/members`}
           verb="Invited"
-          note="A folder with no members is open to all agents. As soon as it has members, only they (and officers) can see it, along with everything inside it."
+          allowDivisions
+          note="A folder with no members is open to all agents. As soon as it has members — agents or a whole division — only they (and officers) can see it, along with everything inside it."
           onClose={() => { setManageFolder(null); load(); }}
         />
       )}

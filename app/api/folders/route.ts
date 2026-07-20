@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const s = await getSession();
   if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { name, parent_id } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "Nom requis." }, { status: 400 });
+  if (!name?.trim()) return NextResponse.json({ error: "Name required." }, { status: 400 });
   const pool = await db();
   const { rows } = await pool.query(
     "INSERT INTO folders (name, parent_id, created_by) VALUES ($1, $2, $3) RETURNING id",
