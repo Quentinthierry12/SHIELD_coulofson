@@ -88,6 +88,13 @@ export async function folderRole(folderId: number, session: Session): Promise<Ro
   const byId = new Map<number, { id: number; parent_id: number | null }>(folders.map((f: any) => [f.id, f]));
   const { rows: mem } = await pool.query("SELECT folder_id, role FROM folder_members WHERE user_id = $1", [session.id]);
   const memRole = new Map<number, Role | null>(mem.map((m: any) => [m.folder_id, asRole(m.role)]));
+  // Fold in membership inherited through the agent's division (stronger role wins per folder).
+  const { rows: dmem } = await pool.query(
+    `SELECT fdm.folder_id, fdm.role FROM folder_division_members fdm
+       JOIN users u ON u.id = $1 WHERE fdm.division_id = u.division_id`,
+    [session.id]
+  );
+  for (const m of dmem as any[]) memRole.set(m.folder_id, stronger(memRole.get(m.folder_id) ?? null, asRole(m.role)));
   for (let cur = byId.get(folderId); cur; cur = cur.parent_id ? byId.get(cur.parent_id) : undefined) {
     if (memRole.has(cur.id)) best = stronger(best, memRole.get(cur.id)!);
   }

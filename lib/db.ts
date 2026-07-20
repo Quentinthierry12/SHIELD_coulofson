@@ -213,6 +213,15 @@ async function migrate() {
       role TEXT NOT NULL DEFAULT 'viewer',
       PRIMARY KEY (doc_id, division_id)
     );
+
+    -- Same idea for folders: grant a whole division access to a folder (and its contents).
+    -- A folder with division members is restricted just like one with individual members.
+    CREATE TABLE IF NOT EXISTS folder_division_members (
+      folder_id INT NOT NULL,
+      division_id INT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      PRIMARY KEY (folder_id, division_id)
+    );
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {
@@ -312,8 +321,11 @@ export async function accessibleFolders(userId: number, role: string): Promise<F
   const p = await db();
   const { rows } = await p.query(
     `SELECT f.id, f.name, f.parent_id, f.created_by,
-            EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id) AS restricted,
-            EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id AND fm.user_id = $1) AS member
+            (EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id)
+             OR EXISTS (SELECT 1 FROM folder_division_members fdm WHERE fdm.folder_id = f.id)) AS restricted,
+            (EXISTS (SELECT 1 FROM folder_members fm WHERE fm.folder_id = f.id AND fm.user_id = $1)
+             OR EXISTS (SELECT 1 FROM folder_division_members fdm JOIN users u ON u.id = $1
+                         WHERE fdm.folder_id = f.id AND fdm.division_id = u.division_id)) AS member
      FROM folders f ORDER BY f.name`,
     [userId]
   );
