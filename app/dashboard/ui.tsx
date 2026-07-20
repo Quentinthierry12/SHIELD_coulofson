@@ -519,10 +519,18 @@ function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
   );
 }
 
+type Share = Agent & { role?: string };
+const ROLE_OPTS: { v: string; label: string }[] = [
+  { v: "viewer", label: "Lecteur" },
+  { v: "editor", label: "Éditeur" },
+  { v: "manager", label: "Gestionnaire" },
+];
+
 function AccessModal({ title, url, verb, note, onClose }: { title: string; url: string; verb: string; note?: string; onClose: () => void }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Agent[]>([]);
-  const [shares, setShares] = useState<Agent[]>([]);
+  const [shares, setShares] = useState<Share[]>([]);
+  const [role, setRole] = useState("viewer"); // rôle appliqué au prochain ajout
   const [msg, setMsg] = useState("");
 
   async function loadShares() {
@@ -542,10 +550,15 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
 
   async function add(a: Agent) {
     setMsg("");
-    const res = await fetch(url, { method: "POST", body: JSON.stringify({ matricule: a.matricule }) });
+    const res = await fetch(url, { method: "POST", body: JSON.stringify({ matricule: a.matricule, role }) });
     const data = await res.json();
     setMsg(res.ok ? `✓ ${verb} ${data.codename}` : `⚠ ${data.error}`);
     setQ(""); setResults([]); loadShares();
+  }
+
+  async function changeRole(a: Share, newRole: string) {
+    await fetch(url, { method: "POST", body: JSON.stringify({ matricule: a.matricule, role: newRole }) });
+    loadShares();
   }
 
   async function remove(a: Agent) {
@@ -558,7 +571,12 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
         <h2>{title}</h2>
         {note && <p className="muted" style={{ marginBottom: 10 }}>{note}</p>}
-        <input autoFocus placeholder="Tapez un nom de code ou un matricule…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div style={{ display: "flex", gap: 8 }}>
+          <input autoFocus placeholder="Tapez un nom de code ou un matricule…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
+          <select value={role} onChange={(e) => setRole(e.target.value)} style={{ marginBottom: 12, width: 130 }} title="Rôle accordé">
+            {ROLE_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+          </select>
+        </div>
         {results.length > 0 && (
           <div className="results">
             {results.map((a) => (
@@ -573,9 +591,14 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
           <>
             <h2 style={{ marginTop: 14 }}>Accès actuels</h2>
             {shares.map((a) => (
-              <div key={a.matricule} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+              <div key={a.matricule} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 0" }}>
                 <span><span className="mono">{a.matricule}</span> · {a.codename}</span>
-                <button className="ghost small" onClick={() => remove(a)}>Retirer</button>
+                <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select value={a.role || "viewer"} onChange={(e) => changeRole(a, e.target.value)} style={{ marginBottom: 0, width: 130 }}>
+                    {ROLE_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+                  </select>
+                  <button className="ghost small" onClick={() => remove(a)}>Retirer</button>
+                </span>
               </div>
             ))}
           </>

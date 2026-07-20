@@ -188,6 +188,13 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS push_subs_user_idx ON push_subscriptions (user_id);
+
+    -- Permissions granulaires (façon Drive/Office) : chaque partage de document et chaque
+    -- appartenance à un dossier porte un rôle. 'viewer' = lecture seule, 'editor' = édition,
+    -- 'manager' = + partage/déplacement/reclassification/suppression. Les lignes existantes
+    -- passent en 'editor' pour préserver l'accès complet qu'elles donnaient jusqu'ici.
+    ALTER TABLE document_shares ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'editor';
+    ALTER TABLE folder_members  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'editor';
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {
