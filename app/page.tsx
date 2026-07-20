@@ -36,7 +36,10 @@ export default async function Landing() {
           public/landing/ (hero.jpg, about.jpg). Absents, un dégradé sombre s'affiche. */}
       <section className="lp-hero">
         <div className="lp-hero-inner">
-          <h1>Strategic Homeland Intervention,<br />Enforcement and Logistics Division</h1>
+          <h1>S.H.I.E.L.D.</h1>
+          <p className="muted" style={{ fontFamily: "Consolas, monospace", letterSpacing: "0.1em", margin: "6px 0 0" }}>
+            Système Documentaire Central
+          </p>
           <p className="lp-tagline">
             Portail documentaire classifié — rapports, registres, ordres de mission et circuits
             de signature de la division.

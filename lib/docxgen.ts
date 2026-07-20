@@ -117,40 +117,40 @@ export type MissionOrder = {
 };
 
 export async function buildMissionOrder(m: MissionOrder): Promise<Buffer> {
-  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const today = new Date().toLocaleDateString("fr-FR", { year: "numeric", month: "long", day: "numeric" });
   const heading = (t: string) => paraXml(runXml(t, { b: true, sz: 26, color: "1C3A5E" }), { heading: true });
-  const clsCls = (m.classification || 1) >= 7 ? "TOP SECRET" : (m.classification || 1) >= 4 ? "CLASSIFIED" : "RESTRICTED";
+  const clsCls = (m.classification || 1) >= 7 ? "TOP SECRET" : (m.classification || 1) >= 4 ? "CLASSIFIÉ" : "DIFFUSION RESTREINTE";
   const briefingParas = (m.briefing || "").split(/\r?\n/).filter(Boolean).map((l) => paraXml(runXml(l, { sz: 22 })));
 
   const body = [
-    centerPara(runXml(`CLASSIFIED — ${clsCls} — LEVEL ${m.classification || 1}`, { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
+    centerPara(runXml(`CLASSIFIÉ — ${clsCls} — NIVEAU ${m.classification || 1}`, { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
     centerPara(runXml("S.H.I.E.L.D.", { b: true, sz: 44, color: "1C3A5E" }), { before: 200, after: 0 }),
-    centerPara(runXml("MISSION ORDER", { b: true, sz: 30 }), { after: 40 }),
+    centerPara(runXml("ORDRE DE MISSION", { b: true, sz: 30 }), { after: 40 }),
     centerPara(runXml(m.code.toUpperCase(), { b: true, sz: 24, color: "4DA6FF" }), { after: 200 }),
 
-    heading("Order Details"),
+    heading("Détails de l'ordre"),
     infoTable([
-      ["Mission Code", m.code.toUpperCase()],
-      ["Assigned Agent(s)", m.agent || "—"],
-      ["Location", m.location || "—"],
-      ["Priority", m.priority || "Routine"],
-      ["Classification", `Level ${m.classification || 1} — ${clsCls}`],
-      ["Date Issued", today],
-      ["Authorizing Officer", m.officer],
+      ["Code de mission", m.code.toUpperCase()],
+      ["Agent(s) affecté(s)", m.agent || "—"],
+      ["Lieu", m.location || "—"],
+      ["Priorité", m.priority || "Routine"],
+      ["Classification", `Niveau ${m.classification || 1} — ${clsCls}`],
+      ["Date d'émission", today],
+      ["Officier habilitant", m.officer],
     ]),
     paraXml(runXml("")),
 
-    heading("Objective"),
+    heading("Objectif"),
     paraXml(runXml(m.objective, { sz: 22 })),
     paraXml(runXml("")),
 
     ...(briefingParas.length ? [heading("Briefing"), ...briefingParas, paraXml(runXml(""))] : []),
 
-    heading("Authorization"),
-    paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml(m.officer + "        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml(today, { sz: 20 })].join("")),
-    paraXml([runXml("Agent acknowledgement:  ", { b: true, sz: 20 }), runXml("________________________", { sz: 20 })].join("")),
+    heading("Autorisation"),
+    paraXml([runXml("Officier habilitant :  ", { b: true, sz: 20 }), runXml(m.officer + "        ", { sz: 20 }), runXml("Date :  ", { b: true, sz: 20 }), runXml(today, { sz: 20 })].join("")),
+    paraXml([runXml("Accusé de réception de l'agent :  ", { b: true, sz: 20 }), runXml("________________________", { sz: 20 })].join("")),
 
-    centerPara(runXml("This order is the property of S.H.I.E.L.D. Compromise of this document is a Level-1 offense.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
+    centerPara(runXml("Cet ordre est la propriété du S.H.I.E.L.D. Toute compromission de ce document constitue une infraction de Niveau 1.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
   ].join("\n");
 
   return packDocx(body);
@@ -158,53 +158,53 @@ export async function buildMissionOrder(m: MissionOrder): Promise<Buffer> {
 
 export type AgentInfo = { matricule: string; codename: string; division?: string; clearance?: number };
 
-const clearanceLabel = (n = 1) => `Level ${n} — ${n >= 7 ? "Top Secret" : n >= 4 ? "Classified" : "Restricted"}`;
+const clearanceLabel = (n = 1) => `Niveau ${n} — ${n >= 7 ? "Top Secret" : n >= 4 ? "Classifié" : "Diffusion restreinte"}`;
 
 // Generate a fully pre-filled agent personnel file from the account's real data.
 export async function buildPersonnelFile(agent: AgentInfo): Promise<Buffer> {
-  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const today = new Date().toLocaleDateString("fr-FR", { year: "numeric", month: "long", day: "numeric" });
   const heading = (t: string) => paraXml(runXml(t, { b: true, sz: 26, color: "1C3A5E" }), { heading: true });
 
   const body = [
-    centerPara(runXml("CLASSIFIED — LEVEL 10 — EYES ONLY", { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
+    centerPara(runXml("CLASSIFIÉ — NIVEAU 10 — DIFFUSION RESTREINTE", { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
     centerPara(runXml("S.H.I.E.L.D.", { b: true, sz: 48, color: "1C3A5E" }), { before: 240, after: 0 }),
-    centerPara(runXml("Strategic Homeland Intervention, Enforcement and Logistics Division", { i: true, sz: 18, color: "555555" }), { after: 40 }),
-    centerPara(runXml("AGENT PERSONNEL FILE", { b: true, sz: 28 }), { after: 240 }),
+    centerPara(runXml("Système Documentaire Central", { i: true, sz: 18, color: "555555" }), { after: 40 }),
+    centerPara(runXml("FICHE DE PERSONNEL — AGENT", { b: true, sz: 28 }), { after: 240 }),
 
-    heading("Section 1 — Identity"),
+    heading("Section 1 — Identité"),
     infoTable([
-      ["Codename", agent.codename],
-      ["Badge Number", agent.matricule],
-      ["Division / Unit", agent.division || ""],
-      ["Clearance Level", clearanceLabel(agent.clearance)],
-      ["Date of Enlistment", today],
-      ["Current Status", "ACTIVE"],
+      ["Nom de code", agent.codename],
+      ["Matricule", agent.matricule],
+      ["Division / Unité", agent.division || ""],
+      ["Niveau d'habilitation", clearanceLabel(agent.clearance)],
+      ["Date d'enrôlement", today],
+      ["Statut actuel", "ACTIF"],
     ]),
     paraXml(runXml("")),
 
-    heading("Section 2 — Assignment"),
+    heading("Section 2 — Affectation"),
     infoTable([
-      ["Duty Station", ""],
-      ["Supervising Officer", ""],
-      ["Specializations", ""],
-      ["Commendations", ""],
+      ["Poste d'affectation", ""],
+      ["Officier référent", ""],
+      ["Spécialisations", ""],
+      ["Distinctions", ""],
     ]),
     paraXml(runXml("")),
 
-    heading("Section 3 — Clearance & Access"),
-    paraXml([runXml("Note:  ", { b: true, sz: 18 }), runXml("Access to material above this agent's assigned clearance is prohibited under Protocol 7-Alpha.", { i: true, sz: 18, color: "555555" })].join("")),
+    heading("Section 3 — Habilitation & Accès"),
+    paraXml([runXml("Note :  ", { b: true, sz: 18 }), runXml("Tout accès à des documents supérieurs à l'habilitation attribuée à cet agent est interdit au titre du Protocole 7-Alpha.", { i: true, sz: 18, color: "555555" })].join("")),
     paraXml(runXml("")),
 
-    heading("Section 4 — Oath of Service"),
-    paraXml(runXml("“I pledge my service to the protection of this world and its people. I will safeguard what I am entrusted with, obey the chain of command, and hold the line when others cannot.”", { i: true, sz: 20 })),
+    heading("Section 4 — Serment de service"),
+    paraXml(runXml("« Je voue mon service à la protection de ce monde et de ses habitants. Je préserverai ce qui m'est confié, j'obéirai à la chaîne de commandement et je tiendrai la ligne quand d'autres ne le pourront pas. »", { i: true, sz: 20 })),
     paraXml(runXml("")),
     // Real signature slots, not blank rules: these are filled in place when the file is
     // signed (lib/sigmarkers.ts). The agent's badge is baked in so the slot can only be
     // filled by them; the officer slot takes whoever countersigns.
-    paraXml([runXml("Agent signature:  ", { b: true, sz: 20 }), runXml(`[[SIGN:${agent.matricule}]]`, { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
-    paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml("[[SIGN:officer]]", { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
+    paraXml([runXml("Signature de l'agent :  ", { b: true, sz: 20 }), runXml(`[[SIGN:${agent.matricule}]]`, { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date :  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
+    paraXml([runXml("Officier habilitant :  ", { b: true, sz: 20 }), runXml("[[SIGN:officer]]", { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date :  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
 
-    centerPara(runXml("Property of S.H.I.E.L.D. — unauthorized possession, reproduction or disclosure is a Level-1 offense.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
+    centerPara(runXml("Propriété du S.H.I.E.L.D. — toute détention, reproduction ou divulgation non autorisée constitue une infraction de Niveau 1.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
   ].join("\n");
 
   return packDocx(body);
@@ -229,12 +229,12 @@ export async function appendSignatureBlock(docx: Buffer, lines: SignatureLine[],
   for (const l of lines) {
     // The signature itself, in a handwriting face.
     paras.push(paraXml(runXml(l.codename, { sz: 34, font: "Segoe Script", color: "1C3A5E" })));
-    const stamp = `${l.matricule}${l.role ? " · " + l.role : ""} — signed ${l.at.toISOString().slice(0, 16).replace("T", " ")} UTC` +
-      (l.kind === "image" ? " (handwritten signature on file)" : "");
+    const stamp = `${l.matricule}${l.role ? " · " + l.role : ""} — signé le ${l.at.toISOString().slice(0, 16).replace("T", " ")} UTC` +
+      (l.kind === "image" ? " (signature manuscrite au dossier)" : "");
     paras.push(paraXml(runXml(stamp, { sz: 16, color: "5F7590" })));
   }
   paras.push(
-    paraXml(runXml(`Document sealed — integrity ${hash.slice(0, 16)}`, { sz: 14, i: true, color: "5F7590" }))
+    paraXml(runXml(`Document scellé — intégrité ${hash.slice(0, 16)}`, { sz: 14, i: true, color: "5F7590" }))
   );
 
   // Inject before the section properties so page setup is preserved.

@@ -37,7 +37,7 @@ export const SHIELD_CUSTOMIZATION = {
   },
   customer: {
     name: "S.H.I.E.L.D.",
-    info: "Strategic Homeland Intervention, Enforcement and Logistics Division — Central Document System",
+    info: "S.H.I.E.L.D. — Système Documentaire Central",
     logo: `${process.env.PORTAL_URL}/logo-white.png`,
     www: process.env.PORTAL_URL,
     mail: "",

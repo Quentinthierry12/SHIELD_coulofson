@@ -5,8 +5,8 @@ import PwaRegister from "./pwa-register";
 import NotifInvite from "./notif-invite";
 
 export const metadata: Metadata = {
-  title: "S.H.I.E.L.D. — Central Document System",
-  description: "Strategic Homeland Intervention, Enforcement and Logistics Division",
+  title: "S.H.I.E.L.D. — Système Documentaire Central",
+  description: "Portail documentaire classifié de la division — rapports, registres et circuits de signature.",
   applicationName: "S.H.I.E.L.D.",
   manifest: "/manifest.webmanifest",
   icons: {
