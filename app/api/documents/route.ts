@@ -18,7 +18,9 @@ export async function GET() {
     `SELECT d.id, d.title, d.filetype, d.classification, d.folder_id, d.updated_at, u.codename AS owner,
             (d.owner_id = $2) AS mine,
             (d.owner_id = $2 OR $3 = 'admin'
-              OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2)) AS granted,
+              OR EXISTS (SELECT 1 FROM document_shares s WHERE s.doc_id = d.id AND s.user_id = $2)
+              OR EXISTS (SELECT 1 FROM document_division_shares dds JOIN users mu ON mu.id = $2
+                          WHERE dds.doc_id = d.id AND dds.division_id = mu.division_id)) AS granted,
             (d.classification <= $1) AS clearance_ok,
             (d.folder_id IS NULL OR d.folder_id = ANY($4)) AS folder_ok,
             d.locked AS sealed,

@@ -44,6 +44,15 @@ export async function docRole(doc: DocLike, session: Session): Promise<Role | nu
   );
   if (sh[0]) best = stronger(best, asRole(sh[0].role));
 
+  // Partage par division : l'agent hérite du rôle si sa division a un partage sur le document.
+  const { rows: dsh } = await pool.query(
+    `SELECT dds.role FROM document_division_shares dds
+       JOIN users u ON u.id = $2
+      WHERE dds.doc_id = $1 AND dds.division_id = u.division_id`,
+    [doc.id, session.id]
+  );
+  if (dsh[0]) best = stronger(best, asRole(dsh[0].role));
+
   // Héritage : appartenance à un dossier parent (jusqu'à la racine).
   if (doc.folder_id) {
     const { rows: folders } = await pool.query("SELECT id, parent_id FROM folders");
