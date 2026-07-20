@@ -5,7 +5,7 @@ import Missions from "./ui";
 
 export default async function MissionsPage() {
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session) redirect("/login");
   if (session.mustChangePassword) redirect("/change-password");
   if (await needsOnboarding(session)) redirect("/onboarding");
   return <Missions session={session} />;

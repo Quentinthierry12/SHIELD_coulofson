@@ -10,7 +10,7 @@ import Editor from "./editor";
 
 export default async function DocPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session) redirect("/login");
   if (session.mustChangePassword) redirect("/change-password");
   if (await needsOnboarding(session)) redirect("/onboarding");
   const id = parseInt((await params).id, 10);

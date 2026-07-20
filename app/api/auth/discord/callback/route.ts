@@ -9,31 +9,35 @@ export async function GET(req: Request) {
   const code = url.searchParams.get("code");
   const state = await verifyState(url.searchParams.get("state") || "");
   const home = process.env.PORTAL_URL!;
-  if (!code || !state) return NextResponse.redirect(`${home}/?discord=error`);
+  if (!code || !state) return NextResponse.redirect(`${home}/login?discord=error`);
 
   const discordUser = await exchangeCode(code);
-  if (!discordUser) return NextResponse.redirect(`${home}/?discord=error`);
+  if (!discordUser) return NextResponse.redirect(`${home}/login?discord=error`);
   const pool = await db();
 
   if (state.mode === "link" && state.userId) {
+    // Recrue en attente (liaison à l'enrôlement) → retour vers /login ; sinon dashboard.
+    const back = state.pending ? "login" : "dashboard";
     try {
       await pool.query("UPDATE users SET discord_id = $2 WHERE id = $1", [state.userId, discordUser.id]);
     } catch {
-      return NextResponse.redirect(`${home}/dashboard?discord=taken`);
+      return NextResponse.redirect(`${home}/${back}?discord=taken`);
     }
     audit({ id: state.userId, matricule: "?" }, "discord_link", discordUser.username);
     sendDM(
       discordUser.id,
-      "🦅 **TRANSMISSION S.H.I.E.L.D.** — Ce compte Discord est désormais lié à vos identifiants d'agent. Vous pourrez vous connecter avec Discord."
+      state.pending
+        ? "🦅 **TRANSMISSION S.H.I.E.L.D.** — Ton Discord est lié à ta demande d'enrôlement. Tu recevras ici les mises à jour de ton compte (validation, habilitation…)."
+        : "🦅 **TRANSMISSION S.H.I.E.L.D.** — Ce compte Discord est désormais lié à vos identifiants d'agent. Vous pourrez vous connecter avec Discord."
     ).catch(() => {});
-    return NextResponse.redirect(`${home}/dashboard?discord=linked`);
+    return NextResponse.redirect(`${home}/${back}?discord=linked`);
   }
 
   // login flow
   const { rows } = await pool.query("SELECT * FROM users WHERE discord_id = $1", [discordUser.id]);
   const user = rows[0];
-  if (!user) return NextResponse.redirect(`${home}/?discord=unknown`);
-  if (user.status !== "active") return NextResponse.redirect(`${home}/?discord=inactive`);
+  if (!user) return NextResponse.redirect(`${home}/login?discord=unknown`);
+  if (user.status !== "active") return NextResponse.redirect(`${home}/login?discord=inactive`);
   await createSession({
     id: user.id,
     matricule: user.matricule,

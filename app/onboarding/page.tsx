@@ -7,7 +7,7 @@ import OnboardingUI from "./ui";
 // Écran d'accueil obligatoire : l'agent lit et signe son serment avant tout le reste.
 export default async function OnboardingPage() {
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session) redirect("/login");
   if (session.mustChangePassword) redirect("/change-password");
   // Déjà en règle (ou officier) → rien à faire ici.
   if (!(await needsOnboarding(session))) redirect("/dashboard");

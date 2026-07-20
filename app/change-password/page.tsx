@@ -4,6 +4,6 @@ import ChangePassword from "./ui";
 
 export default async function ChangePasswordPage() {
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session) redirect("/login");
   return <ChangePassword codename={session.codename} matricule={session.matricule} />;
 }

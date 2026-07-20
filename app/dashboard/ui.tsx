@@ -40,7 +40,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
 
   async function load() {
     const res = await fetch("/api/documents");
-    if (res.status === 401) return router.push("/");
+    if (res.status === 401) return router.push("/login");
     setDocs(await res.json());
     const f = await fetch("/api/folders");
     if (f.ok) setFolders(await f.json());

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db, createPersonnelFile, audit, getSetting } from "@/lib/db";
 import { syncMoodleUser } from "@/lib/moodle";
+import { discordEnabled, signPendingLinkToken } from "@/lib/discord";
 
 const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
@@ -31,7 +32,9 @@ export async function POST(req: Request) {
       // Provision the Academy account now (password available), suspended until validated.
       await syncMoodleUser(rows[0].id, { matricule: m, codename: codename.trim(), suspended: true }, password);
       audit({ id: rows[0].id, matricule: m }, "register", codename.trim());
-      return NextResponse.json({ matricule: m });
+      // Jeton pour lier Discord tout de suite (recevoir les DM de suivi avant validation).
+      const linkToken = discordEnabled() ? await signPendingLinkToken(rows[0].id) : null;
+      return NextResponse.json({ matricule: m, discord: discordEnabled(), linkToken });
     } catch (e: any) {
       if (e.code !== "23505") throw e;
       if (custom) return NextResponse.json({ error: "Ce matricule est déjà pris." }, { status: 409 });
