@@ -411,3 +411,22 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   background: #0a101a; font-size: 0.85rem; }
 .enlist-help .mono { background: #10233c; padding: 1px 6px; border-radius: 3px; }
 @media (max-width: 520px) { .lp-footer { flex-direction: column; } }
+
+/* ===== Officer overview (Command → Overview) ===== */
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.ov-stat { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left;
+  background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 14px 16px; color: var(--text); font: inherit; transition: transform .12s; }
+.ov-stat[data-go="1"] { cursor: pointer; }
+.ov-stat[data-go="1"]:hover { transform: translateY(-2px); }
+.ov-stat.warn { border-left-color: #d4933a; }
+.ov-stat.bad { border-left-color: var(--danger); }
+.ov-num { font-family: Consolas, monospace; font-size: 1.8rem; line-height: 1; }
+.ov-stat .ov-num { color: var(--accent); }
+.ov-stat.warn .ov-num { color: #d4933a; }
+.ov-stat.bad .ov-num { color: var(--danger); }
+.ov-stat.zero .ov-num { color: var(--muted); }
+.ov-lbl { color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: .68rem; }
+.ov-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.ov-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); font-size: .9rem; }
+.ov-row:first-of-type { border-top: none; }
