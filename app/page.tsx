@@ -1,26 +1,60 @@
 import { db } from "@/lib/db";
 
+// Rendered per request so live data (agent counts, uploaded photos) shows without a rebuild.
+export const dynamic = "force-dynamic";
+
+type Division = { id: number; name: string; members: number };
+type Overview = {
+  divisions: Division[];
+  agents: number;
+  missions: number;
+  // Cache-busting version per photo slot (updated_at epoch), or undefined when unset.
+  photos: { hero?: number; about?: number; div: Record<number, number> };
+};
+
 // PUBLIC landing page. Server component: reads unclassified aggregates straight from the
 // database (never any sensitive detail). Must render even if the database is unreachable.
-async function overview() {
+async function overview(): Promise<Overview> {
   try {
     const pool = await db();
     const { rows: divisions } = await pool.query(
-      `SELECT d.name, COUNT(u.id)::int AS members
+      `SELECT d.id, d.name, COUNT(u.id)::int AS members
          FROM divisions d
          LEFT JOIN users u ON u.division_id = d.id AND u.status = 'active'
         GROUP BY d.id, d.name ORDER BY members DESC, d.name`
     );
     const { rows: a } = await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE status = 'active'");
     const { rows: m } = await pool.query("SELECT COUNT(*)::int AS n FROM missions WHERE status = 'active'");
-    return { divisions, agents: a[0]?.n ?? 0, missions: m[0]?.n ?? 0 };
+    const { rows: ph } = await pool.query("SELECT key, EXTRACT(EPOCH FROM updated_at)::bigint AS v FROM landing_photos");
+    const photos: Overview["photos"] = { div: {} };
+    for (const p of ph as { key: string; v: string }[]) {
+      if (p.key === "hero") photos.hero = Number(p.v);
+      else if (p.key === "about") photos.about = Number(p.v);
+      else if (p.key.startsWith("div:")) photos.div[Number(p.key.slice(4))] = Number(p.v);
+    }
+    return { divisions, agents: a[0]?.n ?? 0, missions: m[0]?.n ?? 0, photos };
   } catch {
-    return { divisions: [] as { name: string; members: number }[], agents: 0, missions: 0 };
+    return { divisions: [], agents: 0, missions: 0, photos: { div: {} } };
   }
 }
 
+// Layered background: optional dark overlay on top of the photo, so text stays readable.
+// Absent a photo we return undefined and let the CSS class supply its gradient fallback.
+function photoBg(key: string, v: number | undefined, overlay?: string): React.CSSProperties | undefined {
+  if (!v) return undefined;
+  const url = `url("/api/landing/photo/${key}?v=${v}")`;
+  return {
+    backgroundImage: overlay ? `${overlay}, ${url}` : url,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
+}
+
+const HERO_OVERLAY = "linear-gradient(rgba(7,11,18,0.72), rgba(7,11,18,0.92))";
+
 export default async function Landing() {
-  const { divisions, agents, missions } = await overview();
+  const { divisions, agents, missions, photos } = await overview();
 
   return (
     <div className="lp">
@@ -32,9 +66,9 @@ export default async function Landing() {
         <a href="/login"><button className="small">Enter the portal</button></a>
       </header>
 
-      {/* The visuals are background images: to change them, drop files into
-          public/landing/ (hero.jpg, about.jpg). If absent, a dark gradient shows instead. */}
-      <section className="lp-hero">
+      {/* Photos are managed in Command → Settings → Landing photos (stored in the database).
+          When a slot has no photo, the CSS class supplies a dark gradient fallback. */}
+      <section className="lp-hero" style={photoBg("hero", photos.hero, HERO_OVERLAY)}>
         <div className="lp-hero-inner">
           <img src="/logo.png" alt="S.H.I.E.L.D." className="lp-hero-logo" />
           <h1>S.H.I.E.L.D.</h1>
@@ -61,7 +95,7 @@ export default async function Landing() {
       <section className="lp-section">
         <h2>The division</h2>
         <div className="lp-about">
-          <div className="lp-about-photo" />
+          <div className="lp-about-photo" style={photoBg("about", photos.about)} />
           <div className="lp-about-text">
             <p>
               S.H.I.E.L.D. centralizes all operational documentation: every report, registry and
@@ -83,8 +117,8 @@ export default async function Landing() {
         ) : (
           <div className="lp-divisions">
             {divisions.map((d) => (
-              <div key={d.name} className="lp-div-card">
-                <div className="lp-div-photo" />
+              <div key={d.id} className="lp-div-card">
+                <div className="lp-div-photo" style={photoBg(`div:${d.id}`, photos.div[d.id])} />
                 <div className="lp-div-body">
                   <div className="lp-div-name">{d.name}</div>
                   <div className="muted">{d.members} agent{d.members > 1 ? "s" : ""}</div>

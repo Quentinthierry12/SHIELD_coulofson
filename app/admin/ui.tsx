@@ -1113,6 +1113,84 @@ function IntegrationsPanel() {
   );
 }
 
+// ---------------- Landing photos ----------------
+// Editable photos for the public landing page, stored in the database and served by the
+// portal. A slot with no photo falls back to a dark gradient on the landing.
+type LandingState = { hero: number | null; about: number | null; divisions: { id: number; name: string; v: number | null }[] };
+
+function PhotoSlot({ label, slot, v, onChange }: { label: string; slot: string; v: number | null; onChange: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  async function upload(file: File) {
+    setBusy(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/admin/landing/photo/${slot}`, { method: "POST", body: fd });
+    setBusy(false);
+    if (!res.ok) return toast((await res.json()).error || "Upload failed.", "error");
+    toast("Photo updated.", "success");
+    onChange();
+  }
+  async function remove() {
+    setBusy(true);
+    await fetch(`/api/admin/landing/photo/${slot}`, { method: "DELETE" });
+    setBusy(false);
+    toast("Photo removed.", "success");
+    onChange();
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--border)" }}>
+      <div style={{ width: 128, height: 72, flexShrink: 0, borderRadius: 6, border: "1px solid var(--border)", overflow: "hidden", background: "#0a101a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {v ? (
+          <img src={`/api/landing/photo/${slot}?v=${v}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <span className="muted" style={{ fontSize: ".72rem" }}>No photo</span>
+        )}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ marginBottom: 6 }}>{label}</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input ref={ref} type="file" accept="image/png,image/jpeg,image/webp" hidden
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ""; }} />
+          <button className="ghost small" disabled={busy} onClick={() => ref.current?.click()}>{v ? "Replace" : "Upload"}</button>
+          {v && <button className="ghost small danger" disabled={busy} onClick={remove}>Remove</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LandingPhotosPanel() {
+  const [d, setD] = useState<LandingState | null>(null);
+  function load() { fetch("/api/admin/landing").then((r) => (r.ok ? r.json() : null)).then((x) => x && setD(x)); }
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div className="panel">
+      <h2>Landing photos</h2>
+      <p className="muted" style={{ marginBottom: 4 }}>
+        Photos shown on the public landing page. PNG, JPEG or WebP (4 MB max). A slot left empty
+        shows a dark gradient instead. Changes go live on the landing without a redeploy.
+      </p>
+      {!d ? <div className="skeleton" style={{ height: 90 }} /> : (
+        <>
+          <PhotoSlot label="Hero banner (top of the page)" slot="hero" v={d.hero} onChange={load} />
+          <PhotoSlot label="“The division” section" slot="about" v={d.about} onChange={load} />
+          {d.divisions.length > 0 && (
+            <p className="muted" style={{ margin: "14px 0 0", textTransform: "uppercase", letterSpacing: ".08em", fontSize: ".72rem" }}>Per division</p>
+          )}
+          {d.divisions.map((dv) => (
+            <PhotoSlot key={dv.id} label={dv.name} slot={`div:${dv.id}`} v={dv.v} onChange={load} />
+          ))}
+          {d.divisions.length === 0 && <p className="muted" style={{ marginTop: 10 }}>Create divisions to give each one a photo.</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab() {
   const [settings, setSettings] = useState<Record<string, string | null>>({});
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -1135,6 +1213,7 @@ function SettingsTab() {
     <>
     <IntegrationsPanel />
     <NotifTestPanel />
+    <LandingPhotosPanel />
     <div className="panel">
       <h2>Automatic documents</h2>
       <p className="muted" style={{ marginBottom: 12 }}>

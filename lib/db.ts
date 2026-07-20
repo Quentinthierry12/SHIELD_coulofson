@@ -195,6 +195,15 @@ async function migrate() {
     -- passent en 'editor' pour préserver l'accès complet qu'elles donnaient jusqu'ici.
     ALTER TABLE document_shares ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'editor';
     ALTER TABLE folder_members  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'editor';
+
+    -- Editable landing-page photos, served by the portal (survives redeploys, unlike files
+    -- on the ephemeral container). key = 'hero', 'about', or 'div:<divisionId>'.
+    CREATE TABLE IF NOT EXISTS landing_photos (
+      key TEXT PRIMARY KEY,
+      mime TEXT NOT NULL,
+      data BYTEA NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {

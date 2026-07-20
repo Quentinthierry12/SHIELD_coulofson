@@ -23,9 +23,9 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No image received." }, { status: 400 });
-  if (file.size > MAX) return NextResponse.json({ error: "Image trop volumineuse (512 Ko max)." }, { status: 400 });
+  if (file.size > MAX) return NextResponse.json({ error: "Image too large (512 KB max)." }, { status: 400 });
   if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
-    return NextResponse.json({ error: "PNG, JPEG ou WebP uniquement." }, { status: 400 });
+    return NextResponse.json({ error: "PNG, JPEG or WebP only." }, { status: 400 });
   }
   const pool = await db();
   await pool.query("UPDATE users SET signature_image = $2 WHERE id = $1", [s.id, Buffer.from(await file.arrayBuffer())]);
