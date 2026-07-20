@@ -2,23 +2,24 @@ import { NextResponse } from "next/server";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
+import { folderRole, atLeast, normalizeRole, type Role } from "@/lib/permissions";
 
-// The folder creator or an officer can manage invitations.
+// Gérer les invitations d'un dossier exige le rôle Gestionnaire (créateur, officier, ou
+// partage Gestionnaire hérité).
 async function canManage(folderId: number) {
   const s = await getSession();
   if (!s) return null;
-  if (s.role === "admin") return s;
-  const pool = await db();
-  const { rows } = await pool.query("SELECT 1 FROM folders WHERE id = $1 AND created_by = $2", [folderId, s.id]);
-  return rows[0] ? s : null;
+  return atLeast(await folderRole(folderId, s), "manager") ? s : null;
 }
+
+const ROLE_FR: Record<Role, string> = { viewer: "lecture seule", editor: "édition", manager: "gestion" };
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
-  if (!(await canManage(id))) return NextResponse.json({ error: "Réservé au propriétaire du dossier ou aux officiers." }, { status: 403 });
+  if (!(await canManage(id))) return NextResponse.json({ error: "Rôle Gestionnaire requis pour ce dossier." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
-    `SELECT u.matricule, u.codename, u.clearance FROM folder_members fm JOIN users u ON u.id = fm.user_id
+    `SELECT u.matricule, u.codename, u.clearance, fm.role FROM folder_members fm JOIN users u ON u.id = fm.user_id
      WHERE fm.folder_id = $1 ORDER BY u.codename`,
     [id]
   );
@@ -28,27 +29,31 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const s = await canManage(id);
-  if (!s) return NextResponse.json({ error: "Réservé au propriétaire du dossier ou aux officiers." }, { status: 403 });
-  const { matricule } = await req.json();
+  if (!s) return NextResponse.json({ error: "Rôle Gestionnaire requis pour ce dossier." }, { status: 403 });
+  const { matricule, role } = await req.json();
+  const r = normalizeRole(role);
   const pool = await db();
   const { rows } = await pool.query("SELECT id, codename FROM users WHERE matricule = $1 AND status = 'active'", [
     (matricule || "").trim().toUpperCase(),
   ]);
   if (!rows[0]) return NextResponse.json({ error: "Matricule inconnu ou agent inactif." }, { status: 404 });
-  await pool.query("INSERT INTO folder_members (folder_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, rows[0].id]);
+  await pool.query(
+    "INSERT INTO folder_members (folder_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT (folder_id, user_id) DO UPDATE SET role = EXCLUDED.role",
+    [id, rows[0].id, r]
+  );
   const { rows: f } = await pool.query("SELECT name FROM folders WHERE id = $1", [id]);
-  audit(s, "folder_invite", `${f[0]?.name || id} -> ${(matricule || "").trim().toUpperCase()}`);
+  audit(s, "folder_invite", `${f[0]?.name || id} -> ${(matricule || "").trim().toUpperCase()} (${r})`);
   dmByUserId(
     rows[0].id,
-    `🦅 **TRANSMISSION S.H.I.E.L.D.** — Un accès au dossier restreint vous a été accordé **${f[0]?.name || "?"}**. ${process.env.PORTAL_URL}/dashboard`
+    `🦅 **TRANSMISSION S.H.I.E.L.D.** — Un accès (**${ROLE_FR[r]}**) au dossier restreint **${f[0]?.name || "?"}** vous a été accordé. ${process.env.PORTAL_URL}/dashboard`
   );
-  return NextResponse.json({ ok: true, codename: rows[0].codename });
+  return NextResponse.json({ ok: true, codename: rows[0].codename, role: r });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const s = await canManage(id);
-  if (!s) return NextResponse.json({ error: "Réservé au propriétaire du dossier ou aux officiers." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Rôle Gestionnaire requis pour ce dossier." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   await pool.query(

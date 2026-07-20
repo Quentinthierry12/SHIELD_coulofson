@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { db, audit, accessibleFolderIds } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
+import { docRole, atLeast } from "@/lib/permissions";
 
-// Move a document to another folder (drag & drop) and/or change its classification.
-// Owner or officer only. Both fields are optional: absent means "leave alone".
+// Modifier un document (renommer / déplacer / reclassifier) ou le desceller. Les droits
+// dépendent du rôle effectif : Éditeur pour renommer, Gestionnaire pour déplacer /
+// reclassifier / supprimer. Chaque champ est optionnel : absent = « ne pas toucher ».
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
   if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
@@ -12,8 +14,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { folder_id, classification, title, unlock } = await req.json();
   const pool = await db();
 
-  const { rows: cur } = await pool.query("SELECT locked, title, owner_id FROM documents WHERE id = $1", [id]);
+  const { rows: cur } = await pool.query(
+    "SELECT id, locked, title, owner_id, folder_id, classification FROM documents WHERE id = $1", [id]
+  );
   if (!cur[0]) return NextResponse.json({ error: "Document inconnu." }, { status: 404 });
+  const role = await docRole(cur[0], s);
+  if (!role) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
 
   // Breaking the seal voids every signature on the document — officers only, and the
   // signers are told, because their signature no longer stands.
@@ -45,18 +51,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if (title !== undefined) {
+    if (!atLeast(role, "editor")) return NextResponse.json({ error: "Rôle Éditeur requis pour renommer ce document." }, { status: 403 });
     const name = String(title).trim();
     if (!name) return NextResponse.json({ error: "Le titre ne peut pas être vide." }, { status: 400 });
-    if (name.length > 200) return NextResponse.json({ error: "Title is too long (200 characters max)." }, { status: 400 });
-    const { rows } = await pool.query(
-      "UPDATE documents SET title = $2 WHERE id = $1 AND (owner_id = $3 OR $4 = 'admin') RETURNING title",
-      [id, name, s.id, s.role]
-    );
-    if (!rows[0]) return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut le renommer." }, { status: 403 });
+    if (name.length > 200) return NextResponse.json({ error: "Le titre est trop long (200 caractères max)." }, { status: 400 });
+    await pool.query("UPDATE documents SET title = $2 WHERE id = $1", [id, name]);
     audit(s, "doc_rename", `#${id} -> ${name}`);
   }
 
   if (classification !== undefined) {
+    if (!atLeast(role, "manager")) return NextResponse.json({ error: "Rôle Gestionnaire requis pour reclassifier ce document." }, { status: 403 });
     const level = Math.min(10, Math.max(1, parseInt(String(classification), 10) || 1));
     // You cannot classify above your own clearance — that would hide the document from
     // yourself, and let an agent lock a file away above the officers who vetted them.
@@ -66,28 +70,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         { status: 403 }
       );
     }
-    const { rows } = await pool.query(
-      "UPDATE documents SET classification = $2 WHERE id = $1 AND (owner_id = $3 OR $4 = 'admin') RETURNING title, classification",
-      [id, level, s.id, s.role]
-    );
-    if (!rows[0]) {
-      return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut le reclassifier." }, { status: 403 });
-    }
-    audit(s, "doc_classify", `#${id} ${rows[0].title} -> lvl ${level}`);
+    await pool.query("UPDATE documents SET classification = $2 WHERE id = $1", [id, level]);
+    audit(s, "doc_classify", `#${id} ${cur[0].title} -> lvl ${level}`);
   }
 
   if (folder_id !== undefined) {
+    if (!atLeast(role, "manager")) return NextResponse.json({ error: "Rôle Gestionnaire requis pour déplacer ce document." }, { status: 403 });
     const target = folder_id ? parseInt(folder_id, 10) : null;
     // Destination must be a folder the agent can access (or the Drive root).
     if (target !== null) {
       const ids = await accessibleFolderIds(s.id, s.role);
       if (!ids.includes(target)) return NextResponse.json({ error: "Vous ne pouvez pas le déplacer là." }, { status: 403 });
     }
-    const { rows } = await pool.query(
-      "UPDATE documents SET folder_id = $2 WHERE id = $1 AND (owner_id = $3 OR $4 = 'admin') RETURNING title",
-      [id, target, s.id, s.role]
-    );
-    if (!rows[0]) return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut le déplacer." }, { status: 403 });
+    await pool.query("UPDATE documents SET folder_id = $2 WHERE id = $1", [id, target]);
     audit(s, "doc_move", `#${id} -> folder ${target ?? "root"}`);
   }
 
@@ -99,19 +94,18 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
-  const { rows: sealed } = await pool.query("SELECT locked FROM documents WHERE id = $1", [id]);
-  if (sealed[0]?.locked) {
+  const { rows: cur } = await pool.query("SELECT id, locked, owner_id, folder_id, classification, title FROM documents WHERE id = $1", [id]);
+  if (!cur[0]) return NextResponse.json({ error: "Document inconnu." }, { status: 404 });
+  if (cur[0].locked) {
     return NextResponse.json(
       { error: "Ce document est scellé par signature et ne peut pas être détruit. Descellez-le d'abord." },
       { status: 409 }
     );
   }
-  const { rows } = await pool.query(
-    "DELETE FROM documents WHERE id = $1 AND (owner_id = $2 OR $3 = 'admin') RETURNING title",
-    [id, s.id, s.role]
-  );
-  if (!rows[0]) return NextResponse.json({ error: "Seul le propriétaire du document ou un officier peut le détruire." }, { status: 403 });
+  const role = await docRole(cur[0], s);
+  if (!atLeast(role, "manager")) return NextResponse.json({ error: "Rôle Gestionnaire requis pour détruire ce document." }, { status: 403 });
+  await pool.query("DELETE FROM documents WHERE id = $1", [id]);
   await pool.query("DELETE FROM document_shares WHERE doc_id = $1", [id]);
-  audit(s, "doc_destroy", `#${id} ${rows[0].title}`);
+  audit(s, "doc_destroy", `#${id} ${cur[0].title}`);
   return NextResponse.json({ ok: true });
 }

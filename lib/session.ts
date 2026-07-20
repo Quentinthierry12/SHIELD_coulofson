@@ -44,17 +44,18 @@ export async function destroySession() {
 // Short-lived token embedded in file/callback URLs so the OnlyOffice server
 // can fetch documents without a browser session. Carries the viewer's effective
 // clearance and whether the served copy must be redacted.
-export async function signFileToken(docId: number, clr = 10, red = false) {
-  return new SignJWT({ doc: docId, clr, red })
+export async function signFileToken(docId: number, clr = 10, red = false, edit = true) {
+  return new SignJWT({ doc: docId, clr, red, edit })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("24h")
     .sign(secret());
 }
 
-export async function readFileToken(token: string): Promise<{ doc: number; clr: number; red: boolean } | null> {
+export async function readFileToken(token: string): Promise<{ doc: number; clr: number; red: boolean; edit: boolean } | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
-    return { doc: payload.doc as number, clr: (payload.clr as number) ?? 10, red: !!payload.red };
+    // Anciens jetons sans `edit` : on considère l'édition permise (comportement historique).
+    return { doc: payload.doc as number, clr: (payload.clr as number) ?? 10, red: !!payload.red, edit: payload.edit !== false };
   } catch {
     return null;
   }

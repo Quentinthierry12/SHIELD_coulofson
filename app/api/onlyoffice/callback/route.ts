@@ -10,8 +10,9 @@ export async function POST(req: Request) {
   const id = parseInt(url.searchParams.get("id") || "", 10);
   const t = url.searchParams.get("t") || "";
   const tok = await readFileToken(t);
-  // A redacted view is read-only: never accept a save from it (would overwrite the real doc).
-  if (!id || !tok || tok.doc !== id || tok.red) {
+  // Une vue caviardée OU un jeton en lecture seule (rôle Lecteur) ne doit jamais
+  // enregistrer : cela écraserait le vrai document.
+  if (!id || !tok || tok.doc !== id || tok.red || !tok.edit) {
     return NextResponse.json({ error: 1 });
   }
   const body = await req.json();

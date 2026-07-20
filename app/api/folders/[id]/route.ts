@@ -10,7 +10,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { name } = await req.json();
   const clean = String(name || "").trim();
   if (!clean) return NextResponse.json({ error: "Le nom ne peut pas être vide." }, { status: 400 });
-  if (clean.length > 100) return NextResponse.json({ error: "Name is too long (100 characters max)." }, { status: 400 });
+  if (clean.length > 100) return NextResponse.json({ error: "Le nom est trop long (100 caractères max)." }, { status: 400 });
   const pool = await db();
   const { rows: fr } = await pool.query("SELECT name, created_by FROM folders WHERE id = $1", [id]);
   const folder = fr[0];

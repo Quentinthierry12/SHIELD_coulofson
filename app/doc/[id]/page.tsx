@@ -3,6 +3,7 @@ import { getAccessibleDoc, audit, db, accessibleFolderIds } from "@/lib/db";
 import RequestAccess from "./request-access";
 import { getSession, signFileToken } from "@/lib/session";
 import { needsOnboarding } from "@/lib/onboarding";
+import { docRole, atLeast } from "@/lib/permissions";
 import { DOC_TYPES, DS_URL, PORTAL_URL, signOOConfig, SHIELD_CUSTOMIZATION } from "@/lib/onlyoffice";
 import { extractLevels } from "@/lib/redact";
 import Editor from "./editor";
@@ -42,13 +43,16 @@ export default async function DocPage({ params }: { params: Promise<{ id: string
   const effectiveClr = session.role === "admin" ? 10 : session.clearance;
   const levels = doc.filetype === "docx" ? await extractLevels(doc.content) : [];
   const redacted = levels.some((l) => l > effectiveClr);
-  // A sealed document is read-only for everyone: its signatures are bound to these bytes.
-  const readOnly = redacted || doc.locked;
+  // Permission granulaire : sans rôle Éditeur (ou +), le document s'ouvre en lecture seule.
+  const role = await docRole(doc, session);
+  const canEdit = atLeast(role, "editor");
+  // Read-only si : pas le droit d'éditer, vue caviardée, ou document scellé (signatures liées).
+  const readOnly = !canEdit || redacted || doc.locked;
   audit(session, redacted ? "doc_open_redacted" : "doc_open", `#${doc.id} ${doc.title}`);
 
   // Redacted viewers get a read-only, server-filtered copy with a distinct key so
   // they never co-edit or save the placeholder back over the real content.
-  const t = await signFileToken(doc.id, effectiveClr, redacted);
+  const t = await signFileToken(doc.id, effectiveClr, redacted, !readOnly);
   const config: any = {
     document: {
       fileType: doc.filetype,
