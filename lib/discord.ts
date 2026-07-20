@@ -10,9 +10,11 @@ export const discordEnabled = () =>
 
 const redirectUri = () => `${process.env.PORTAL_URL}/api/auth/discord/callback`;
 
-// state = signed JWT so the callback can't be forged (mode: login or link)
-export async function discordAuthUrl(mode: "login" | "link", userId?: number) {
-  const state = await new SignJWT({ mode, userId })
+// state = signed JWT so the callback can't be forged (mode: login or link).
+// `pending` marque une liaison faite par une recrue pas encore connectée (à l'enrôlement) :
+// le callback la renvoie alors vers /login plutôt que /dashboard.
+export async function discordAuthUrl(mode: "login" | "link", userId?: number, pending = false) {
+  const state = await new SignJWT({ mode, userId, pending })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("10m")
     .sign(secret());
@@ -29,7 +31,24 @@ export async function discordAuthUrl(mode: "login" | "link", userId?: number) {
 export async function verifyState(state: string) {
   try {
     const { payload } = await jwtVerify(state, secret());
-    return payload as { mode: "login" | "link"; userId?: number };
+    return payload as { mode: "login" | "link"; userId?: number; pending?: boolean };
+  } catch {
+    return null;
+  }
+}
+
+// Jeton court remis à la recrue juste après l'enrôlement pour lui permettre de lier son
+// Discord sans session (elle n'est pas encore validée, donc ne peut pas se connecter).
+export async function signPendingLinkToken(userId: number) {
+  return new SignJWT({ uid: userId, kind: "discord-link" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("30m")
+    .sign(secret());
+}
+export async function readPendingLinkToken(token: string): Promise<number | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    return payload.kind === "discord-link" ? (payload.uid as number) : null;
   } catch {
     return null;
   }

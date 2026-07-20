@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 
 export async function GET() {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const folders = await accessibleFolders(s.id, s.role);
   return NextResponse.json(
     folders.map((f) => ({ ...f, mine: f.created_by === s.id || s.role === "admin" }))
@@ -14,7 +14,7 @@ export async function GET() {
 // Any active agent can create a folder (they own it); officers can manage any.
 export async function POST(req: Request) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const { name, parent_id } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Nom requis." }, { status: 400 });
   const pool = await db();

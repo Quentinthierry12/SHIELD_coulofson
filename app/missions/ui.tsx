@@ -26,28 +26,28 @@ export default function Missions({ session }: { session: Session }) {
 
   async function fileReport(m: Mission) {
     const report = await promptDialog({
-      title: `Rapport d'après-action — ${m.code}`,
-      message: "Racontez ce qui s'est passé. Les officiers le liront.",
-      placeholder: "Issue, éléments récupérés, pertes…",
+      title: `After-action report — ${m.code}`,
+      message: "Tell us what happened. Officers will read it.",
+      placeholder: "Outcome, items recovered, casualties…",
       defaultValue: m.report || "",
     });
     if (report === null) return;
     const res = await fetch(`/api/missions/${m.id}`, { method: "PATCH", body: JSON.stringify({ report }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Rapport enregistré.", "success");
+    toast("Report saved.", "success");
     load();
   }
 
   async function complete(m: Mission) {
     const ok = await confirmDialog({
-      title: `Marquer ${m.code} comme terminée ?`,
-      message: "Vos officiers seront prévenus. Rédigez d'abord votre rapport d'après-action si ce n'est pas fait.",
-      confirmLabel: "Marquer terminée",
+      title: `Mark ${m.code} as completed?`,
+      message: "Your officers will be notified. File your after-action report first if you haven't.",
+      confirmLabel: "Mark completed",
     });
     if (!ok) return;
     const res = await fetch(`/api/missions/${m.id}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast(`${m.code} — terminée.`, "success");
+    toast(`${m.code} — completed.`, "success");
     load();
   }
 
@@ -68,8 +68,8 @@ export default function Missions({ session }: { session: Session }) {
 
         {!loading && (
           <div className="panel">
-            <h2>Opérations actives ({active.length})</h2>
-            {active.length === 0 && <p className="muted">Aucune opération active ne vous est assignée.</p>}
+            <h2>Active operations ({active.length})</h2>
+            {active.length === 0 && <p className="muted">No active operation is assigned to you.</p>}
             {active.map((m) => (
               <div key={m.id} className="mission-row">
                 <div className="mission-head">
@@ -79,14 +79,14 @@ export default function Missions({ session }: { session: Session }) {
                   {m.priority && <span className="chip">{m.priority}</span>}
                   {m.division && <span className="chip">{m.division}</span>}
                   <span className="agent-spacer" />
-                  {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Lire l'ordre</button>}
-                  <button className="ghost small" onClick={() => fileReport(m)}>{m.report ? "Rapport ✓" : "Rédiger le rapport"}</button>
-                  <button className="ghost small" onClick={() => complete(m)}>Terminer</button>
+                  {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Read the order</button>}
+                  <button className="ghost small" onClick={() => fileReport(m)}>{m.report ? "Report ✓" : "File report"}</button>
+                  <button className="ghost small" onClick={() => complete(m)}>Complete</button>
                 </div>
                 <div className="mission-obj">{m.objective}</div>
                 <div className="mission-meta muted">
                   {m.location ? `${m.location} · ` : ""}
-                  {m.agents.map((a) => `${a.matricule} (${a.codename})`).join(", ") || "Aucun agent assigné"}
+                  {m.agents.map((a) => `${a.matricule} (${a.codename})`).join(", ") || "No agent assigned"}
                 </div>
                 {m.report && <div className="mission-report">{m.report}</div>}
               </div>
@@ -103,7 +103,7 @@ export default function Missions({ session }: { session: Session }) {
                   <b className="mono">{m.code}</b>
                   <span className={`classif ${m.status === "completed" ? "low" : "high"}`}>{m.status.toUpperCase()}</span>
                   <span className="agent-spacer" />
-                  {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Lire l'ordre</button>}
+                  {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Read the order</button>}
                 </div>
                 <div className="mission-obj">{m.objective}</div>
                 {m.report && <div className="mission-report">{m.report}</div>}

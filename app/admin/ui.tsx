@@ -11,14 +11,14 @@ type AgentHistory = { agent: { matricule: string; codename: string; status: stri
 function oathBadge(state?: string | null): { label: string; cls: string; title: string } | null {
   if (!state) return null;
   const [req, my] = state.split(":");
-  if (req === "pending" && my === "pending") return { label: "SERMENT ✗", cls: "high", title: "Serment à signer — accès au système bloqué" };
-  if (req === "complete") return { label: "SCELLÉ", cls: "low", title: "Dossier scellé (contresigné)" };
-  if (my === "signed") return { label: "SIGNÉ", cls: "low", title: "Serment signé" };
+  if (req === "pending" && my === "pending") return { label: "OATH ✗", cls: "high", title: "Oath to sign — system access blocked" };
+  if (req === "complete") return { label: "SEALED", cls: "low", title: "File sealed (countersigned)" };
+  if (my === "signed") return { label: "SIGNED", cls: "low", title: "Oath signed" };
   return null;
 }
 
 const HIST_CLS: Record<string, string> = { to_sign: "high", signed: "mid", sealed: "low", none: "mid" };
-const fmtWhen = (at: string) => new Date(at).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const fmtWhen = (at: string) => new Date(at).toLocaleString("en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 type Folder = { id: number; name: string };
 type LogRow = { id: number; matricule: string; action: string; target: string; created_at: string };
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
@@ -30,17 +30,17 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
       <div className="topbar">
         <div className="logo">
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
-          <h1>Commandement</h1>
+          <h1>Command</h1>
         </div>
         <div className="tabs" style={{ marginBottom: 0, width: 940 }}>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
           <button className={tab === "divisions" ? "" : "inactive"} onClick={() => setTab("divisions")}>Divisions</button>
           <button className={tab === "documents" ? "" : "inactive"} onClick={() => setTab("documents")}>Documents</button>
-          <button className={tab === "requests" ? "" : "inactive"} onClick={() => setTab("requests")}>Demandes</button>
+          <button className={tab === "requests" ? "" : "inactive"} onClick={() => setTab("requests")}>Requests</button>
           <button className={tab === "missions" ? "" : "inactive"} onClick={() => setTab("missions")}>Missions</button>
-          <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Modèles</button>
-          <button className={tab === "settings" ? "" : "inactive"} onClick={() => setTab("settings")}>Réglages</button>
-          <button className={tab === "audit" ? "" : "inactive"} onClick={() => setTab("audit")}>Journal d'audit</button>
+          <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
+          <button className={tab === "settings" ? "" : "inactive"} onClick={() => setTab("settings")}>Settings</button>
+          <button className={tab === "audit" ? "" : "inactive"} onClick={() => setTab("audit")}>Audit log</button>
         </div>
       </div>
       <div className="container">
@@ -84,38 +84,38 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
   }
 
   async function resetPassword(u: User) {
-    const pwd = await promptDialog({ title: `Réinitialiser le mot de passe — ${u.matricule}`, message: `${u.codename} devra le changer à la prochaine connexion.`, placeholder: "Nouveau mot de passe temporaire", password: true });
-    if (pwd) { update(u, { new_password: pwd }); toast("Mot de passe temporaire défini.", "success"); }
+    const pwd = await promptDialog({ title: `Reset password — ${u.matricule}`, message: `${u.codename} will have to change it at next sign-in.`, placeholder: "New temporary password", password: true });
+    if (pwd) { update(u, { new_password: pwd }); toast("Temporary password set.", "success"); }
   }
 
   async function deleteAgent(u: User) {
-    const ok = await confirmDialog({ title: `Supprimer l'agent ${u.matricule} ?`, message: `${u.codename} sera définitivement supprimé. Ses documents sont conservés mais sans propriétaire. Action irréversible.`, confirmLabel: "Supprimer l'agent", danger: true });
+    const ok = await confirmDialog({ title: `Delete agent ${u.matricule}?`, message: `${u.codename} will be permanently deleted. Their documents are kept but left without an owner. This cannot be undone.`, confirmLabel: "Delete agent", danger: true });
     if (!ok) return;
     const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
     if (!res.ok) return setError((await res.json()).error);
-    toast("Agent supprimé.", "success");
+    toast("Agent deleted.", "success");
     load();
   }
 
-  // Régénère le dossier ET relance le serment : l'agent est notifié et son accès au
-  // système reste bloqué tant qu'il n'a pas signé (les officiers ne sont jamais bloqués).
+  // Regenerates the file AND re-issues the oath: the agent is notified and their system
+  // access stays blocked until they sign (officers are never blocked).
   async function genFile(u: User) {
     const ok = await confirmDialog({
-      title: `Exiger la signature du dossier — ${u.matricule} ?`,
-      message: `${u.codename} recevra une notification « Dossier d'agent » et devra signer son serment. Tant que ce n'est pas signé, son accès au système est bloqué (archives, missions, transmissions).`,
-      confirmLabel: "Exiger la signature",
+      title: `Require file signature — ${u.matricule}?`,
+      message: `${u.codename} will get a "Personnel File" notification and must sign their oath. Until it's signed, their system access is blocked (archives, missions, transmissions).`,
+      confirmLabel: "Require signature",
     });
     if (!ok) return;
     const res = await fetch(`/api/admin/users/${u.id}`, { method: "POST" });
-    toast(res.ok ? "Signature exigée — l'agent est notifié et bloqué jusqu'à signature." : "Échec.", res.ok ? "success" : "error");
+    toast(res.ok ? "Signature required — the agent is notified and blocked until they sign." : "Failed.", res.ok ? "success" : "error");
   }
 
-  // Override de secours : donner l'accès SANS signature (annule la demande de serment).
+  // Emergency override: grant access WITHOUT a signature (cancels the pending oath request).
   async function overrideAccess(u: User) {
     const ok = await confirmDialog({
-      title: `Débloquer l'accès (override) — ${u.matricule} ?`,
-      message: `${u.codename} pourra accéder au système SANS signer son dossier. À utiliser en secours (signature qui coince, cas particulier). La demande de serment en attente est annulée.`,
-      confirmLabel: "Débloquer sans signature",
+      title: `Unblock access (override) — ${u.matricule}?`,
+      message: `${u.codename} will be able to access the system WITHOUT signing their file. Use as a fallback (stuck signature, special case). The pending oath request is cancelled.`,
+      confirmLabel: "Unblock without signature",
     });
     if (!ok) return;
     const res = await fetch(`/api/admin/users/${u.id}`, {
@@ -123,7 +123,7 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ override: true }),
     });
-    toast(res.ok ? "Accès débloqué (override) — l'agent n'a plus besoin de signer." : "Échec.", res.ok ? "success" : "error");
+    toast(res.ok ? "Access unblocked (override) — the agent no longer needs to sign." : "Failed.", res.ok ? "success" : "error");
   }
 
   // Renaming rewrites the agent's identity everywhere: personnel file, Academy username.
@@ -131,16 +131,16 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
   async function rename(u: User, patch: { matricule?: string; codename?: string }) {
     if (patch.matricule) {
       const ok = await confirmDialog({
-        title: `Changer le matricule ${u.matricule} → ${patch.matricule.trim().toUpperCase()} ?`,
-        message: `Le matricule est le nom de connexion de ${u.codename}, sur le portail et à l'Académie. Il sera prévenu sur Discord. Son mot de passe est inchangé.`,
-        confirmLabel: "Changer le matricule",
+        title: `Change badge ${u.matricule} → ${patch.matricule.trim().toUpperCase()}?`,
+        message: `The badge number is ${u.codename}'s sign-in name, on the portal and at the Academy. They'll be notified on Discord. Their password is unchanged.`,
+        confirmLabel: "Change badge",
       });
       if (!ok) return load(); // reload to snap the input back
     }
     const res = await fetch("/api/admin/users", { method: "PATCH", body: JSON.stringify({ ...u, ...patch }) });
     const data = await res.json();
     if (!res.ok) { setError(data.error); return load(); }
-    toast("Agent mis à jour.", "success");
+    toast("Agent updated.", "success");
     load();
   }
 
@@ -148,18 +148,18 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
   // password across — be explicit about it rather than implying the accounts match.
   async function academySync(u: User) {
     const ok = await confirmDialog({
-      title: `Créer un compte Académie — ${u.matricule} ?`,
+      title: `Create Academy account — ${u.matricule}?`,
       message:
-        `Un compte Académie sera créé pour ${u.codename}. Son mot de passe du portail ne peut pas être copié ` +
-        `(le portail ne stocke qu'un hash chiffré), donc le mot de passe Académie différera jusqu'à ce que ${u.codename} ` +
-        `change son mot de passe du portail — ou que vous le réinitialisiez.`,
-      confirmLabel: "Créer le compte",
+        `An Academy account will be created for ${u.codename}. Their portal password can't be copied ` +
+        `(the portal only stores an encrypted hash), so the Academy password will differ until ${u.codename} ` +
+        `changes their portal password — or you reset it.`,
+      confirmLabel: "Create account",
     });
     if (!ok) return;
     const res = await fetch("/api/admin/academy-sync", { method: "POST", body: JSON.stringify({ id: u.id }) });
     const d = await res.json();
-    if (!res.ok) return toast(d.error || "Échec de la synchro Académie.", "error");
-    toast(d.created ? "Compte Académie créé. Mot de passe pas encore synchronisé." : "Compte Académie mis à jour.", "success");
+    if (!res.ok) return toast(d.error || "Academy sync failed.", "error");
+    toast(d.created ? "Academy account created. Password not synced yet." : "Academy account updated.", "success");
     load();
   }
 
@@ -173,7 +173,7 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     });
     const data = await res.json();
     if (!res.ok) return setError(data.error);
-    setCreated(`Compte créé : matricule ${data.matricule}. Ce mot de passe temporaire devra être changé à la première connexion. Dossier généré.`);
+    setCreated(`Account created: badge ${data.matricule}. This temporary password must be changed at first sign-in. File generated.`);
     setCodename(""); setPassword(""); setBadge(""); setDivision("");
     load();
   }
@@ -185,28 +185,28 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     <>
       {error && <p className="error">⚠ {error}</p>}
       <div className="panel">
-        <h2>Créer un compte agent</h2>
+        <h2>Create an agent account</h2>
         {created && <p className="success">✓ {created}</p>}
         <form onSubmit={createAgent} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input placeholder="NOM DE CODE" value={codename} onChange={(e) => setCodename(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
-          <input placeholder="MATRICULE (facultatif — auto)" value={badge} onChange={(e) => setBadge(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
-          <input placeholder="DIVISION (facultatif)" value={division} onChange={(e) => setDivision(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
-          <input placeholder="MOT DE PASSE TEMPORAIRE" value={password} onChange={(e) => setPassword(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
+          <input placeholder="CODE NAME" value={codename} onChange={(e) => setCodename(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
+          <input placeholder="BADGE (optional — auto)" value={badge} onChange={(e) => setBadge(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
+          <input placeholder="DIVISION (optional)" value={division} onChange={(e) => setDivision(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 120 }} />
+          <input placeholder="TEMPORARY PASSWORD" value={password} onChange={(e) => setPassword(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 140 }} />
           <select value={Math.min(clearance, maxLevel)} onChange={(e) => setClearance(+e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Habilitation {n}</option>)}
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Clearance {n}</option>)}
           </select>
-          <button>Créer le compte</button>
+          <button>Create account</button>
         </form>
-        <p className="muted" style={{ marginTop: 8 }}>Vous pouvez attribuer des habilitations jusqu'au niveau {maxLevel} (sous la vôtre).</p>
+        <p className="muted" style={{ marginTop: 8 }}>You can assign clearances up to level {maxLevel} (below your own).</p>
       </div>
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
-          <h2>Recrues en attente de validation ({pending.length})</h2>
+          <h2>Recruits awaiting validation ({pending.length})</h2>
           <UserTable users={pending} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
-        <h2>Agents enregistrés</h2>
+        <h2>Registered agents</h2>
         <UserTable users={others} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
@@ -232,22 +232,22 @@ function AgentRow({ u, locked, onOpen }: { u: User; locked: boolean; onOpen: () 
         <span>{u.codename}{u.division ? ` · ${u.division}` : ""}</span>
       </div>
       <span className="chip lv mono">LVL. {u.clearance}</span>
-      <span className="chip">{u.role === "admin" ? "Officier" : "Agent"}</span>
+      <span className="chip">{u.role === "admin" ? "Officer" : "Agent"}</span>
       <span className={`classif ${statusCls}`}>
-        {u.status === "active" ? "ACTIF" : u.status === "pending" ? "EN ATTENTE" : "RÉVOQUÉ"}
+        {u.status === "active" ? "ACTIVE" : u.status === "pending" ? "PENDING" : "REVOKED"}
       </span>
       {(() => { const b = oathBadge(u.oath_state); return b ? <span className={`classif ${b.cls}`} title={b.title}>{b.label}</span> : null; })()}
       <span className="sync-cell">
         <SyncDot on={u.discord_linked} label="DISCORD"
-          title={u.discord_linked ? "Compte Discord lié" : "Aucun compte Discord lié — l'agent se connecte avec son seul matricule"} />
+          title={u.discord_linked ? "Discord account linked" : "No Discord account linked — the agent signs in with their badge only"} />
         <SyncDot on={u.moodle_synced} label="ACADEMY"
-          title={u.moodle_synced ? "Compte Académie (Moodle) provisionné" : "Aucun compte Académie — créé au prochain changement de mot de passe ou mise à jour"} />
+          title={u.moodle_synced ? "Academy (Moodle) account provisioned" : "No Academy account — created at next password change or update"} />
       </span>
       <span className="agent-spacer" />
       {locked ? (
-        <span className="muted" style={{ fontSize: ".75rem" }}>Au-dessus de votre habilitation</span>
+        <span className="muted" style={{ fontSize: ".75rem" }}>Above your clearance</span>
       ) : (
-        <button className="ghost small" onClick={onOpen} title="Gérer cet agent">···</button>
+        <button className="ghost small" onClick={onOpen} title="Manage this agent">···</button>
       )}
     </div>
   );
@@ -291,34 +291,34 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
         <h2>Agent {u.matricule}</h2>
-        <label className="muted sheet-label">Matricule — c'est le nom de connexion, ici et à l'Académie</label>
+        <label className="muted sheet-label">Badge — this is the sign-in name, here and at the Academy</label>
         <input className="mono" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
-        <label className="muted sheet-label">Nom de code</label>
+        <label className="muted sheet-label">Code name</label>
         <input value={codename} onChange={(e) => setCodename(e.target.value)} />
         <label className="muted sheet-label">Division</label>
         <input value={division} placeholder="—" onChange={(e) => setDivision(e.target.value)} />
         <div style={{ display: "flex", gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <label className="muted sheet-label">Habilitation</label>
+            <label className="muted sheet-label">Clearance</label>
             <select value={clearance} onChange={(e) => setClearance(+e.target.value)}>
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n} disabled={n > maxLevel && n !== u.clearance}>Niv. {n}</option>
+                <option key={n} value={n} disabled={n > maxLevel && n !== u.clearance}>Lvl. {n}</option>
               ))}
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label className="muted sheet-label">Rôle</label>
+            <label className="muted sheet-label">Role</label>
             <select value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="agent">Agent</option>
-              <option value="admin">Officier</option>
+              <option value="admin">Officer</option>
             </select>
           </div>
         </div>
 
         <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-          <label className="muted sheet-label">Statut &amp; historique</label>
+          <label className="muted sheet-label">Status &amp; history</label>
           {!hist ? (
-            <p className="muted" style={{ fontSize: ".8rem" }}>Chargement…</p>
+            <p className="muted" style={{ fontSize: ".8rem" }}>Loading…</p>
           ) : (
             <>
               <p style={{ marginBottom: 8 }}>
@@ -333,27 +333,27 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
                 ))}
               </ul>
               <p className="muted" style={{ fontSize: ".75rem", marginTop: 8 }}>
-                {hist.summary.notifs} notification(s) de serment envoyée(s) · {hist.summary.logins} connexion(s)
+                {hist.summary.notifs} oath notification(s) sent · {hist.summary.logins} sign-in(s)
               </p>
             </>
           )}
         </div>
 
         <div className="sheet-actions">
-          {u.status !== "active" && <button className="small" onClick={() => { onUpdate(u, { status: "active" }); onClose(); }}>Valider</button>}
-          {u.status === "active" && <button className="ghost small" onClick={() => { onUpdate(u, { status: "revoked" }); onClose(); }}>Révoquer</button>}
-          <button className="ghost small" onClick={() => { onGenFile(u); onClose(); }} title="Régénère le dossier et exige la signature — bloque l'accès de l'agent jusqu'à ce qu'il signe">Exiger signature</button>
+          {u.status !== "active" && <button className="small" onClick={() => { onUpdate(u, { status: "active" }); onClose(); }}>Validate</button>}
+          {u.status === "active" && <button className="ghost small" onClick={() => { onUpdate(u, { status: "revoked" }); onClose(); }}>Revoke</button>}
+          <button className="ghost small" onClick={() => { onGenFile(u); onClose(); }} title="Regenerates the file and requires a signature — blocks the agent's access until they sign">Require signature</button>
           {u.oath_state && u.oath_state.startsWith("pending:") && (
-            <button className="ghost small" onClick={() => { onOverride(u); onClose(); }} title="Débloque l'accès sans signature (secours) — annule la demande de serment en attente">Débloquer (override)</button>
+            <button className="ghost small" onClick={() => { onOverride(u); onClose(); }} title="Unblocks access without a signature (fallback) — cancels the pending oath request">Unblock (override)</button>
           )}
-          {!u.moodle_synced && <button className="ghost small" onClick={() => { onAcademySync(u); onClose(); }}>Sync Académie</button>}
-          <button className="ghost small" onClick={() => { onResetPassword(u); onClose(); }}>Réinit. mdp</button>
-          <button className="ghost small danger" onClick={() => { onDelete(u); onClose(); }}>Supprimer l'agent</button>
+          {!u.moodle_synced && <button className="ghost small" onClick={() => { onAcademySync(u); onClose(); }}>Academy sync</button>}
+          <button className="ghost small" onClick={() => { onResetPassword(u); onClose(); }}>Reset pwd</button>
+          <button className="ghost small danger" onClick={() => { onDelete(u); onClose(); }}>Delete agent</button>
         </div>
 
         <div className="sheet-footer">
-          <button className="ghost" onClick={onClose}>Annuler</button>
-          <button disabled={!dirty} onClick={save}>Enregistrer</button>
+          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button disabled={!dirty} onClick={save}>Save</button>
         </div>
       </div>
     </div>
@@ -362,7 +362,7 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
 
 function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onOverride, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
   const [open, setOpen] = useState<User | null>(null);
-  if (!users.length) return <p className="muted">Personne.</p>;
+  if (!users.length) return <p className="muted">Nobody.</p>;
   return (
     <>
       {users.map((u) => {
@@ -407,27 +407,27 @@ function DocumentsTab() {
   async function remind(d: AdminDoc) {
     const late = d.signers.filter((s) => s.status === "pending").map((s) => s.codename).join(", ");
     const ok = await confirmDialog({
-      title: `Relancer les signatures en attente sur « ${d.title} » ?`,
-      message: `Un rappel Discord est envoyé à : ${late}.`,
-      confirmLabel: "Envoyer le rappel",
+      title: `Remind pending signers on “${d.title}”?`,
+      message: `A Discord reminder is sent to: ${late}.`,
+      confirmLabel: "Send reminder",
     });
     if (!ok) return;
     const res = await fetch(`/api/admin/documents/${d.id}/remind`, { method: "POST" });
     const r = await res.json();
-    toast(res.ok ? `Rappel envoyé à ${r.sent} agent(s).` : r.error, res.ok ? "success" : "error");
+    toast(res.ok ? `Reminder sent to ${r.sent} agent(s).` : r.error, res.ok ? "success" : "error");
   }
 
   async function unseal(d: AdminDoc) {
     const ok = await confirmDialog({
-      title: `Desceller « ${d.title} » ?`,
-      message: "Toutes les signatures de ce document sont annulées et les signataires prévenus.",
-      confirmLabel: "Desceller et annuler", danger: true,
+      title: `Unseal “${d.title}”?`,
+      message: "All signatures on this document are voided and the signers are notified.",
+      confirmLabel: "Unseal and void", danger: true,
     });
     if (!ok) return;
     const res = await fetch(`/api/documents/${d.id}`, { method: "PATCH", body: JSON.stringify({ unlock: true }) });
     const r = await res.json();
     if (!res.ok) return toast(r.error, "error");
-    toast(`Descellé — ${r.voided} demande(s) annulée(s).`, "success");
+    toast(`Unsealed — ${r.voided} request(s) voided.`, "success");
     load();
   }
 
@@ -450,16 +450,16 @@ function DocumentsTab() {
 
   return (
     <div className="panel">
-      <h2>Documents et signatures</h2>
+      <h2>Documents and signatures</h2>
       <div className="tabs" style={{ width: 560 }}>
-        {tab("waiting", `En attente de signature (${counts.waiting})`)}
-        {tab("unsigned", `Jamais envoyé (${counts.unsigned})`)}
-        {tab("sealed", `Scellés (${counts.sealed})`)}
-        {tab("all", `Tous (${docs.length})`)}
+        {tab("waiting", `Awaiting signature (${counts.waiting})`)}
+        {tab("unsigned", `Never sent (${counts.unsigned})`)}
+        {tab("sealed", `Sealed (${counts.sealed})`)}
+        {tab("all", `All (${docs.length})`)}
       </div>
 
       {loading && <div className="skeleton" style={{ height: 60 }} />}
-      {!loading && shown.length === 0 && <p className="muted">Rien ici.</p>}
+      {!loading && shown.length === 0 && <p className="muted">Nothing here.</p>}
 
       {shown.map((d) => {
         const pending = d.signers.filter((s) => s.status === "pending");
@@ -472,23 +472,23 @@ function DocumentsTab() {
               <span className="chip lv mono">LVL. {d.classification}</span>
               {d.is_personnel && <span className="chip">PERSONNEL</span>}
               {d.request_status === "pending" && (
-                <span className="classif mid">{signed.length}/{d.signers.length} SIGNÉ(S)</span>
+                <span className="classif mid">{signed.length}/{d.signers.length} SIGNED</span>
               )}
-              {d.request_status === "complete" && <span className="classif low">SCELLÉ</span>}
-              {d.request_status === "declined" && <span className="classif high">REFUSÉ</span>}
-              {!d.request_id && <span className="chip">aucune demande</span>}
-              {d.sequential && <span className="chip">CHAÎNE</span>}
+              {d.request_status === "complete" && <span className="classif low">SEALED</span>}
+              {d.request_status === "declined" && <span className="classif high">DECLINED</span>}
+              {!d.request_id && <span className="chip">no request</span>}
+              {d.sequential && <span className="chip">CHAIN</span>}
               <span className="agent-spacer" />
-              <button className="ghost small" onClick={() => router.push(`/doc/${d.id}`)}>Ouvrir</button>
+              <button className="ghost small" onClick={() => router.push(`/doc/${d.id}`)}>Open</button>
               {d.request_status === "pending" && pending.length > 0 && (
-                <button className="ghost small" onClick={() => remind(d)}>Relancer</button>
+                <button className="ghost small" onClick={() => remind(d)}>Remind</button>
               )}
-              {d.sealed && <button className="ghost small danger" onClick={() => unseal(d)}>Desceller</button>}
+              {d.sealed && <button className="ghost small danger" onClick={() => unseal(d)}>Unseal</button>}
             </div>
 
             <div className="mission-meta muted">
-              {d.owner ? `${d.owner_badge} · ${d.owner}` : "sans propriétaire"}
-              {d.requested_by ? ` · demandé par ${d.requested_by}` : ""}
+              {d.owner ? `${d.owner_badge} · ${d.owner}` : "no owner"}
+              {d.requested_by ? ` · requested by ${d.requested_by}` : ""}
               {d.requested_at ? ` · ${new Date(d.requested_at).toLocaleDateString()}` : ""}
             </div>
 
@@ -501,12 +501,12 @@ function DocumentsTab() {
                 ))}
                 {/* Who is holding it up — the actual question an officer is asking. */}
                 {pending.map((s) => (
-                  <span key={s.matricule} className="sync-dot off" title="Pas encore signé">
+                  <span key={s.matricule} className="sync-dot off" title="Not signed yet">
                     {s.codename} …
                   </span>
                 ))}
                 {declined.map((s) => (
-                  <span key={s.matricule} className="sync-dot bad" title={s.reason || "Refusé"}>
+                  <span key={s.matricule} className="sync-dot bad" title={s.reason || "Declined"}>
                     {s.codename} ✕
                   </span>
                 ))}
@@ -536,25 +536,25 @@ function RequestsTab() {
   async function decide(r: AccessReq, approve: boolean) {
     const res = await fetch("/api/admin/requests", { method: "PATCH", body: JSON.stringify({ id: r.id, approve }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast(approve ? `Accès accordé à ${r.codename}.` : "Demande refusée.", approve ? "success" : "info");
+    toast(approve ? `Access granted to ${r.codename}.` : "Request denied.", approve ? "success" : "info");
     load();
   }
 
   return (
     <div className="panel">
-      <h2>Demandes d'accès en attente</h2>
+      <h2>Pending access requests</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        Approuver crée un partage explicite — il prime sur le niveau d'habilitation et sur toute restriction de dossier privé.
+        Approving creates an explicit share — it overrides the clearance level and any private-folder restriction.
       </p>
       {loading ? <div className="skeleton" style={{ height: 80 }} /> : reqs.length === 0 ? (
         <div className="empty">
           <div className="empty-mark">[ ▚ ]</div>
-          <div className="empty-title">Aucune demande en attente</div>
+          <div className="empty-title">No pending requests</div>
         </div>
       ) : (
         <table>
           <thead>
-            <tr><th>Agent</th><th>Document</th><th>Classification</th><th>Motif</th><th>Quand</th><th>Actions</th></tr>
+            <tr><th>Agent</th><th>Document</th><th>Classification</th><th>Reason</th><th>When</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {reqs.map((r) => (
@@ -563,10 +563,10 @@ function RequestsTab() {
                 <td><a href={`/doc/${r.doc_id}`}>{r.title}</a></td>
                 <td><span className={`classif ${r.classification >= 7 ? "high" : r.classification >= 4 ? "mid" : "low"}`}>LVL.{r.classification}</span></td>
                 <td className="muted">{r.reason || "—"}</td>
-                <td className="muted">{new Date(r.created_at).toLocaleString("fr-FR")}</td>
+                <td className="muted">{new Date(r.created_at).toLocaleString("en-US")}</td>
                 <td style={{ display: "flex", gap: 6 }}>
-                  <button className="small" onClick={() => decide(r, true)}>Accorder</button>
-                  <button className="ghost small danger" onClick={() => decide(r, false)}>Refuser</button>
+                  <button className="small" onClick={() => decide(r, true)}>Grant</button>
+                  <button className="ghost small danger" onClick={() => decide(r, false)}>Deny</button>
                 </td>
               </tr>
             ))}
@@ -606,7 +606,7 @@ function MissionsTab({ myClearance }: { myClearance: number }) {
     const res = await fetch("/api/missions", { method: "POST", body: JSON.stringify(f) });
     const data = await res.json();
     if (!res.ok) return setError(data.error);
-    toast(`Mission ${f.code.toUpperCase()} ouverte.`, "success");
+    toast(`Mission ${f.code.toUpperCase()} opened.`, "success");
     setF({ code: "", objective: "", matricule: "", location: "", priority: "Routine", classification: 1, briefing: "", division: "" });
     setShowForm(false);
     load();
@@ -615,9 +615,9 @@ function MissionsTab({ myClearance }: { myClearance: number }) {
   async function setStatus(m: Mission, status: string) {
     if (status !== "active") {
       const ok = await confirmDialog({
-        title: `Marquer ${m.code} comme ${status} ?`,
-        message: `Les agents assignés seront prévenus sur Discord que la mission est ${status}.`,
-        confirmLabel: status === "completed" ? "Marquer terminée" : "Annuler la mission",
+        title: `Mark ${m.code} as ${status}?`,
+        message: `Assigned agents will be notified on Discord that the mission is ${status}.`,
+        confirmLabel: status === "completed" ? "Mark completed" : "Abort mission",
         danger: status === "aborted",
       });
       if (!ok) return;
@@ -630,15 +630,15 @@ function MissionsTab({ myClearance }: { myClearance: number }) {
 
   async function fileReport(m: Mission) {
     const report = await promptDialog({
-      title: `Rapport d'après-action — ${m.code}`,
-      message: "Que s'est-il passé ? Stocké sur la mission, pas dans l'ordre.",
-      placeholder: "Issue, éléments récupérés, pertes…",
+      title: `After-action report — ${m.code}`,
+      message: "What happened? Stored on the mission, not in the order.",
+      placeholder: "Outcome, items recovered, casualties…",
       defaultValue: m.report || "",
     });
     if (report === null) return;
     const res = await fetch(`/api/missions/${m.id}`, { method: "PATCH", body: JSON.stringify({ report }) });
     if (!res.ok) return toast((await res.json()).error, "error");
-    toast("Rapport enregistré.", "success");
+    toast("Report saved.", "success");
     load();
   }
 
@@ -649,40 +649,40 @@ function MissionsTab({ myClearance }: { myClearance: number }) {
     <>
       <div className="panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ marginBottom: 0 }}>Missions ({active.length} active(s))</h2>
-          <button className="small" onClick={() => setShowForm(!showForm)}>{showForm ? "Annuler" : "Nouvelle mission"}</button>
+          <h2 style={{ marginBottom: 0 }}>Missions ({active.length} active)</h2>
+          <button className="small" onClick={() => setShowForm(!showForm)}>{showForm ? "Cancel" : "New mission"}</button>
         </div>
         {error && <p className="error" style={{ marginTop: 12 }}>⚠ {error}</p>}
         {showForm && (
           <form onSubmit={issue} style={{ marginTop: 14 }}>
             <p className="muted" style={{ marginBottom: 10 }}>
-              Ouvre une mission suivie et génère son ordre classifié. Les agents assignés reçoivent l'ordre
-              en partage et une transmission Discord.
+              Opens a tracked mission and generates its classified order. Assigned agents receive the order
+              as a share and a Discord transmission.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <input placeholder="CODE DE MISSION (ex. OP-INSIGHT)" value={f.code} onChange={(e) => set("code", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
-              <input placeholder="AGENTS ASSIGNÉS — matricules, séparés par des virgules" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 220 }} />
+              <input placeholder="MISSION CODE (e.g. OP-INSIGHT)" value={f.code} onChange={(e) => set("code", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
+              <input placeholder="ASSIGNED AGENTS — badges, comma-separated" value={f.matricule} onChange={(e) => set("matricule", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 220 }} />
             </div>
-            <input placeholder="OBJECTIF" value={f.objective} onChange={(e) => set("objective", e.target.value)} style={{ marginTop: 10 }} />
+            <input placeholder="OBJECTIVE" value={f.objective} onChange={(e) => set("objective", e.target.value)} style={{ marginTop: 10 }} />
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <input placeholder="LIEU" value={f.location} onChange={(e) => set("location", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 150 }} />
-              <input placeholder="DIVISION (facultatif)" value={f.division} onChange={(e) => set("division", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 140 }} />
+              <input placeholder="LOCATION" value={f.location} onChange={(e) => set("location", e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 150 }} />
+              <input placeholder="DIVISION (optional)" value={f.division} onChange={(e) => set("division", e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 140 }} />
               <select value={f.priority} onChange={(e) => set("priority", e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-                <option>Routine</option><option>Prioritaire</option><option>Critique</option>
+                <option>Routine</option><option>Priority</option><option>Critical</option>
               </select>
               <select value={f.classification} onChange={(e) => set("classification", +e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
                 {Array.from({ length: myClearance }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification {n}</option>)}
               </select>
             </div>
-            <textarea placeholder="BRIEFING (facultatif)" value={f.briefing} onChange={(e) => set("briefing", e.target.value)} rows={3} style={{ marginTop: 10 }} />
-            <button style={{ marginTop: 10 }}>Ouvrir la mission</button>
+            <textarea placeholder="BRIEFING (optional)" value={f.briefing} onChange={(e) => set("briefing", e.target.value)} rows={3} style={{ marginTop: 10 }} />
+            <button style={{ marginTop: 10 }}>Open mission</button>
           </form>
         )}
       </div>
 
       <div className="panel">
-        <h2>Actives</h2>
-        {active.length === 0 && <p className="muted">Aucune mission active.</p>}
+        <h2>Active</h2>
+        {active.length === 0 && <p className="muted">No active mission.</p>}
         {active.map((m) => <MissionRow key={m.id} m={m} onStatus={setStatus} onReport={fileReport} router={router} />)}
       </div>
 
@@ -707,21 +707,21 @@ function MissionRow({ m, onStatus, onReport, router }: { m: Mission; onStatus: (
         {m.priority && <span className="chip">{m.priority}</span>}
         {m.division && <span className="chip">{m.division}</span>}
         <span className="agent-spacer" />
-        {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Ordre</button>}
-        <button className="ghost small" onClick={() => onReport(m)}>{m.report ? "Rapport ✓" : "Rapport"}</button>
+        {m.doc_id && <button className="ghost small" onClick={() => router.push(`/doc/${m.doc_id}`)}>Order</button>}
+        <button className="ghost small" onClick={() => onReport(m)}>{m.report ? "Report ✓" : "Report"}</button>
         {m.status === "active" ? (
           <>
-            <button className="ghost small" onClick={() => onStatus(m, "completed")}>Terminer</button>
-            <button className="ghost small danger" onClick={() => onStatus(m, "aborted")}>Annuler</button>
+            <button className="ghost small" onClick={() => onStatus(m, "completed")}>Complete</button>
+            <button className="ghost small danger" onClick={() => onStatus(m, "aborted")}>Abort</button>
           </>
         ) : (
-          <button className="ghost small" onClick={() => onStatus(m, "active")}>Rouvrir</button>
+          <button className="ghost small" onClick={() => onStatus(m, "active")}>Reopen</button>
         )}
       </div>
       <div className="mission-obj">{m.objective}</div>
       <div className="mission-meta muted">
         {m.location ? `${m.location} · ` : ""}
-        {m.agents.length ? m.agents.map((a) => `${a.matricule} (${a.codename})`).join(", ") : "Aucun agent assigné"}
+        {m.agents.length ? m.agents.map((a) => `${a.matricule} (${a.codename})`).join(", ") : "No agent assigned"}
       </div>
       {m.report && <div className="mission-report">{m.report}</div>}
     </div>
@@ -754,7 +754,7 @@ function DivisionsTab() {
     const data = await res.json();
     if (!res.ok) return setError(data.error);
     setName("");
-    toast("Division créée.", "success");
+    toast("Division created.", "success");
     load();
   }
 
@@ -769,77 +769,77 @@ function DivisionsTab() {
   return (
     <>
       <div className="panel">
-        <h2>Créer une division</h2>
+        <h2>Create a division</h2>
         <p className="muted" style={{ marginBottom: 12 }}>
-          Une division est une vraie équipe : des membres, un chef, et un dossier partagé facultatif. Assignez-y des agents
-          depuis l'onglet Agents.
+          A division is a real team: members, a lead, and an optional shared folder. Assign agents to it
+          from the Agents tab.
         </p>
         {error && <p className="error">⚠ {error}</p>}
         <form onSubmit={create} style={{ display: "flex", gap: 10 }}>
-          <input placeholder="NOM DE DIVISION (ex. Renseignement)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 1 }} />
-          <button>Créer</button>
+          <input placeholder="DIVISION NAME (e.g. Intelligence)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 1 }} />
+          <button>Create</button>
         </form>
       </div>
 
       <div className="panel">
         <h2>Divisions</h2>
-        {divs.length === 0 && <p className="muted">Aucune division.</p>}
+        {divs.length === 0 && <p className="muted">No division.</p>}
         {divs.map((d) => {
           const members = users.filter((u) => u.division === d.name && u.status === "active");
           return (
             <div key={d.id} className="agent-row">
               <div className="agent-who">
                 <b>{d.name}</b>
-                <span>{d.members} agent{d.members > 1 ? "s" : ""}{d.lead_codename ? ` · dirigée par ${d.lead_codename}` : ""}</span>
+                <span>{d.members} agent{d.members > 1 ? "s" : ""}{d.lead_codename ? ` · led by ${d.lead_codename}` : ""}</span>
               </div>
               <select
                 value={d.lead_id ?? ""}
-                onChange={(e) => patch(d, { lead_id: e.target.value || null }, "Chef de division mis à jour.")}
+                onChange={(e) => patch(d, { lead_id: e.target.value || null }, "Division lead updated.")}
                 style={{ marginBottom: 0, width: 190 }}
-                title="Le chef doit être membre de cette division"
+                title="The lead must be a member of this division"
               >
-                <option value="">— Aucun chef —</option>
+                <option value="">— No lead —</option>
                 {members.map((u) => <option key={u.id} value={u.id}>{u.codename} ({u.matricule})</option>)}
               </select>
               {d.folder_id ? (
-                <span className="chip lv" title={d.folder_name || ""}>DOSSIER PARTAGÉ</span>
+                <span className="chip lv" title={d.folder_name || ""}>SHARED FOLDER</span>
               ) : (
-                <button className="ghost small" onClick={() => patch(d, { create_folder: true }, "Dossier partagé créé.")}>
-                  Créer un dossier partagé
+                <button className="ghost small" onClick={() => patch(d, { create_folder: true }, "Shared folder created.")}>
+                  Create a shared folder
                 </button>
               )}
               {d.folder_id && (
-                <button className="ghost small" onClick={() => patch(d, { create_folder: true }, "Membres synchronisés au dossier.")} title="Ajouter les membres arrivés depuis">
-                  Synchroniser les membres
+                <button className="ghost small" onClick={() => patch(d, { create_folder: true }, "Members synced to the folder.")} title="Add members who joined since">
+                  Sync members
                 </button>
               )}
               <span className="agent-spacer" />
               <button
                 className="ghost small"
                 onClick={async () => {
-                  const n = await promptDialog({ title: "Renommer la division", message: `Nom actuel : « ${d.name} ».`, placeholder: "Nouveau nom", defaultValue: d.name });
-                  if (n && n.trim() !== d.name) patch(d, { name: n }, "Division renommée.");
+                  const n = await promptDialog({ title: "Rename division", message: `Current name: “${d.name}”.`, placeholder: "New name", defaultValue: d.name });
+                  if (n && n.trim() !== d.name) patch(d, { name: n }, "Division renamed.");
                 }}
               >
-                Renommer
+                Rename
               </button>
               <button
                 className="ghost small danger"
                 onClick={async () => {
                   const ok = await confirmDialog({
-                    title: `Supprimer la division « ${d.name} » ?`,
-                    message: "La division ne doit avoir aucun membre. Son dossier partagé est conservé.",
-                    confirmLabel: "Supprimer", danger: true,
+                    title: `Delete division “${d.name}”?`,
+                    message: "The division must have no members. Its shared folder is kept.",
+                    confirmLabel: "Delete", danger: true,
                   });
                   if (!ok) return;
                   const res = await fetch(`/api/divisions/${d.id}`, { method: "DELETE" });
                   const data = await res.json();
                   if (!res.ok) return toast(data.error, "error");
-                  toast("Division supprimée.", "success");
+                  toast("Division deleted.", "success");
                   load();
                 }}
               >
-                Supprimer
+                Delete
               </button>
             </div>
           );
@@ -907,15 +907,15 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
       body: JSON.stringify({ name, body }),
     });
     if (!res.ok) return setError((await res.json()).error);
-    setName(""); setBody(""); setSaved("Modèle enregistré.");
+    setName(""); setBody(""); setSaved("Template saved.");
     load();
   }
 
   async function del(t: Template) {
-    const ok = await confirmDialog({ title: `Supprimer le modèle « ${t.name} » ?`, confirmLabel: "Supprimer", danger: true });
+    const ok = await confirmDialog({ title: `Delete template “${t.name}”?`, confirmLabel: "Delete", danger: true });
     if (!ok) return;
     await fetch(`/api/admin/templates/${t.id}`, { method: "DELETE" });
-    toast("Modèle supprimé.", "success");
+    toast("Template deleted.", "success");
     load();
   }
 
@@ -925,20 +925,20 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
     <>
       {error && <p className="error">⚠ {error}</p>}
       <div className="panel">
-        <h2>Créer un modèle sur place</h2>
+        <h2>Create a template inline</h2>
         <p className="muted" style={{ marginBottom: 10 }}>
-          Écrivez le contenu du document ci-dessous. Commencez une ligne par <span className="mono">#</span> pour un titre.
-          Insérez des champs à remplir avec <span className="mono">{"{{double braces}}"}</span> — e.g. <span className="mono">{"{{agent name}}"}</span>,
-          <span className="mono"> {"{{mission code}}"}</span>. Chacun vous sera demandé à la création d'un document.
+          Write the document content below. Start a line with <span className="mono">#</span> for a heading.
+          Insert fill-in fields with <span className="mono">{"{{double braces}}"}</span> — e.g. <span className="mono">{"{{agent name}}"}</span>,
+          <span className="mono"> {"{{mission code}}"}</span>. Each one is asked for when a document is created.
         </p>
         <div style={{ marginBottom: 10 }}>
-          <p className="muted" style={{ marginBottom: 4 }}>Remplis automatiquement à la création (cliquer pour insérer) :</p>
+          <p className="muted" style={{ marginBottom: 4 }}>Auto-filled at creation (click to insert):</p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
             {SYSTEM_VARS.map((v) => (
               <button type="button" key={v} className="tag t-xlsx" style={{ cursor: "pointer", border: "none" }} onClick={() => insertVar(v)}>{v}</button>
             ))}
           </div>
-          <p className="muted" style={{ marginBottom: 4 }}>Champs à remplir (demandés à la création) :</p>
+          <p className="muted" style={{ marginBottom: 4 }}>Fill-in fields (asked at creation):</p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {SUGGESTED_VARS.map((v) => (
               <button type="button" key={v} className="tag t-folder" style={{ cursor: "pointer", border: "none" }} onClick={() => insertVar(v)}>{v}</button>
@@ -946,7 +946,7 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
           </div>
         </div>
         <form onSubmit={saveText}>
-          <input placeholder="NOM DU MODÈLE" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="TEMPLATE NAME" value={name} onChange={(e) => setName(e.target.value)} />
           <textarea
             ref={bodyRef}
             placeholder={"# MISSION ORDER\n\nAgent: {{agent}}\nBadge: {{badge}}\nObjective: {{objective}}\n\nAuthorized by: {{officer}}\nDate: {{date}}"}
@@ -956,37 +956,37 @@ function TemplatesTab({ myClearance }: { myClearance: number }) {
             style={{ width: "100%", padding: "10px 12px", background: "#0a101a", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text)", fontFamily: "Consolas, monospace", marginBottom: 10 }}
           />
           {detectedVars.length > 0 && (
-            <p className="muted" style={{ marginBottom: 10 }}>Champs détectés : {detectedVars.map((v) => <span key={v} className={`tag ${SYSTEM_VARS.includes(v) ? "t-xlsx" : "t-folder"}`} style={{ marginRight: 6 }}>{v}</span>)}</p>
+            <p className="muted" style={{ marginBottom: 10 }}>Detected fields: {detectedVars.map((v) => <span key={v} className={`tag ${SYSTEM_VARS.includes(v) ? "t-xlsx" : "t-folder"}`} style={{ marginRight: 6 }}>{v}</span>)}</p>
           )}
           {saved && <p className="success">✓ {saved}</p>}
-          <button>Enregistrer le modèle</button>
+          <button>Save template</button>
         </form>
       </div>
       <div className="panel">
-        <h2>Ou téléverser un modèle fichier</h2>
+        <h2>Or upload a file template</h2>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <input placeholder="NOM DU MODÈLE (facultatif)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
-          <button type="button" onClick={() => fileInput.current?.click()}>Choisir un fichier (.docx/.xlsx/.pptx)</button>
+          <input placeholder="TEMPLATE NAME (optional)" value={name} onChange={(e) => setName(e.target.value)} style={{ marginBottom: 0, flex: 2, minWidth: 180 }} />
+          <button type="button" onClick={() => fileInput.current?.click()}>Choose a file (.docx/.xlsx/.pptx)</button>
           <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
         </div>
       </div>
       <div className="panel">
-        <h2>Modèles — créer un document à partir d'un modèle</h2>
+        <h2>Templates — create a document from a template</h2>
         <div className="cards">
           {templates.map((t) => (
             <div key={t.id} className={`card t-${t.filetype}`}>
               <div className="card-top">
                 <span className={`tag t-${t.filetype}`}>{t.editable ? "TPL" : TPL_TAG[t.filetype]}</span>
                 <span className="card-actions" style={{ display: "inline-flex" }}>
-                  <button className="ghost small" onClick={() => del(t)} title="Supprimer le modèle">✕</button>
+                  <button className="ghost small" onClick={() => del(t)} title="Delete template">✕</button>
                 </span>
               </div>
               <div className="card-title">{t.name}</div>
-              {t.variables.length > 0 && <div className="card-meta muted" style={{ fontSize: "0.72rem" }}>{t.variables.length} champ(s)</div>}
-              <div className="card-meta"><button className="small" onClick={() => setUseTpl(t)}>Nouveau document</button></div>
+              {t.variables.length > 0 && <div className="card-meta muted" style={{ fontSize: "0.72rem" }}>{t.variables.length} field(s)</div>}
+              <div className="card-meta"><button className="small" onClick={() => setUseTpl(t)}>New document</button></div>
             </div>
           ))}
-          {templates.length === 0 && <p className="muted">Aucun modèle.</p>}
+          {templates.length === 0 && <p className="muted">No template.</p>}
         </div>
       </div>
       {useTpl && <FromTemplateModal template={useTpl} folders={folders} maxLevel={myClearance} onClose={() => setUseTpl(null)} />}
@@ -1017,28 +1017,28 @@ function FromTemplateModal({ template, folders, maxLevel, onClose }: { template:
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2>Nouveau document — {template.name}</h2>
+        <h2>New document — {template.name}</h2>
         {error && <p className="error">⚠ {error}</p>}
         <form onSubmit={create}>
-          <input autoFocus placeholder="TITRE DU DOCUMENT" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
           {template.variables.length > 0 && (
             <>
-              <p className="muted" style={{ margin: "4px 0 8px" }}>Remplissez les champs du modèle :</p>
+              <p className="muted" style={{ margin: "4px 0 8px" }}>Fill in the template fields:</p>
               {template.variables.map((v) => (
                 <input key={v} placeholder={v.toUpperCase()} value={vars[v] || ""} onChange={(e) => setVars({ ...vars, [v]: e.target.value })} />
               ))}
             </>
           )}
           <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
-            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Niveau de classification {n}</option>)}
+            {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification level {n}</option>)}
           </select>
           <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-            <option value="">— Racine du Drive —</option>
+            <option value="">— Drive root —</option>
             {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
-          <button style={{ width: "100%" }}>Créer le document</button>
+          <button style={{ width: "100%" }}>Create document</button>
         </form>
-        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Annuler</button>
+        <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={onClose}>Cancel</button>
       </div>
     </div>
   );
@@ -1057,25 +1057,25 @@ function IntegrationsPanel() {
   async function syncAll() {
     const missing = d ? d.total - d.academy.linked! : 0;
     const ok = await confirmDialog({
-      title: `Créer des comptes Académie pour ${missing} agent(s) ?`,
+      title: `Create Academy accounts for ${missing} agent(s)?`,
       message:
-        "Les agents créés avant l'Académie n'ont pas de compte. Les mots de passe du portail ne peuvent pas être copiés " +
-        "(seul un hash chiffré est stocké), donc le mot de passe Académie de chaque agent différera jusqu'à ce qu'il " +
-        "change son mot de passe du portail.",
-      confirmLabel: "Créer les comptes",
+        "Agents created before the Academy have no account. Portal passwords can't be copied " +
+        "(only an encrypted hash is stored), so each agent's Academy password will differ until they " +
+        "change their portal password.",
+      confirmLabel: "Create accounts",
     });
     if (!ok) return;
     setBusy(true);
     const res = await fetch("/api/admin/academy-sync", { method: "POST", body: JSON.stringify({}) });
     const r = await res.json();
     setBusy(false);
-    if (!res.ok) return toast(r.error || "Échec de la synchro Académie.", "error");
-    toast(`${r.created} compte(s) créé(s)${r.failed ? `, ${r.failed} en échec` : ""}.`, r.failed ? "error" : "success");
+    if (!res.ok) return toast(r.error || "Academy sync failed.", "error");
+    toast(`${r.created} account(s) created${r.failed ? `, ${r.failed} failed` : ""}.`, r.failed ? "error" : "success");
     load();
   }
 
   const row = (name: string, i: Integration, note: string) => {
-    const state = !i.configured ? "Non configuré" : i.reachable ? "En ligne" : "Injoignable";
+    const state = !i.configured ? "Not configured" : i.reachable ? "Online" : "Unreachable";
     const cls = !i.configured ? "off" : i.reachable ? "on" : "bad";
     return (
       <tr key={name}>
@@ -1089,23 +1089,23 @@ function IntegrationsPanel() {
 
   return (
     <div className="panel">
-      <h2>Intégrations</h2>
+      <h2>Integrations</h2>
       {!d ? <div className="skeleton" style={{ height: 80 }} /> : (
         <table>
-          <thead><tr><th>Système</th><th>Statut</th><th>Liés</th><th></th></tr></thead>
+          <thead><tr><th>System</th><th>Status</th><th>Linked</th><th></th></tr></thead>
           <tbody>
-            {row("DISCORD", d.discord, "Connexion OAuth et DM automatiques")}
-            {row("ACADEMY", d.academy, "Comptes Moodle, même matricule et mot de passe")}
-            {row("OFFICE", d.office, "Serveur de documents : édition et export PDF")}
+            {row("DISCORD", d.discord, "OAuth sign-in and automatic DMs")}
+            {row("ACADEMY", d.academy, "Moodle accounts, same badge and password")}
+            {row("OFFICE", d.office, "Document server: editing and PDF export")}
           </tbody>
         </table>
       )}
       {d && d.academy.configured && d.academy.linked! < d.total && (
         <p className="muted" style={{ marginTop: 12 }}>
-          {d.total - d.academy.linked!} agent(s) sans compte Académie — les comptes sont provisionnés automatiquement
-          uniquement quand le portail connaît le mot de passe (création, changement de mot de passe).{" "}
+          {d.total - d.academy.linked!} agent(s) without an Academy account — accounts are provisioned automatically
+          only when the portal knows the password (creation, password change).{" "}
           <button className="ghost small" disabled={busy} onClick={syncAll}>
-            {busy ? "Création…" : "Les créer maintenant"}
+            {busy ? "Creating…" : "Create them now"}
           </button>
         </p>
       )}
@@ -1136,22 +1136,22 @@ function SettingsTab() {
     <IntegrationsPanel />
     <NotifTestPanel />
     <div className="panel">
-      <h2>Documents automatiques</h2>
+      <h2>Automatic documents</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        À la création d'un compte, un <strong>dossier d'agent</strong> administratif est généré automatiquement.
-        Choisissez le dossier de destination.
+        When an account is created, an administrative <strong>personnel file</strong> is generated automatically.
+        Choose the destination folder.
       </p>
-      <label className="muted" style={{ display: "block", marginBottom: 4 }}>Dossier de destination des dossiers d'agent</label>
+      <label className="muted" style={{ display: "block", marginBottom: 4 }}>Destination folder for personnel files</label>
       <select
         value={settings.personnel_folder_id || ""}
         onChange={(e) => save({ personnel_folder_id: e.target.value })}
         style={{ maxWidth: 360 }}
       >
-        <option value="">— Aucun dossier (racine) —</option>
+        <option value="">— No folder (root) —</option>
         {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
       </select>
 
-      <h2 style={{ marginTop: 24 }}>Accès</h2>
+      <h2 style={{ marginTop: 24 }}>Access</h2>
       <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
         <input
           type="checkbox"
@@ -1159,10 +1159,10 @@ function SettingsTab() {
           checked={settings.public_registration !== "off"}
           onChange={(e) => save({ public_registration: e.target.checked ? "on" : "off" })}
         />
-        <span>Autoriser l'enrôlement public (les recrues peuvent s'inscrire et attendre validation)</span>
+        <span>Allow public enlistment (recruits can sign up and await validation)</span>
       </label>
 
-      {saved && <p className="success" style={{ marginTop: 14 }}>✓ Réglages enregistrés.</p>}
+      {saved && <p className="success" style={{ marginTop: 14 }}>✓ Settings saved.</p>}
     </div>
     </>
   );
@@ -1178,16 +1178,16 @@ function NotifTestPanel() {
     try {
       const res = await fetch("/api/push/test", { method: "POST" });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { toast(d.error || "Échec de l'envoi.", "error"); return; }
+      if (!res.ok) { toast(d.error || "Send failed.", "error"); return; }
       const channels: string[] = [];
-      if (d.pushServerEnabled && d.pushDevices > 0) channels.push(`Web Push (${d.pushDevices} appareil${d.pushDevices > 1 ? "s" : ""})`);
+      if (d.pushServerEnabled && d.pushDevices > 0) channels.push(`Web Push (${d.pushDevices} device${d.pushDevices > 1 ? "s" : ""})`);
       if (d.discordLinked) channels.push("Discord");
       if (channels.length) {
-        toast(`Test envoyé → ${channels.join(" + ")}. Regarde la bannière / ton DM.`, "success");
+        toast(`Test sent → ${channels.join(" + ")}. Check the banner / your DM.`, "success");
       } else if (!d.pushServerEnabled) {
-        toast("Aucun canal : Web Push non configuré côté serveur (clés VAPID) et Discord non lié.", "error");
+        toast("No channel: Web Push not configured on the server (VAPID keys) and Discord not linked.", "error");
       } else {
-        toast("Aucun appareil abonné et Discord non lié. Active 🔔 Notifs, puis réessaie.", "error");
+        toast("No subscribed device and Discord not linked. Enable 🔔 Alerts, then try again.", "error");
       }
     } finally {
       setBusy(false);
@@ -1198,12 +1198,12 @@ function NotifTestPanel() {
     <div className="panel">
       <h2>Notifications</h2>
       <p className="muted" style={{ marginBottom: 12 }}>
-        Envoie une notification de test à <strong>ton propre compte</strong>, sur tous tes canaux
-        (bannière PWA Web Push + DM Discord si lié). Utile pour vérifier le paramétrage après un déploiement.
-        Pense à activer <strong>🔔 Notifs</strong> sur cet appareil au préalable.
+        Sends a test notification to <strong>your own account</strong>, on all your channels
+        (PWA Web Push banner + Discord DM if linked). Useful to verify the setup after a deployment.
+        Remember to enable <strong>🔔 Alerts</strong> on this device first.
       </p>
       <button onClick={sendTest} disabled={busy}>
-        {busy ? "Envoi…" : "🔔 Envoyer une notification de test"}
+        {busy ? "Sending…" : "🔔 Send a test notification"}
       </button>
     </div>
   );
@@ -1211,30 +1211,30 @@ function NotifTestPanel() {
 
 // ---------------- Audit ----------------
 const ACTION_LABELS: Record<string, string> = {
-  doc_unseal: "Document descellé", signature_remind: "Signature relancée", signature_engrave: "Signatures gravées", signature_request: "Signatures demandées", signature_sign: "Signé", signature_decline: "Refus de signer",
-  signature_complete: "Document scellé", signature_cancel: "Demande annulée",
-  signature_broken: "Demande annulée (contenu modifié)", signature_upload: "Image de signature",
-  doc_save_blocked: "Enregistrement bloqué (scellé)",
-  mission_create: "Mission ouverte", mission_status: "Statut de mission", mission_report: "Rapport d'après-action",
-  mission_delete: "Mission supprimée",
-  division_create: "Division créée", division_delete: "Division supprimée", division_rename: "Division renommée",
-  division_lead: "Chef de division défini", division_folder: "Dossier de division",
-  account_rename: "Agent renommé", academy_sync: "Synchro Académie",
-  doc_rename: "Document renommé", doc_classify: "Reclassifié", folder_rename: "Dossier renommé",
-  doc_pdf: "Export PDF", doc_pdf_redacted: "Export PDF (caviardé)",
-  login: "Connexion", login_failed: "Échec de connexion", register: "Enrôlement",
-  discord_login: "Connexion (Discord)", discord_link: "Discord lié",
-  doc_create: "Document créé", doc_import: "Document importé", doc_open: "Document ouvert",
-  doc_save: "Document enregistré", doc_destroy: "Document détruit", doc_share: "Document partagé", doc_unshare: "Partage révoqué",
-  folder_create: "Dossier créé", folder_invite: "Invité au dossier", folder_uninvite: "Retiré du dossier",
-  account_create: "Compte créé", account_update: "Compte mis à jour", account_delete: "Compte supprimé", password_reset: "Mot de passe réinitialisé",
-  password_change: "Mot de passe changé", settings_update: "Réglages mis à jour", push_test: "Notification de test envoyée", onboarding_override: "Override d'onboarding (accès sans signature)",
-  template_upload: "Modèle téléversé", template_create: "Modèle créé", template_delete: "Modèle supprimé", doc_from_template: "Créé depuis un modèle",
-  folder_delete: "Dossier supprimé", doc_open_redacted: "Ouvert (caviardé)", doc_move: "Document déplacé",
-  doc_public_on: "Lien public activé", doc_public_off: "Lien public désactivé", mission_order: "Ordre de mission émis",
-  personnel_file: "Dossier régénéré",
-  access_request: "Accès demandé", access_granted: "Accès accordé", access_denied: "Accès refusé",
-  doc_blocked: "Document restreint atteint",
+  doc_unseal: "Document unsealed", signature_remind: "Signature reminded", signature_engrave: "Signatures engraved", signature_request: "Signatures requested", signature_sign: "Signed", signature_decline: "Declined to sign",
+  signature_complete: "Document sealed", signature_cancel: "Request cancelled",
+  signature_broken: "Request cancelled (content changed)", signature_upload: "Signature image",
+  doc_save_blocked: "Save blocked (sealed)",
+  mission_create: "Mission opened", mission_status: "Mission status", mission_report: "After-action report",
+  mission_delete: "Mission deleted",
+  division_create: "Division created", division_delete: "Division deleted", division_rename: "Division renamed",
+  division_lead: "Division lead set", division_folder: "Division folder",
+  account_rename: "Agent renamed", academy_sync: "Academy sync",
+  doc_rename: "Document renamed", doc_classify: "Reclassified", folder_rename: "Folder renamed",
+  doc_pdf: "PDF export", doc_pdf_redacted: "PDF export (redacted)",
+  login: "Sign-in", login_failed: "Sign-in failed", register: "Enlistment",
+  discord_login: "Sign-in (Discord)", discord_link: "Discord linked",
+  doc_create: "Document created", doc_import: "Document imported", doc_open: "Document opened",
+  doc_save: "Document saved", doc_destroy: "Document destroyed", doc_share: "Document shared", doc_unshare: "Share revoked",
+  folder_create: "Folder created", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
+  account_create: "Account created", account_update: "Account updated", account_delete: "Account deleted", password_reset: "Password reset",
+  password_change: "Password changed", settings_update: "Settings updated", push_test: "Test notification sent", onboarding_override: "Onboarding override (access without signature)",
+  template_upload: "Template uploaded", template_create: "Template created", template_delete: "Template deleted", doc_from_template: "Created from template",
+  folder_delete: "Folder deleted", doc_open_redacted: "Opened (redacted)", doc_move: "Document moved",
+  doc_public_on: "Public link enabled", doc_public_off: "Public link disabled", mission_order: "Mission order issued",
+  personnel_file: "File regenerated",
+  access_request: "Access requested", access_granted: "Access granted", access_denied: "Access denied",
+  doc_blocked: "Restricted document reached",
 };
 
 function AuditTab() {
@@ -1253,28 +1253,28 @@ function AuditTab() {
 
   return (
     <div className="panel">
-      <h2>Journal d'audit — qui a fait quoi</h2>
+      <h2>Audit log — who did what</h2>
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <input placeholder="Filtrer par matricule ou cible…" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 0, flex: 2 }} />
+        <input placeholder="Filter by badge or target…" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 0, flex: 2 }} />
         <select value={action} onChange={(e) => setAction(e.target.value)} style={{ marginBottom: 0, flex: 1 }}>
-          <option value="">Toutes les actions</option>
+          <option value="">All actions</option>
           {Object.entries(ACTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
       <table>
         <thead>
-          <tr><th>Heure</th><th>Agent</th><th>Action</th><th>Cible</th></tr>
+          <tr><th>Time</th><th>Agent</th><th>Action</th><th>Target</th></tr>
         </thead>
         <tbody>
           {logs.map((l) => (
             <tr key={l.id}>
-              <td className="muted mono" style={{ whiteSpace: "nowrap" }}>{new Date(l.created_at).toLocaleString("fr-FR")}</td>
+              <td className="muted mono" style={{ whiteSpace: "nowrap" }}>{new Date(l.created_at).toLocaleString("en-US")}</td>
               <td className="mono">{l.matricule}</td>
               <td><span className={l.action === "login_failed" ? "classif high" : ""}>{ACTION_LABELS[l.action] || l.action}</span></td>
               <td className="muted">{l.target}</td>
             </tr>
           ))}
-          {logs.length === 0 && <tr><td colSpan={4} className="muted">Aucune entrée.</td></tr>}
+          {logs.length === 0 && <tr><td colSpan={4} className="muted">No entries.</td></tr>}
         </tbody>
       </table>
     </div>

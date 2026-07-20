@@ -367,3 +367,47 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   .notif-invite-txt { flex: 0 0 auto; }
   .notif-invite-actions { margin-left: 0; justify-content: flex-end; }
 }
+
+/* ===== Page d'accueil publique (landing) =====
+   Les visuels sont des fonds d'image : dépose public/landing/hero.jpg et
+   public/landing/about.jpg pour les personnaliser. Absents → dégradé sombre. */
+.lp-nav { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px;
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10;
+  background: rgba(7, 11, 18, 0.85); backdrop-filter: blur(8px); }
+.lp-brand { display: flex; align-items: center; gap: 12px; font-family: Consolas, monospace;
+  letter-spacing: 0.14em; font-weight: 700; color: var(--accent); }
+.lp-hero { min-height: 60vh; display: flex; align-items: center; padding: 60px 24px;
+  background: linear-gradient(rgba(7,11,18,0.72), rgba(7,11,18,0.92)),
+              url("/landing/hero.jpg") center/cover no-repeat,
+              radial-gradient(ellipse at 30% 20%, #0f1e33, var(--bg)); }
+.lp-hero-inner { max-width: 900px; margin: 0 auto; width: 100%; }
+.lp-hero-logo { height: clamp(72px, 12vw, 120px); width: auto; margin-bottom: 18px;
+  filter: drop-shadow(0 4px 18px rgba(0,0,0,0.55)); }
+.lp-hero h1 { color: #dfe9f6; font-size: clamp(1.5rem, 4vw, 2.6rem); line-height: 1.15;
+  text-transform: none; letter-spacing: 0.02em; }
+.lp-tagline { color: var(--muted); max-width: 620px; margin: 16px 0 26px; font-size: 1.05rem; line-height: 1.6; }
+.lp-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.lp-stats { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; padding: 26px 24px;
+  border-bottom: 1px solid var(--border); background: var(--panel); }
+.lp-stat { display: flex; flex-direction: column; align-items: center; min-width: 130px; }
+.lp-num { font-family: Consolas, monospace; font-size: 2rem; color: var(--accent); }
+.lp-lbl { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; }
+.lp-section { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+.lp-about { display: flex; gap: 24px; flex-wrap: wrap; }
+.lp-about-photo { flex: 1 1 280px; min-height: 200px; border-radius: 10px; border: 1px solid var(--border);
+  background: linear-gradient(rgba(7,11,18,0.3), rgba(7,11,18,0.6)),
+              url("/landing/about.jpg") center/cover no-repeat,
+              linear-gradient(135deg, #12223a, #0a1220); }
+.lp-about-text { flex: 2 1 340px; line-height: 1.7; }
+.lp-about-text p { margin-bottom: 12px; }
+.lp-divisions { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.lp-div-card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.lp-div-photo { height: 110px; background: linear-gradient(135deg, #13233c, #0a1220); border-bottom: 1px solid var(--border); }
+.lp-div-body { padding: 12px 14px; }
+.lp-div-name { font-weight: 600; margin-bottom: 2px; }
+.lp-footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 24px;
+  border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; }
+.enlist-help { border: 1px solid var(--accent-dim); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;
+  background: #0a101a; font-size: 0.85rem; }
+.enlist-help .mono { background: #10233c; padding: 1px 6px; border-radius: 3px; }
+@media (max-width: 520px) { .lp-footer { flex-direction: column; } }

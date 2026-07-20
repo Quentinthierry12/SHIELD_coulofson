@@ -5,7 +5,7 @@ import Dashboard from "./ui";
 
 export default async function DashboardPage() {
   const session = await getSession();
-  if (!session) redirect("/");
+  if (!session) redirect("/login");
   if (session.mustChangePassword) redirect("/change-password");
   if (await needsOnboarding(session)) redirect("/onboarding");
   // Only offer the Academy when it is actually wired up.

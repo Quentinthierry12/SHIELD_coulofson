@@ -12,11 +12,11 @@ async function canManage(folderId: number) {
   return atLeast(await folderRole(folderId, s), "manager") ? s : null;
 }
 
-const ROLE_FR: Record<Role, string> = { viewer: "lecture seule", editor: "édition", manager: "gestion" };
+const ROLE_FR: Record<Role, string> = { viewer: "view", editor: "edit", manager: "manage" };
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
-  if (!(await canManage(id))) return NextResponse.json({ error: "Rôle Gestionnaire requis pour ce dossier." }, { status: 403 });
+  if (!(await canManage(id))) return NextResponse.json({ error: "Manager role required for this folder." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query(
     `SELECT u.matricule, u.codename, u.clearance, fm.role FROM folder_members fm JOIN users u ON u.id = fm.user_id
@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const s = await canManage(id);
-  if (!s) return NextResponse.json({ error: "Rôle Gestionnaire requis pour ce dossier." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Manager role required for this folder." }, { status: 403 });
   const { matricule, role } = await req.json();
   const r = normalizeRole(role);
   const pool = await db();
@@ -45,7 +45,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   audit(s, "folder_invite", `${f[0]?.name || id} -> ${(matricule || "").trim().toUpperCase()} (${r})`);
   dmByUserId(
     rows[0].id,
-    `🦅 **TRANSMISSION S.H.I.E.L.D.** — Un accès (**${ROLE_FR[r]}**) au dossier restreint **${f[0]?.name || "?"}** vous a été accordé. ${process.env.PORTAL_URL}/dashboard`
+    `🦅 **S.H.I.E.L.D. TRANSMISSION** — You were granted access (**${ROLE_FR[r]}**) to the restricted folder **${f[0]?.name || "?"}**. ${process.env.PORTAL_URL}/dashboard`
   );
   return NextResponse.json({ ok: true, codename: rows[0].codename, role: r });
 }
@@ -53,7 +53,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = parseInt((await params).id, 10);
   const s = await canManage(id);
-  if (!s) return NextResponse.json({ error: "Rôle Gestionnaire requis pour ce dossier." }, { status: 403 });
+  if (!s) return NextResponse.json({ error: "Manager role required for this folder." }, { status: 403 });
   const { matricule } = await req.json();
   const pool = await db();
   await pool.query(

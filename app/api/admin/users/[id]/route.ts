@@ -10,7 +10,7 @@ type Ev = { at: string; kind: string; label: string };
 // existantes (users, demandes de serment, journal d'audit) — aucun schéma en plus.
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
 
@@ -37,15 +37,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   );
 
   const events: Ev[] = [];
-  events.push({ at: u.created_at, kind: "created", label: "Compte créé" });
+  events.push({ at: u.created_at, kind: "created", label: "Account created" });
   reqs.forEach((r: any, i: number) => {
-    events.push({ at: r.created_at, kind: "notify", label: i === 0 ? "Serment demandé — notification envoyée" : "Relance du serment — notification envoyée" });
-    if (r.my_status === "signed" && r.signed_at) events.push({ at: r.signed_at, kind: "signed", label: "Serment signé" });
-    if (r.status === "complete" && r.completed_at) events.push({ at: r.completed_at, kind: "sealed", label: "Dossier scellé (contresigné)" });
+    events.push({ at: r.created_at, kind: "notify", label: i === 0 ? "Oath requested — notification sent" : "Oath reminder — notification sent" });
+    if (r.my_status === "signed" && r.signed_at) events.push({ at: r.signed_at, kind: "signed", label: "Oath signed" });
+    if (r.status === "complete" && r.completed_at) events.push({ at: r.completed_at, kind: "sealed", label: "File sealed (countersigned)" });
   });
   if (logins[0]) events.push({ at: logins[0].created_at, kind: "first_login", label: "1ʳᵉ connexion" });
-  if (logins.length > 1) events.push({ at: logins[logins.length - 1].created_at, kind: "last_login", label: "Dernière connexion" });
-  pwd.forEach((p: any) => events.push({ at: p.created_at, kind: "password", label: "Mot de passe changé" }));
+  if (logins.length > 1) events.push({ at: logins[logins.length - 1].created_at, kind: "last_login", label: "Last sign-in" });
+  pwd.forEach((p: any) => events.push({ at: p.created_at, kind: "password", label: "Password changed" }));
   events.sort((a, b) => +new Date(a.at) - +new Date(b.at));
 
   // Statut de serment courant, d'après la dernière demande.
@@ -53,9 +53,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   let state = "none";
   let statusLabel = "Aucun dossier de serment";
   if (latest) {
-    if (latest.status === "pending" && latest.my_status === "pending") { state = "to_sign"; statusLabel = "Serment à signer — accès bloqué"; }
-    else if (latest.status === "complete") { state = "sealed"; statusLabel = "Dossier scellé (contresigné)"; }
-    else if (latest.my_status === "signed") { state = "signed"; statusLabel = "Signé — en attente de contreseing officier"; }
+    if (latest.status === "pending" && latest.my_status === "pending") { state = "to_sign"; statusLabel = "Oath to sign — access blocked"; }
+    else if (latest.status === "complete") { state = "sealed"; statusLabel = "File sealed (countersigned)"; }
+    else if (latest.my_status === "signed") { state = "signed"; statusLabel = "Signed — awaiting officer countersignature"; }
   }
 
   return NextResponse.json({
@@ -73,7 +73,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 // en attente, pour qu'une signature débloque bien l'agent.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const body = await req.json().catch(() => ({} as any));
 
@@ -94,7 +94,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   if (id === s.id) return NextResponse.json({ error: "Vous ne pouvez pas supprimer votre propre compte." }, { status: 400 });
   const pool = await db();
@@ -102,7 +102,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const target = rows[0];
   if (!target) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
   if (target.clearance >= s.clearance) {
-    return NextResponse.json({ error: "Vous ne pouvez pas supprimer un agent d'habilitation supérieure ou égale à la vôtre." }, { status: 403 });
+    return NextResponse.json({ error: "You cannot delete an agent with clearance equal to or above your own." }, { status: 403 });
   }
   await deleteMoodleUser(id); // remove their Academy account too
   // Keep the agent's documents (orphaned), drop their access rows, then remove the account.

@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 
 export async function GET(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") || "").trim();
   const action = (url.searchParams.get("action") || "").trim();

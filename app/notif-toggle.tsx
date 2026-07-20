@@ -30,10 +30,10 @@ export default function NotifToggle() {
     setBusy(true);
     try {
       const r = await subscribeThisDevice();
-      if (r === "on") { setState("on"); toast("Notifications activées sur cet appareil.", "success"); }
+      if (r === "on") { setState("on"); toast("Notifications enabled on this device.", "success"); }
       else if (r === "denied") { setState("denied"); }
       else if (r === "dismissed") { setState("off"); }
-      else toast("Impossible d'activer les notifications.", "error");
+      else toast("Couldn't enable notifications.", "error");
     } finally {
       setBusy(false);
     }
@@ -44,7 +44,7 @@ export default function NotifToggle() {
     try {
       await unsubscribeThisDevice();
       setState("off");
-      toast("Notifications désactivées sur cet appareil.", "success");
+      toast("Notifications disabled on this device.", "success");
     } finally {
       setBusy(false);
     }
@@ -56,10 +56,10 @@ export default function NotifToggle() {
     return (
       <button
         className="ghost small"
-        title="Les notifications sont bloquées dans les réglages du navigateur pour ce site."
-        onClick={() => toast("Notifications bloquées — autorisez-les dans les réglages du site.", "error")}
+        title="Notifications are blocked for this site in your browser settings."
+        onClick={() => toast("Notifications blocked — allow them in your site settings.", "error")}
       >
-        Notifs bloquées
+        Alerts blocked
       </button>
     );
   }
@@ -68,10 +68,10 @@ export default function NotifToggle() {
     <button
       className="ghost small"
       disabled={busy}
-      title={state === "on" ? "Recevoir les alertes de signature sur cet appareil (activé)" : "Recevoir les alertes de signature sur cet appareil"}
+      title={state === "on" ? "Receive signature alerts on this device (on)" : "Receive signature alerts on this device"}
       onClick={state === "on" ? disable : enable}
     >
-      {state === "on" ? "🔔 Notifs ✓" : "🔔 Notifs"}
+      {state === "on" ? "🔔 Alerts ✓" : "🔔 Alerts"}
     </button>
   );
 }

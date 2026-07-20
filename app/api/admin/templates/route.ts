@@ -8,7 +8,7 @@ const MAX_SIZE = 25 * 1024 * 1024;
 
 export async function GET() {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const pool = await db();
   const { rows } = await pool.query("SELECT id, name, filetype, body, created_at FROM templates ORDER BY name");
   return NextResponse.json(
@@ -23,7 +23,7 @@ export async function GET() {
 // Create a template: either an uploaded file (multipart) or an on-site text template (JSON {name, body}).
 export async function POST(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const pool = await db();
 
   if (req.headers.get("content-type")?.includes("application/json")) {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
   const name = String(form.get("name") || "").trim();
-  if (!file) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "No file received." }, { status: 400 });
   if (file.size > MAX_SIZE) return NextResponse.json({ error: "Fichier trop volumineux (25 Mo max)." }, { status: 400 });
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (!DOC_TYPES[ext]) return NextResponse.json({ error: "Format non pris en charge : .docx, .xlsx ou .pptx uniquement." }, { status: 400 });

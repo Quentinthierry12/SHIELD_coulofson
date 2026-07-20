@@ -1,107 +1,116 @@
-"use client";
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { db } from "@/lib/db";
 
-const DISCORD_ERRORS: Record<string, string> = {
-  error: "Échec de la connexion Discord. Veuillez réessayer.",
-  unknown: "Aucun compte agent n'est lié à ce compte Discord. Connectez-vous d'abord avec votre matricule, puis liez Discord depuis le tableau de bord.",
-  inactive: "Votre compte n'est pas encore actif.",
-};
-
-function LoginPage() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [matricule, setMatricule] = useState("");
-  const [customBadge, setCustomBadge] = useState("");
-  const [codename, setCodename] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(DISCORD_ERRORS[params.get("discord") || ""] || "");
-  const [success, setSuccess] = useState("");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    if (mode === "login") {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ matricule, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error);
-      router.push("/dashboard");
-    } else {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ codename, password, matricule: customBadge }),
-      });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error);
-      setSuccess(
-        `Demande enregistrée. Votre matricule : ${data.matricule} — notez-le. ` +
-          `Un officier supérieur doit valider votre habilitation avant votre première connexion.`
-      );
-      setMode("login");
-      setMatricule(data.matricule);
-    }
+// PUBLIC landing page. Server component: reads unclassified aggregates straight from the
+// database (never any sensitive detail). Must render even if the database is unreachable.
+async function overview() {
+  try {
+    const pool = await db();
+    const { rows: divisions } = await pool.query(
+      `SELECT d.name, COUNT(u.id)::int AS members
+         FROM divisions d
+         LEFT JOIN users u ON u.division_id = d.id AND u.status = 'active'
+        GROUP BY d.id, d.name ORDER BY members DESC, d.name`
+    );
+    const { rows: a } = await pool.query("SELECT COUNT(*)::int AS n FROM users WHERE status = 'active'");
+    const { rows: m } = await pool.query("SELECT COUNT(*)::int AS n FROM missions WHERE status = 'active'");
+    return { divisions, agents: a[0]?.n ?? 0, missions: m[0]?.n ?? 0 };
+  } catch {
+    return { divisions: [] as { name: string; members: number }[], agents: 0, missions: 0 };
   }
-
-  return (
-    <div className="login-wrap">
-      <div className="login-box">
-        <div className="eagle">
-          <img src="/logo.png" alt="S.H.I.E.L.D." className="logo-img" style={{ height: 110 }}
-               onError={(e) => { e.currentTarget.style.display = "none"; }} />
-        </div>
-        <h1 style={{ textAlign: "center", marginBottom: 4 }}>S.H.I.E.L.D.</h1>
-        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>
-          Central Document System — Restricted access
-        </p>
-        <div className="panel">
-          <div className="tabs">
-            <button className={mode === "login" ? "" : "inactive"} onClick={() => setMode("login")} type="button">
-              Se connecter
-            </button>
-            <button className={mode === "register" ? "" : "inactive"} onClick={() => setMode("register")} type="button">
-              S'enrôler
-            </button>
-          </div>
-          {error && <p className="error">⚠ {error}</p>}
-          {success && <p className="success">✓ {success}</p>}
-          <form onSubmit={submit}>
-            {mode === "login" ? (
-              <input placeholder="MATRICULE (ex. AG-4782)" value={matricule} onChange={(e) => setMatricule(e.target.value)} />
-            ) : (
-              <>
-                <input placeholder="NOM DE CODE" value={codename} onChange={(e) => setCodename(e.target.value)} />
-                <input placeholder="MATRICULE PERSONNALISÉ (facultatif — auto si vide)" value={customBadge} onChange={(e) => setCustomBadge(e.target.value)} />
-              </>
-            )}
-            <input type="password" placeholder="MOT DE PASSE" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button style={{ width: "100%" }}>{mode === "login" ? "Se connecter" : "Demander l'accès"}</button>
-          </form>
-          {mode === "login" && (
-            <a href="/api/auth/discord">
-              <button type="button" className="ghost" style={{ width: "100%", marginTop: 10 }}>
-                Se connecter avec Discord
-              </button>
-            </a>
-          )}
-        </div>
-        <p className="muted" style={{ textAlign: "center", fontSize: "0.7rem" }}>
-          Tout accès non autorisé fera l'objet de poursuites — Protocole 7-Alpha
-        </p>
-      </div>
-    </div>
-  );
 }
 
-export default function Page() {
+export default async function Landing() {
+  const { divisions, agents, missions } = await overview();
+
   return (
-    <Suspense>
-      <LoginPage />
-    </Suspense>
+    <div className="lp">
+      <header className="lp-nav">
+        <div className="lp-brand">
+          <img src="/logo.png" alt="" className="logo-img" style={{ height: 34 }} />
+          <span>S.H.I.E.L.D.</span>
+        </div>
+        <a href="/login"><button className="small">Enter the portal</button></a>
+      </header>
+
+      {/* The visuals are background images: to change them, drop files into
+          public/landing/ (hero.jpg, about.jpg). If absent, a dark gradient shows instead. */}
+      <section className="lp-hero">
+        <div className="lp-hero-inner">
+          <img src="/logo.png" alt="S.H.I.E.L.D." className="lp-hero-logo" />
+          <h1>S.H.I.E.L.D.</h1>
+          <p className="muted" style={{ fontFamily: "Consolas, monospace", letterSpacing: "0.1em", margin: "6px 0 0" }}>
+            Central Document System
+          </p>
+          <p className="lp-tagline">
+            Classified document portal — reports, registries, mission orders and the division's
+            signature workflows.
+          </p>
+          <div className="lp-cta">
+            <a href="/login"><button>Sign in</button></a>
+            <a href="/login?mode=register"><button className="ghost">Enlist</button></a>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-stats">
+        <div className="lp-stat"><span className="lp-num">{agents}</span><span className="lp-lbl">Active agents</span></div>
+        <div className="lp-stat"><span className="lp-num">{missions}</span><span className="lp-lbl">Ongoing operations</span></div>
+        <div className="lp-stat"><span className="lp-num">{divisions.length}</span><span className="lp-lbl">Divisions</span></div>
+      </section>
+
+      <section className="lp-section">
+        <h2>The division</h2>
+        <div className="lp-about">
+          <div className="lp-about-photo" />
+          <div className="lp-about-text">
+            <p>
+              S.H.I.E.L.D. centralizes all operational documentation: every report, registry and
+              briefing carries a classification level, and is only visible to agents holding the
+              required clearance.
+            </p>
+            <p>
+              Mission orders are tracked end to end — from assignment to after-action report — and
+              official documents go through a signature workflow engraved into the file itself.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-section">
+        <h2>Active divisions</h2>
+        {divisions.length === 0 ? (
+          <p className="muted">No division declared yet.</p>
+        ) : (
+          <div className="lp-divisions">
+            {divisions.map((d) => (
+              <div key={d.name} className="lp-div-card">
+                <div className="lp-div-photo" />
+                <div className="lp-div-body">
+                  <div className="lp-div-name">{d.name}</div>
+                  <div className="muted">{d.members} agent{d.members > 1 ? "s" : ""}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="lp-section">
+        <h2>Operations</h2>
+        <p className="muted" style={{ maxWidth: 640 }}>
+          {missions > 0
+            ? `${missions} ongoing operation${missions > 1 ? "s" : ""}. Mission details are classified — sign in to access the ones assigned to you.`
+            : "No public operations. Mission details are classified — sign in to access the ones assigned to you."}
+        </p>
+        <div className="lp-cta" style={{ marginTop: 16 }}>
+          <a href="/login"><button>Enter the portal</button></a>
+        </div>
+      </section>
+
+      <footer className="lp-footer">
+        <span>S.H.I.E.L.D. — Central Document System</span>
+        <span className="muted">Unauthorized access will be prosecuted — Protocol 7-Alpha</span>
+      </footer>
+    </div>
   );
 }

@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { discordAuthUrl, discordEnabled } from "@/lib/discord";
+import { discordAuthUrl, discordEnabled, readPendingLinkToken } from "@/lib/discord";
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!discordEnabled()) {
-    return NextResponse.json({ error: "L'intégration Discord n'est pas encore configurée." }, { status: 503 });
+    return NextResponse.json({ error: "The Discord integration is not configured yet." }, { status: 503 });
+  }
+  // Recrue en attente qui vient de s'enrôler : jeton de liaison (pas de session encore).
+  const link = new URL(req.url).searchParams.get("link");
+  if (link) {
+    const uid = await readPendingLinkToken(link);
+    if (uid) return NextResponse.redirect(await discordAuthUrl("link", uid, true));
   }
   const s = await getSession();
   // Logged in → link flow ; anonymous → login flow

@@ -10,7 +10,7 @@ const STATUSES = ["active", "completed", "aborted"];
 // who was there. Only an officer can abort or reopen.
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const { status, report } = await req.json();
   const pool = await db();
@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     "SELECT 1 FROM mission_agents WHERE mission_id = $1 AND user_id = $2", [id, s.id]
   );
   const officer = s.role === "admin";
-  if (!officer && !assigned) return NextResponse.json({ error: "Vous n'êtes pas affecté à cette mission." }, { status: 403 });
+  if (!officer && !assigned) return NextResponse.json({ error: "You are not assigned to this mission." }, { status: 403 });
 
   if (report !== undefined) {
     await pool.query("UPDATE missions SET report = $2 WHERE id = $1", [id, String(report).trim() || null]);
@@ -43,7 +43,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (status !== "active" && status !== m.status) {
       // Tell the team it is over — otherwise agents keep an order open that no longer stands.
       const { rows: team } = await pool.query("SELECT user_id FROM mission_agents WHERE mission_id = $1", [id]);
-      const verb = status === "completed" ? "**terminée**" : "**annulée**";
+      const verb = status === "completed" ? "**completed**" : "**aborted**";
       for (const t of team) {
         dmByUserId(t.user_id, `🦅 **TRANSMISSION S.H.I.E.L.D.** — La mission **${m.code}** est ${verb}. Repos.`);
       }
@@ -55,7 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Réservé aux officiers." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Officers only." }, { status: 403 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
   const { rows } = await pool.query("DELETE FROM missions WHERE id = $1 RETURNING code, doc_id", [id]);

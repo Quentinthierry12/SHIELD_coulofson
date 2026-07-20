@@ -27,7 +27,7 @@ export default function Editor({ dsUrl, config, title, redacted, hideNav }: { ds
         <div className="logo">
           {!hideNav && <a href="/dashboard"><button className="ghost small">← Archives</button></a>}
           <span className="badge">{title}</span>
-          {redacted && <span className="classif high">VUE CAVIARDÉE — lecture seule, sections classifiées masquées</span>}
+          {redacted && <span className="classif high">REDACTED VIEW — read-only, classified sections hidden</span>}
         </div>
         {!redacted && (
           <span className="muted" style={{ fontSize: "0.78rem" }}>

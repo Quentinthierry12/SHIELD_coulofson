@@ -13,9 +13,9 @@ import { syncMoodleUser, moodleEnabled } from "@/lib/moodle";
 // the passwords match.
 export async function POST(req: Request) {
   const s = await getSession();
-  if (s?.role !== "admin") return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   if (!moodleEnabled()) {
-    return NextResponse.json({ error: "L'Académie n'est pas configurée (MOODLE_URL / MOODLE_TOKEN)." }, { status: 400 });
+    return NextResponse.json({ error: "The Academy is not configured (MOODLE_URL / MOODLE_TOKEN)." }, { status: 400 });
   }
 
   const { id } = await req.json().catch(() => ({ id: undefined }));

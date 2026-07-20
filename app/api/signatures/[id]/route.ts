@@ -11,7 +11,7 @@ import { signatureRequestPush } from "@/lib/push";
 // (the agent's uploaded handwritten signature).
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const { kind, decline, reason } = await req.json();
   const pool = await db();
@@ -22,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   );
   const request = rr[0];
   if (!request) return NextResponse.json({ error: "Demande de signature inconnue." }, { status: 404 });
-  if (request.status !== "pending") return NextResponse.json({ error: "Cette demande est déjà réglée." }, { status: 409 });
+  if (request.status !== "pending") return NextResponse.json({ error: "This request is already settled." }, { status: 409 });
 
   const { rows: signers } = await pool.query(
     "SELECT user_id, position, status FROM signature_signers WHERE request_id = $1 ORDER BY position", [id]
@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!isMyTurn(signers, s.id, request.sequential)) {
     const mine = signers.find((x: any) => x.user_id === s.id);
     return NextResponse.json(
-      { error: !mine ? "Vous n'êtes pas signataire de ce document." : mine.status !== "pending" ? "Vous avez déjà répondu." : "Ce n'est pas encore votre tour." },
+      { error: !mine ? "You are not a signer on this document." : mine.status !== "pending" ? "You have already responded." : "It is not your turn yet." },
       { status: 403 }
     );
   }
@@ -44,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // A refusal ends the circuit and releases the document so it can be corrected.
     await pool.query("UPDATE documents SET locked = false WHERE id = $1", [request.doc_id]);
     if (request.requested_by) {
-      dmByUserId(request.requested_by, `🦅 **S.H.I.E.L.D.** — ${s.codename} (${s.matricule}) **a refusé** de signer **${request.title}**.${reason ? ` Motif : ${reason}` : ""}`);
+      dmByUserId(request.requested_by, `🦅 **S.H.I.E.L.D.** — ${s.codename} (${s.matricule}) **declined** to sign **${request.title}**.${reason ? ` Reason: ${reason}` : ""}`);
     }
     audit(s, "signature_decline", `${request.title}${reason ? " — " + reason : ""}`);
     return NextResponse.json({ ok: true, declined: true });
@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await pool.query("UPDATE documents SET locked = false WHERE id = $1", [request.doc_id]);
     audit(s, "signature_broken", `${request.title} — content changed since the request`);
     return NextResponse.json(
-      { error: "Le document a changé depuis la demande. Elle a été annulée — demandez-en une nouvelle." },
+      { error: "The document changed since the request. It was cancelled — request a new one." },
       { status: 409 }
     );
   }
@@ -142,7 +142,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { rows: all } = await pool.query("SELECT user_id FROM signature_signers WHERE request_id = $1", [id]);
     const notify = new Set<number>([...all.map((x: any) => x.user_id), request.requested_by].filter(Boolean));
     for (const uid of notify) {
-      dmByUserId(uid, `🦅 **S.H.I.E.L.D.** — **${request.title}** est entièrement signé et scellé. ${process.env.PORTAL_URL}/doc/${request.doc_id}`);
+      dmByUserId(uid, `🦅 **S.H.I.E.L.D.** — **${request.title}** is fully signed and sealed. ${process.env.PORTAL_URL}/doc/${request.doc_id}`);
     }
     audit(s, "signature_complete", `${request.title}`);
   } else if (request.sequential) {
@@ -152,7 +152,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       "SELECT user_id FROM signature_signers WHERE request_id = $1 AND position = $2", [id, next.position]
     );
     if (nu[0]) {
-      dmByUserId(nu[0].user_id, `🦅 **DEMANDE DE SIGNATURE S.H.I.E.L.D.** — C'est à votre tour de signer **${request.title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(request.title, request.doc_id, "À votre tour de signer"));
+      dmByUserId(nu[0].user_id, `🦅 **S.H.I.E.L.D. SIGNATURE REQUEST** — It's your turn to sign **${request.title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(request.title, request.doc_id, "Your turn to sign"));
     }
   }
 
@@ -162,7 +162,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 // Cancel an open request (requester or officer) — releases the document.
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const s = await getSession();
-  if (!s) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!s) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const id = parseInt((await params).id, 10);
   const pool = await db();
   const { rows } = await pool.query(
@@ -174,7 +174,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return NextResponse.json({ error: "Seul le demandeur ou un officier peut annuler." }, { status: 403 });
   }
   if (request.status === "complete") {
-    return NextResponse.json({ error: "Un document scellé ne peut pas être dé-signé. Déverrouillez-le plutôt — cela annule les signatures." }, { status: 409 });
+    return NextResponse.json({ error: "A sealed document cannot be un-signed. Unlock it instead — that voids the signatures." }, { status: 409 });
   }
   await pool.query("UPDATE signature_requests SET status = 'cancelled', completed_at = now() WHERE id = $1", [id]);
   await pool.query("UPDATE documents SET locked = false WHERE id = $1", [request.doc_id]);
