@@ -1322,7 +1322,7 @@ const ACTION_LABELS: Record<string, string> = {
   login: "Sign-in", login_failed: "Sign-in failed", register: "Enlistment",
   discord_login: "Sign-in (Discord)", discord_link: "Discord linked",
   doc_create: "Document created", doc_import: "Document imported", doc_open: "Document opened",
-  doc_save: "Document saved", doc_destroy: "Document destroyed", doc_share: "Document shared", doc_unshare: "Share revoked",
+  doc_save: "Document saved", doc_destroy: "Document destroyed", doc_share: "Document shared", doc_unshare: "Share revoked", doc_mention: "Mention in a comment",
   folder_create: "Folder created", folder_invite: "Invited to folder", folder_uninvite: "Removed from folder",
   account_create: "Account created", account_update: "Account updated", account_delete: "Account deleted", password_reset: "Password reset",
   password_change: "Password changed", settings_update: "Settings updated", push_test: "Test notification sent", onboarding_override: "Onboarding override (access without signature)",
