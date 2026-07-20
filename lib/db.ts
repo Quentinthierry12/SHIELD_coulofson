@@ -204,6 +204,15 @@ async function migrate() {
       data BYTEA NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    -- Share a document with a whole division: every ACTIVE member inherits the role,
+    -- resolved dynamically — joining/leaving the division grants/revokes access.
+    CREATE TABLE IF NOT EXISTS document_division_shares (
+      doc_id INT NOT NULL,
+      division_id INT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'viewer',
+      PRIMARY KEY (doc_id, division_id)
+    );
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {
@@ -337,6 +346,14 @@ export async function getAccessibleDoc(docId: number, clearance: number, userId:
     [docId, userId]
   );
   if (shared) return doc;
+  // A share on the agent's division counts the same as a personal share.
+  const { rowCount: divShared } = await p.query(
+    `SELECT 1 FROM document_division_shares dds
+       JOIN users u ON u.id = $2
+      WHERE dds.doc_id = $1 AND dds.division_id = u.division_id`,
+    [docId, userId]
+  );
+  if (divShared) return doc;
   if (doc.classification > clearance) return null;
   if (doc.folder_id) {
     const ids = await accessibleFolderIds(userId, role);

@@ -413,7 +413,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
       )}
       {signDoc && <SignRequestModal doc={signDoc} onClose={() => setSignDoc(null)} onDone={load} />}
       {shareDoc && (
-        <AccessModal title={`Share “${shareDoc.title}”`} url={`/api/documents/${shareDoc.id}/share`} verb="Shared with" onClose={() => setShareDoc(null)} />
+        <AccessModal title={`Share “${shareDoc.title}”`} url={`/api/documents/${shareDoc.id}/share`} verb="Shared with" allowDivisions onClose={() => setShareDoc(null)} />
       )}
       {manageFolder && (
         <AccessModal
@@ -623,17 +623,29 @@ function CreateModal({ filetype, folders, maxLevel, defaultFolder, onClose }: {
   );
 }
 
-type Share = Agent & { role?: string };
+// A share row is either a single agent or a whole division. GET returns `kind`; rows without
+// one (folder members) are treated as agents.
+type Share = {
+  kind?: "user" | "division";
+  matricule?: string; codename?: string;
+  division_id?: number; name?: string; members?: number;
+  role?: string;
+};
+type Div = { id: number; name: string; members: number };
 const ROLE_OPTS: { v: string; label: string }[] = [
   { v: "viewer", label: "Viewer" },
   { v: "editor", label: "Editor" },
   { v: "manager", label: "Manager" },
 ];
+const isDivision = (a: Share) => a.kind === "division";
+const shareKey = (a: Share) => (isDivision(a) ? `d${a.division_id}` : `u${a.matricule}`);
 
-function AccessModal({ title, url, verb, note, onClose }: { title: string; url: string; verb: string; note?: string; onClose: () => void }) {
+function AccessModal({ title, url, verb, note, allowDivisions, onClose }: { title: string; url: string; verb: string; note?: string; allowDivisions?: boolean; onClose: () => void }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Agent[]>([]);
   const [shares, setShares] = useState<Share[]>([]);
+  const [divisions, setDivisions] = useState<Div[]>([]);
+  const [divId, setDivId] = useState("");
   const [role, setRole] = useState("viewer"); // rôle appliqué au prochain ajout
   const [msg, setMsg] = useState("");
 
@@ -641,7 +653,10 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
     const res = await fetch(url);
     if (res.ok) setShares(await res.json());
   }
-  useEffect(() => { loadShares(); }, []);
+  useEffect(() => {
+    loadShares();
+    if (allowDivisions) fetch("/api/divisions").then((r) => (r.ok ? r.json() : [])).then(setDivisions).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!q.trim()) return setResults([]);
@@ -660,15 +675,30 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
     setQ(""); setResults([]); loadShares();
   }
 
+  async function addDivision() {
+    if (!divId) return;
+    setMsg("");
+    const res = await fetch(url, { method: "POST", body: JSON.stringify({ division_id: +divId, role }) });
+    const data = await res.json();
+    setMsg(res.ok ? `✓ ${verb} division ${data.name}` : `⚠ ${data.error}`);
+    setDivId(""); loadShares();
+  }
+
   async function changeRole(a: Share, newRole: string) {
-    await fetch(url, { method: "POST", body: JSON.stringify({ matricule: a.matricule, role: newRole }) });
+    const body = isDivision(a) ? { division_id: a.division_id, role: newRole } : { matricule: a.matricule, role: newRole };
+    await fetch(url, { method: "POST", body: JSON.stringify(body) });
     loadShares();
   }
 
-  async function remove(a: Agent) {
-    await fetch(url, { method: "DELETE", body: JSON.stringify({ matricule: a.matricule }) });
+  async function remove(a: Share) {
+    const body = isDivision(a) ? { division_id: a.division_id } : { matricule: a.matricule };
+    await fetch(url, { method: "DELETE", body: JSON.stringify(body) });
     loadShares();
   }
+
+  // Divisions already shared are dropped from the picker.
+  const shared = new Set(shares.filter(isDivision).map((a) => a.division_id));
+  const pickable = divisions.filter((d) => !shared.has(d.id));
 
   return (
     <div className="overlay" onClick={onClose}>
@@ -690,13 +720,26 @@ function AccessModal({ title, url, verb, note, onClose }: { title: string; url: 
             ))}
           </div>
         )}
+        {allowDivisions && pickable.length > 0 && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <select value={divId} onChange={(e) => setDivId(e.target.value)} style={{ marginBottom: 0, flex: 1 }} title="Share with a whole division">
+              <option value="">— Add a division —</option>
+              {pickable.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.members} agent{d.members > 1 ? "s" : ""})</option>)}
+            </select>
+            <button className="ghost" onClick={addDivision} disabled={!divId}>Add</button>
+          </div>
+        )}
         {msg && <p className={msg.startsWith("✓") ? "success" : "error"}>{msg}</p>}
         {shares.length > 0 && (
           <>
             <h2 style={{ marginTop: 14 }}>Current access</h2>
             {shares.map((a) => (
-              <div key={a.matricule} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 0" }}>
-                <span><span className="mono">{a.matricule}</span> · {a.codename}</span>
+              <div key={shareKey(a)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                {isDivision(a) ? (
+                  <span><span className="tag t-folder">DIV</span> {a.name} <span className="muted">· {a.members} agent{(a.members || 0) > 1 ? "s" : ""}</span></span>
+                ) : (
+                  <span><span className="mono">{a.matricule}</span> · {a.codename}</span>
+                )}
                 <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <select value={a.role || "viewer"} onChange={(e) => changeRole(a, e.target.value)} style={{ marginBottom: 0, width: 130 }}>
                     {ROLE_OPTS.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
