@@ -24,7 +24,7 @@ type LogRow = { id: number; matricule: string; action: string; target: string; c
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"agents" | "divisions" | "documents" | "requests" | "missions" | "templates" | "settings" | "audit">("agents");
+  const [tab, setTab] = useState<"overview" | "agents" | "divisions" | "documents" | "requests" | "missions" | "templates" | "settings" | "audit">("overview");
   return (
     <>
       <div className="topbar">
@@ -32,7 +32,8 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Command</h1>
         </div>
-        <div className="tabs" style={{ marginBottom: 0, width: 940 }}>
+        <div className="tabs" style={{ marginBottom: 0, width: 1040 }}>
+          <button className={tab === "overview" ? "" : "inactive"} onClick={() => setTab("overview")}>Overview</button>
           <button className={tab === "agents" ? "" : "inactive"} onClick={() => setTab("agents")}>Agents</button>
           <button className={tab === "divisions" ? "" : "inactive"} onClick={() => setTab("divisions")}>Divisions</button>
           <button className={tab === "documents" ? "" : "inactive"} onClick={() => setTab("documents")}>Documents</button>
@@ -44,6 +45,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
         </div>
       </div>
       <div className="container">
+        {tab === "overview" && <OverviewTab onGo={setTab} />}
         {tab === "agents" && <AgentsTab myClearance={myClearance} myId={myId} />}
         {tab === "divisions" && <DivisionsTab />}
         {tab === "documents" && <DocumentsTab />}
@@ -52,6 +54,89 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
         {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
         {tab === "settings" && <SettingsTab />}
         {tab === "audit" && <AuditTab />}
+      </div>
+    </>
+  );
+}
+
+// ---------------- Overview (officer command board) ----------------
+type Overview = {
+  signatures: { pending: number; list: { id: number; doc_id: number; title: string; created_at: string; signed: number; total: number }[] };
+  missions: { active: number; completed: number; aborted: number };
+  agents: { active: number; pending: number; blocked: number; inactive: number };
+  inactiveList: { matricule: string; codename: string; last_login: string | null }[];
+  accessRequests: number;
+  recent: { created_at: string; matricule: string; action: string; target: string }[];
+};
+
+type TabKey = "overview" | "agents" | "divisions" | "documents" | "requests" | "missions" | "templates" | "settings" | "audit";
+
+function Stat({ n, label, tone, go, onGo }: { n: number; label: string; tone?: "warn" | "bad"; go?: TabKey; onGo: (t: TabKey) => void }) {
+  const cls = `ov-stat ${n === 0 ? "zero" : tone || ""}`;
+  return (
+    <button className={cls} data-go={go ? "1" : "0"} onClick={go ? () => onGo(go) : undefined}>
+      <span className="ov-num">{n}</span>
+      <span className="ov-lbl">{label}</span>
+    </button>
+  );
+}
+
+function OverviewTab({ onGo }: { onGo: (t: TabKey) => void }) {
+  const [d, setD] = useState<Overview | null>(null);
+  useEffect(() => { fetch("/api/admin/overview").then((r) => (r.ok ? r.json() : null)).then(setD).catch(() => {}); }, []);
+
+  if (!d) return <div className="panel"><div className="skeleton" style={{ height: 120 }} /></div>;
+
+  return (
+    <>
+      <div className="ov-grid">
+        <Stat n={d.signatures.pending} label="Awaiting signature" tone="warn" go="documents" onGo={onGo} />
+        <Stat n={d.accessRequests} label="Access requests" tone="warn" go="requests" onGo={onGo} />
+        <Stat n={d.agents.blocked} label="Blocked on oath" tone="bad" go="agents" onGo={onGo} />
+        <Stat n={d.agents.pending} label="Pending recruits" tone="warn" go="agents" onGo={onGo} />
+        <Stat n={d.agents.inactive} label="Inactive 14d+" tone="warn" go="agents" onGo={onGo} />
+        <Stat n={d.missions.active} label="Active missions" go="missions" onGo={onGo} />
+        <Stat n={d.agents.active} label="Active agents" go="agents" onGo={onGo} />
+      </div>
+
+      <div className="ov-cols">
+        <div className="panel">
+          <h2>Awaiting signature ({d.signatures.pending})</h2>
+          {d.signatures.list.length === 0 ? <p className="muted">Nothing pending.</p> : d.signatures.list.map((r) => (
+            <div key={r.id} className="ov-row">
+              <a href={`/doc/${r.doc_id}`}>{r.title}</a>
+              <span className="agent-spacer" />
+              <span className="chip">{r.signed}/{r.total} signed</span>
+              <span className="muted mono" style={{ fontSize: ".72rem", whiteSpace: "nowrap" }}>{fmtWhen(r.created_at)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="panel">
+          <h2>Inactive agents</h2>
+          {d.inactiveList.length === 0 ? <p className="muted">Everyone has signed in recently.</p> : d.inactiveList.map((a) => (
+            <div key={a.matricule} className="ov-row">
+              <span><span className="mono">{a.matricule}</span> · {a.codename}</span>
+              <span className="agent-spacer" />
+              <span className="muted" style={{ fontSize: ".78rem", whiteSpace: "nowrap" }}>{a.last_login ? `last ${fmtWhen(a.last_login)}` : "never signed in"}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Recent activity</h2>
+        <table>
+          <tbody>
+            {d.recent.map((l, i) => (
+              <tr key={i}>
+                <td className="muted mono" style={{ whiteSpace: "nowrap" }}>{fmtWhen(l.created_at)}</td>
+                <td className="mono">{l.matricule}</td>
+                <td><span className={l.action === "login_failed" ? "classif high" : ""}>{ACTION_LABELS[l.action] || l.action}</span></td>
+                <td className="muted">{l.target}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </>
   );
