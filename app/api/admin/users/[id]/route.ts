@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, audit } from "@/lib/db";
+import { db, audit, refreshPersonnelFile } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { deleteMoodleUser } from "@/lib/moodle";
 import { requirePersonnelOath, voidPendingPersonnelRequests } from "@/lib/onboarding";
@@ -16,7 +16,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const { rows: urows } = await pool.query("SELECT matricule, codename, status, created_at FROM users WHERE id = $1", [id]);
   const u = urows[0];
-  if (!u) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
+  if (!u) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
+
+  // The agent's current personnel file (prefer the active/unlocked one over a sealed archive)
+  // so the sheet can link straight to it.
+  const { rows: prow } = await pool.query(
+    "SELECT id FROM documents WHERE owner_id = $1 AND is_personnel ORDER BY locked ASC, id DESC LIMIT 1",
+    [id]
+  );
+  const fileId: number | null = prow[0]?.id ?? null;
 
   // Chaque demande de serment = une notification envoyée (la 1ʳᵉ, puis les relances).
   const { rows: reqs } = await pool.query(
@@ -43,7 +51,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (r.my_status === "signed" && r.signed_at) events.push({ at: r.signed_at, kind: "signed", label: "Oath signed" });
     if (r.status === "complete" && r.completed_at) events.push({ at: r.completed_at, kind: "sealed", label: "File sealed (countersigned)" });
   });
-  if (logins[0]) events.push({ at: logins[0].created_at, kind: "first_login", label: "1ʳᵉ connexion" });
+  if (logins[0]) events.push({ at: logins[0].created_at, kind: "first_login", label: "First sign-in" });
   if (logins.length > 1) events.push({ at: logins[logins.length - 1].created_at, kind: "last_login", label: "Last sign-in" });
   pwd.forEach((p: any) => events.push({ at: p.created_at, kind: "password", label: "Password changed" }));
   events.sort((a, b) => +new Date(a.at) - +new Date(b.at));
@@ -51,7 +59,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // Statut de serment courant, d'après la dernière demande.
   const latest = reqs[reqs.length - 1];
   let state = "none";
-  let statusLabel = "Aucun dossier de serment";
+  let statusLabel = "No oath file";
   if (latest) {
     if (latest.status === "pending" && latest.my_status === "pending") { state = "to_sign"; statusLabel = "Oath to sign — access blocked"; }
     else if (latest.status === "complete") { state = "sealed"; statusLabel = "File sealed (countersigned)"; }
@@ -64,6 +72,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     statusLabel,
     summary: { notifs: reqs.length, logins: logins.length },
     events,
+    fileId,
   });
 }
 
@@ -82,13 +91,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // particulier décidé par un officier.
   if (body?.override) {
     await voidPendingPersonnelRequests(id);
-    audit(s, "onboarding_override", `user #${id} — accès débloqué sans signature`);
+    audit(s, "onboarding_override", `user #${id} — access unblocked without signature`);
     return NextResponse.json({ ok: true, override: true });
   }
 
-  // Sinon : exiger (à nouveau) la signature du dossier.
+  // Regenerate the personnel file from the agent's current data (name, division, clearance),
+  // WITHOUT re-issuing the oath or blocking access — a plain refresh of the document.
+  if (body?.regenerate) {
+    const f = await refreshPersonnelFile(id);
+    audit(s, "personnel_file", `user #${id} regenerated${f ? "" : " (generation failed)"}`);
+    return NextResponse.json({ ok: true, regenerated: !!f, docId: f?.docId ?? null });
+  }
+
+  // Otherwise: require (again) the file signature.
   const reqId = await requirePersonnelOath(id);
-  audit(s, "personnel_file", `user #${id}${reqId ? "" : " (génération impossible)"}`);
+  audit(s, "personnel_file", `user #${id}${reqId ? "" : " (generation failed)"}`);
   return NextResponse.json({ ok: true, requested: reqId !== null });
 }
 
@@ -96,11 +113,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const s = await getSession();
   if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const id = parseInt((await params).id, 10);
-  if (id === s.id) return NextResponse.json({ error: "Vous ne pouvez pas supprimer votre propre compte." }, { status: 400 });
+  if (id === s.id) return NextResponse.json({ error: "You cannot delete your own account." }, { status: 400 });
   const pool = await db();
   const { rows } = await pool.query("SELECT matricule, codename, clearance FROM users WHERE id = $1", [id]);
   const target = rows[0];
-  if (!target) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
+  if (!target) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
   if (target.clearance >= s.clearance) {
     return NextResponse.json({ error: "You cannot delete an agent with clearance equal to or above your own." }, { status: 403 });
   }

@@ -111,6 +111,7 @@ tr:hover td { background: #0f1826; }
 .tag.t-import { background: #1a2333; color: var(--muted); }
 .tag.t-folder { background: #2a2440; color: #b79dff; }
 .tag.t-locked { background: #331010; color: var(--danger); }
+.tag.t-tpl { background: #0e2f33; color: #57cfd0; }
 .card-locked { opacity: 0.62; border-top-color: var(--danger) !important; }
 .card-locked .card-title { color: var(--muted); }
 .card-locked:hover { opacity: 0.85; border-color: var(--danger); }
@@ -177,6 +178,7 @@ tr:hover td { background: #0f1826; }
 .t-xlsx { border-left-color: #4dd08a; }
 .t-pptx { border-left-color: #ff9a5c; }
 .t-import { border-left-color: var(--muted); }
+.t-tpl { border-left-color: #57cfd0; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
 .card {
