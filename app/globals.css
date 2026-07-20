@@ -143,10 +143,14 @@ tr:hover td { background: #0f1826; }
   .main .topbar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; position: static; }
   .searchbar { max-width: none; order: -1; width: 100%; }
   .main .topbar > div { flex-wrap: wrap; }
-  .content { padding: 16px 14px; }
+  .content { padding: 16px 14px; overflow-x: hidden; }
   .tiles { gap: 8px; }
   .tile { width: calc(50% - 4px); }
-  .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  /* Cartes plus larges sur mobile : à 150px elles s'affichaient à 2 colonnes trop
+     étroites et les actions (Renommer / Inviter) débordaient → scroll horizontal. */
+  .cards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .card-top { flex-wrap: wrap; gap: 6px; }
+  .card-actions { flex-wrap: wrap; }
   .topbar .badge { font-size: 0.68rem; }
   table { font-size: 0.8rem; }
   .tabs { width: 100% !important; flex-wrap: wrap; }
@@ -256,6 +260,10 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
   /* La barre passe en mode horizontal : elle ne doit PAS prendre 100dvh
      (sinon @supports plus haut étire chaque bouton sur toute la hauteur). */
   .rail { height: auto; }
+  /* Le topbar redevient statique sur mobile : la règle `.main .topbar` non-média
+     plus bas dans le fichier le repassait en `sticky` (même spécificité, ordre
+     source), d'où deux barres collantes qui se chevauchaient au dézoom/scroll. */
+  .main .topbar { position: static; }
   /* Barres collantes : respecter l'encoche / la barre d'état iOS. */
   .rail { padding-top: calc(8px + env(safe-area-inset-top)); }
   .main .topbar { padding-left: calc(14px + env(safe-area-inset-left));
