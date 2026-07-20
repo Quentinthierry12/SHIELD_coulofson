@@ -5,7 +5,7 @@ import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
 type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; moodle_synced: boolean; created_at: string; oath_state?: string | null };
 type TimelineEvent = { at: string; kind: string; label: string };
-type AgentHistory = { agent: { matricule: string; codename: string; status: string }; state: string; statusLabel: string; summary: { notifs: number; logins: number }; events: TimelineEvent[] };
+type AgentHistory = { agent: { matricule: string; codename: string; status: string }; state: string; statusLabel: string; summary: { notifs: number; logins: number }; events: TimelineEvent[]; fileId: number | null };
 
 // Badge de serment pour la ligne agent, dérivé de "reqStatus:myStatus".
 function oathBadge(state?: string | null): { label: string; cls: string; title: string } | null {
@@ -110,6 +110,18 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
     toast(res.ok ? "Signature required — the agent is notified and blocked until they sign." : "Failed.", res.ok ? "success" : "error");
   }
 
+  // Rebuild the personnel file from the agent's current data (name, division, clearance),
+  // without re-issuing the oath or blocking access — a plain document refresh.
+  async function regenFile(u: User) {
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regenerate: true }),
+    });
+    const d = await res.json().catch(() => ({}));
+    toast(res.ok && d.regenerated ? "Personnel file regenerated from current data." : "Regeneration failed.", res.ok && d.regenerated ? "success" : "error");
+  }
+
   // Emergency override: grant access WITHOUT a signature (cancels the pending oath request).
   async function overrideAccess(u: User) {
     const ok = await confirmDialog({
@@ -202,12 +214,12 @@ function AgentsTab({ myClearance, myId }: { myClearance: number; myId: number })
       {pending.length > 0 && (
         <div className="panel" style={{ borderColor: "#665520" }}>
           <h2>Recruits awaiting validation ({pending.length})</h2>
-          <UserTable users={pending} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
+          <UserTable users={pending} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onRegen={regenFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
         </div>
       )}
       <div className="panel">
         <h2>Registered agents</h2>
-        <UserTable users={others} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
+        <UserTable users={others} onUpdate={update} onRename={rename} onResetPassword={resetPassword} onDelete={deleteAgent} onGenFile={genFile} onRegen={regenFile} onOverride={overrideAccess} onAcademySync={academySync} maxLevel={maxLevel} myId={myId} />
       </div>
     </>
   );
@@ -255,12 +267,12 @@ function AgentRow({ u, locked, onOpen }: { u: User; locked: boolean; onOpen: () 
 
 // Full edit sheet. Fields are applied on Save, not on every keystroke, so a half-typed
 // badge is never sent — the badge is the sign-in name.
-function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onOverride, onAcademySync }: {
+function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onRegen, onOverride, onAcademySync }: {
   u: User; maxLevel: number; onClose: () => void;
   onUpdate: (u: User, p: Partial<User>) => void;
   onRename: (u: User, p: { matricule?: string; codename?: string }) => void;
   onResetPassword: (u: User) => void; onDelete: (u: User) => void;
-  onGenFile: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void;
+  onGenFile: (u: User) => void; onRegen: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void;
 }) {
   const [matricule, setMatricule] = useState(u.matricule);
   const [codename, setCodename] = useState(u.codename);
@@ -342,6 +354,12 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
         <div className="sheet-actions">
           {u.status !== "active" && <button className="small" onClick={() => { onUpdate(u, { status: "active" }); onClose(); }}>Validate</button>}
           {u.status === "active" && <button className="ghost small" onClick={() => { onUpdate(u, { status: "revoked" }); onClose(); }}>Revoke</button>}
+          {hist?.fileId && (
+            <a href={`/doc/${hist.fileId}`} target="_blank" rel="noopener noreferrer">
+              <button className="ghost small" title="Open this agent's personnel file">Open file</button>
+            </a>
+          )}
+          <button className="ghost small" onClick={() => { onRegen(u); onClose(); }} title="Rebuild the personnel file from current data — no re-signature, access not blocked">Regenerate file</button>
           <button className="ghost small" onClick={() => { onGenFile(u); onClose(); }} title="Regenerates the file and requires a signature — blocks the agent's access until they sign">Require signature</button>
           {u.oath_state && u.oath_state.startsWith("pending:") && (
             <button className="ghost small" onClick={() => { onOverride(u); onClose(); }} title="Unblocks access without a signature (fallback) — cancels the pending oath request">Unblock (override)</button>
@@ -360,7 +378,7 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
   );
 }
 
-function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onOverride, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
+function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGenFile, onRegen, onOverride, onAcademySync, maxLevel, myId }: { users: User[]; onUpdate: (u: User, p: Partial<User>) => void; onRename: (u: User, p: { matricule?: string; codename?: string }) => void; onResetPassword: (u: User) => void; onDelete: (u: User) => void; onGenFile: (u: User) => void; onRegen: (u: User) => void; onOverride: (u: User) => void; onAcademySync: (u: User) => void; maxLevel: number; myId: number }) {
   const [open, setOpen] = useState<User | null>(null);
   if (!users.length) return <p className="muted">Nobody.</p>;
   return (
@@ -374,7 +392,7 @@ function UserTable({ users, onUpdate, onRename, onResetPassword, onDelete, onGen
         <AgentSheet
           u={open} maxLevel={maxLevel} onClose={() => setOpen(null)}
           onUpdate={onUpdate} onRename={onRename} onResetPassword={onResetPassword}
-          onDelete={onDelete} onGenFile={onGenFile} onOverride={onOverride} onAcademySync={onAcademySync}
+          onDelete={onDelete} onGenFile={onGenFile} onRegen={onRegen} onOverride={onOverride} onAcademySync={onAcademySync}
         />
       )}
     </>

@@ -30,6 +30,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
   const [mineOnly, setMineOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [createType, setCreateType] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [shareDoc, setShareDoc] = useState<Doc | null>(null);
   const [publicDoc, setPublicDoc] = useState<Doc | null>(null);
   const [signDoc, setSignDoc] = useState<Doc | null>(null);
@@ -261,6 +262,9 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
             <button className="tile t-folder" onClick={createFolder}>
               <span className="tag t-folder">DIR</span><span>New folder</span>
             </button>
+            <button className="tile t-tpl" onClick={() => setShowTemplates(true)}>
+              <span className="tag t-tpl">TPL</span><span>From template</span>
+            </button>
             <input ref={fileInput} type="file" accept=".docx,.xlsx,.pptx" style={{ display: "none" }} onChange={upload} />
           </div>
 
@@ -421,6 +425,106 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
         />
       )}
       {publicDoc && <PublicLinkModal doc={publicDoc} onClose={() => setPublicDoc(null)} />}
+      {showTemplates && (
+        <TemplateLibraryModal folders={folders} maxLevel={session.clearance} defaultFolder={cwd ? String(cwd) : ""} onClose={() => setShowTemplates(false)} />
+      )}
+    </div>
+  );
+}
+
+type Template = { id: number; name: string; filetype: string; editable: boolean; variables: string[] };
+const TPL_TAG: Record<string, string> = { docx: "DOC", xlsx: "XLS", pptx: "PPT" };
+
+// Browse the shared template library and create a document from one. Reading and reusing is
+// open to every agent; only officers manage the templates themselves (Command → Templates).
+function TemplateLibraryModal({ folders, maxLevel, defaultFolder, onClose }: {
+  folders: Folder[]; maxLevel: number; defaultFolder: string; onClose: () => void;
+}) {
+  const router = useRouter();
+  const [templates, setTemplates] = useState<Template[] | null>(null);
+  const [q, setQ] = useState("");
+  const [chosen, setChosen] = useState<Template | null>(null);
+  const [title, setTitle] = useState("");
+  const [classification, setClassification] = useState(1);
+  const [folderId, setFolderId] = useState(defaultFolder);
+  const [vars, setVars] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/templates").then((r) => (r.ok ? r.json() : [])).then(setTemplates).catch(() => setTemplates([]));
+  }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!chosen) return;
+    setError(""); setBusy(true);
+    const res = await fetch(`/api/templates/${chosen.id}/new`, {
+      method: "POST",
+      body: JSON.stringify({ title, classification, folder_id: folderId ? +folderId : null, vars }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) return setError(data.error);
+    router.push(`/doc/${data.id}`);
+  }
+
+  const shown = (templates || []).filter((t) => !q.trim() || t.name.toLowerCase().includes(q.trim().toLowerCase()));
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
+        {!chosen ? (
+          <>
+            <h2>Template library</h2>
+            <p className="muted" style={{ marginBottom: 10 }}>Pick a template to start a new document from it.</p>
+            <input autoFocus placeholder="Search a template…" value={q} onChange={(e) => setQ(e.target.value)} />
+            {templates === null ? (
+              <div className="skeleton" style={{ height: 80 }} />
+            ) : shown.length === 0 ? (
+              <p className="muted">{templates.length === 0 ? "No template available yet." : "No template matches your search."}</p>
+            ) : (
+              <div className="cards" style={{ maxHeight: 340, overflowY: "auto" }}>
+                {shown.map((t) => (
+                  <div key={t.id} className={`card t-${t.filetype}`} onClick={() => { setChosen(t); setTitle(t.name); }} style={{ cursor: "pointer" }}>
+                    <div className="card-top">
+                      <span className={`tag t-${t.filetype}`}>{t.editable ? "TPL" : TPL_TAG[t.filetype]}</span>
+                    </div>
+                    <div className="card-title">{t.name}</div>
+                    {t.variables.length > 0 && <div className="card-meta muted" style={{ fontSize: "0.72rem" }}>{t.variables.length} field(s)</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="ghost" style={{ marginTop: 12, width: "100%" }} onClick={onClose}>Close</button>
+          </>
+        ) : (
+          <>
+            <h2>New document — {chosen.name}</h2>
+            {error && <p className="error">⚠ {error}</p>}
+            <form onSubmit={create}>
+              <input autoFocus placeholder="DOCUMENT TITLE" value={title} onChange={(e) => setTitle(e.target.value)} />
+              {chosen.variables.length > 0 && (
+                <>
+                  <p className="muted" style={{ margin: "4px 0 8px" }}>Fill in the template fields:</p>
+                  {chosen.variables.map((v) => (
+                    <input key={v} placeholder={v.toUpperCase()} value={vars[v] || ""} onChange={(e) => setVars({ ...vars, [v]: e.target.value })} />
+                  ))}
+                </>
+              )}
+              <select value={classification} onChange={(e) => setClassification(+e.target.value)}>
+                {Array.from({ length: maxLevel }, (_, i) => i + 1).map((n) => <option key={n} value={n}>Classification level {n}</option>)}
+              </select>
+              <select value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+                <option value="">— Drive root —</option>
+                {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <button style={{ width: "100%" }} disabled={busy}>{busy ? "Creating…" : "Create document"}</button>
+            </form>
+            <button className="ghost" style={{ marginTop: 10, width: "100%" }} onClick={() => setChosen(null)}>← Back to library</button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
