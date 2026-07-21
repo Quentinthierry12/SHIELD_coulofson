@@ -1,8 +1,9 @@
 "use client";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { brand } from "@/lib/brand";
 
-const COMMANDS_CHANNEL = "https://discord.com/channels/1371057544579252224/1513475225474306069";
+const COMMANDS_CHANNEL = brand.discordCommandsUrl;
 
 const DISCORD_MSG: Record<string, { text: string; ok?: boolean }> = {
   error: { text: "Discord sign-in failed. Please try again." },
@@ -50,8 +51,8 @@ function LoginPage() {
         <div className="eagle">
           <img src="/logo.png" alt="" className="logo-img" style={{ height: 90 }} onError={(e) => (e.currentTarget.style.display = "none")} />
         </div>
-        <h1 style={{ textAlign: "center", marginBottom: 4 }}>S.H.I.E.L.D.</h1>
-        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>Central Document System — Restricted access</p>
+        <h1 style={{ textAlign: "center", marginBottom: 4 }}>{brand.name}</h1>
+        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>{brand.tagline} — Restricted access</p>
 
         {registered ? (
           <div className="panel">

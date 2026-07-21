@@ -6,6 +6,7 @@ import { dmByUserId } from "@/lib/discord";
 import { syncMoodleUser, setMoodlePassword } from "@/lib/moodle";
 import { requestPersonnelSignature } from "@/lib/signatures";
 import { requirePersonnelOath } from "@/lib/onboarding";
+import { brand, dmPrefix } from "@/lib/brand";
 
 const MATRICULE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
 
@@ -131,7 +132,7 @@ export async function PATCH(req: Request) {
   if (before[0]?.status !== "active" && status === "active") {
     // Lève le serment (une seule demande en attente, dossier régénéré, notif dédiée).
     await requirePersonnelOath(id);
-    dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report in at https://shield.quentinthierry.fr");
+    dmByUserId(id, `${dmPrefix()} — Your clearance has been **activated**. Welcome aboard, agent. Report in at ${process.env.PORTAL_URL}`);
   } else if (renamed) {
     // The badge/codename is embedded in the file (and its title). A rename re-issues the
     // file for signature — requirePersonnelOath purges the old request and raises a single one.
@@ -141,13 +142,13 @@ export async function PATCH(req: Request) {
   if (before[0].status === "active" && status !== "active") {
     dmByUserId(
       id,
-      "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your access has been **suspended** by command. Contact a senior officer.",
-      { title: "S.H.I.E.L.D. — Access suspended", body: "Your access has been suspended by command.", url: "/login", tag: "account-status" }
+      `${dmPrefix()} — Your access has been **suspended** by command. Contact a senior officer.`,
+      { title: `${brand.short} — Access suspended`, body: "Your access has been suspended by command.", url: "/login", tag: "account-status" }
     );
   }
   // The badge IS the sign-in name: changing it locks the agent out until they know.
   if (newBadge !== before[0].matricule) {
-    dmByUserId(id, `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your badge number is now **${newBadge}** (was ${before[0].matricule}). Use it to sign in, here and at the Academy. Your password is unchanged.`);
+    dmByUserId(id, `${dmPrefix()} — Your badge number is now **${newBadge}** (was ${before[0].matricule}). Use it to sign in, here and at the Academy. Your password is unchanged.`);
   }
   return NextResponse.json({ ok: true });
 }

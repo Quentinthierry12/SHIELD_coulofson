@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { brand } from "@/lib/brand";
 
 // Rendered per request so live data (agent counts, uploaded photos) shows without a rebuild.
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export default async function Landing() {
       <header className="lp-nav">
         <div className="lp-brand">
           <img src="/logo.png" alt="" className="logo-img" style={{ height: 34 }} />
-          <span>S.H.I.E.L.D.</span>
+          <span>{brand.name}</span>
         </div>
         <a href="/login"><button className="small">Enter the portal</button></a>
       </header>
@@ -70,10 +71,10 @@ export default async function Landing() {
           When a slot has no photo, the CSS class supplies a dark gradient fallback. */}
       <section className="lp-hero" style={photoBg("hero", photos.hero, HERO_OVERLAY)}>
         <div className="lp-hero-inner">
-          <img src="/logo.png" alt="S.H.I.E.L.D." className="lp-hero-logo" />
-          <h1>S.H.I.E.L.D.</h1>
+          <img src="/logo.png" alt={brand.name} className="lp-hero-logo" />
+          <h1>{brand.name}</h1>
           <p className="muted" style={{ fontFamily: "Consolas, monospace", letterSpacing: "0.1em", margin: "6px 0 0" }}>
-            Central Document System
+            {brand.tagline}
           </p>
           <p className="lp-tagline">
             Classified document portal — reports, registries, mission orders and the division's
@@ -98,7 +99,7 @@ export default async function Landing() {
           <div className="lp-about-photo" style={photoBg("about", photos.about)} />
           <div className="lp-about-text">
             <p>
-              S.H.I.E.L.D. centralizes all operational documentation: every report, registry and
+              {brand.name} centralizes all operational documentation: every report, registry and
               briefing carries a classification level, and is only visible to agents holding the
               required clearance.
             </p>
@@ -142,8 +143,8 @@ export default async function Landing() {
       </section>
 
       <footer className="lp-footer">
-        <span>S.H.I.E.L.D. — Central Document System</span>
-        <span className="muted">Unauthorized access will be prosecuted — Protocol 7-Alpha</span>
+        <span>{brand.name} — {brand.tagline}</span>
+        <span className="muted">Unauthorized access will be prosecuted — {brand.protocol}</span>
       </footer>
     </div>
   );

@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { brand } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "S.H.I.E.L.D. — Central Document System",
-    short_name: "S.H.I.E.L.D.",
-    description: "The division's classified document portal — reports, registries and signature workflows.",
+    name: `${brand.name} — ${brand.tagline}`,
+    short_name: brand.short,
+    description: `The ${brand.terms.division.toLowerCase()}'s classified document portal — reports, registries and signature workflows.`,
     id: "/",
     start_url: "/",
     scope: "/",
