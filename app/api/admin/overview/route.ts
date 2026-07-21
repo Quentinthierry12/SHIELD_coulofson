@@ -9,7 +9,7 @@ export async function GET() {
   if (s?.role !== "admin") return NextResponse.json({ error: "Access denied." }, { status: 403 });
   const pool = await db();
 
-  const [sig, sigList, missions, agents, blocked, inactive, inactiveList, access, recent] = await Promise.all([
+  const [sig, sigList, missions, agents, blocked, inactive, inactiveList, access, onLeave, recent] = await Promise.all([
     pool.query("SELECT COUNT(*)::int AS n FROM signature_requests WHERE status = 'pending'"),
     // Open requests, most stalled first, with progress.
     pool.query(
@@ -51,6 +51,7 @@ export async function GET() {
         ORDER BY last_login ASC NULLS FIRST LIMIT 6`
     ),
     pool.query("SELECT COUNT(*)::int AS n FROM access_requests WHERE status = 'pending'"),
+    pool.query("SELECT COUNT(*)::int AS n FROM loa WHERE status = 'active' AND start_date <= CURRENT_DATE AND end_date >= CURRENT_DATE"),
     pool.query("SELECT created_at, matricule, action, target FROM audit_log ORDER BY created_at DESC LIMIT 12"),
   ]);
 
@@ -63,6 +64,7 @@ export async function GET() {
     agents: { active: agents.rows[0].active, pending: agents.rows[0].pending, blocked: blocked.rows[0].n, inactive: inactive.rows[0].n },
     inactiveList: inactiveList.rows,
     accessRequests: access.rows[0].n,
+    onLeave: onLeave.rows[0].n,
     recent: recent.rows,
   });
 }

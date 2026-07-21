@@ -222,6 +222,21 @@ async function migrate() {
       role TEXT NOT NULL DEFAULT 'viewer',
       PRIMARY KEY (folder_id, division_id)
     );
+
+    -- Leave of absence. An agent declares theirs (auto-active); officers can set/cancel any.
+    -- Access is NOT restricted during a leave — it is a visible status only. current /
+    -- upcoming / past is derived from the dates against today.
+    CREATE TABLE IF NOT EXISTS loa (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      reason TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_by INT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS loa_user_idx ON loa (user_id);
   `);
   // Keep the built-in Agent Personnel File (created_by IS NULL) in sync with the disk file.
   try {

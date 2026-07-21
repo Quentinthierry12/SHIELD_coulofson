@@ -24,7 +24,7 @@ type LogRow = { id: number; matricule: string; action: string; target: string; c
 type Template = { id: number; name: string; filetype: string; created_at: string; editable: boolean; variables: string[] };
 
 export default function AdminUI({ myClearance, myId }: { myClearance: number; myId: number }) {
-  const [tab, setTab] = useState<"overview" | "agents" | "divisions" | "documents" | "requests" | "missions" | "templates" | "settings" | "audit">("overview");
+  const [tab, setTab] = useState<"overview" | "agents" | "divisions" | "documents" | "requests" | "missions" | "leave" | "templates" | "settings" | "audit">("overview");
   return (
     <>
       <div className="topbar">
@@ -39,6 +39,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
           <button className={tab === "documents" ? "" : "inactive"} onClick={() => setTab("documents")}>Documents</button>
           <button className={tab === "requests" ? "" : "inactive"} onClick={() => setTab("requests")}>Requests</button>
           <button className={tab === "missions" ? "" : "inactive"} onClick={() => setTab("missions")}>Missions</button>
+          <button className={tab === "leave" ? "" : "inactive"} onClick={() => setTab("leave")}>Leave</button>
           <button className={tab === "templates" ? "" : "inactive"} onClick={() => setTab("templates")}>Templates</button>
           <button className={tab === "settings" ? "" : "inactive"} onClick={() => setTab("settings")}>Settings</button>
           <button className={tab === "audit" ? "" : "inactive"} onClick={() => setTab("audit")}>Audit log</button>
@@ -51,6 +52,7 @@ export default function AdminUI({ myClearance, myId }: { myClearance: number; my
         {tab === "documents" && <DocumentsTab />}
         {tab === "requests" && <RequestsTab />}
         {tab === "missions" && <MissionsTab myClearance={myClearance} />}
+        {tab === "leave" && <LoaTab />}
         {tab === "templates" && <TemplatesTab myClearance={myClearance} />}
         {tab === "settings" && <SettingsTab />}
         {tab === "audit" && <AuditTab />}
@@ -66,10 +68,11 @@ type Overview = {
   agents: { active: number; pending: number; blocked: number; inactive: number };
   inactiveList: { matricule: string; codename: string; last_login: string | null }[];
   accessRequests: number;
+  onLeave: number;
   recent: { created_at: string; matricule: string; action: string; target: string }[];
 };
 
-type TabKey = "overview" | "agents" | "divisions" | "documents" | "requests" | "missions" | "templates" | "settings" | "audit";
+type TabKey = "overview" | "agents" | "divisions" | "documents" | "requests" | "missions" | "leave" | "templates" | "settings" | "audit";
 
 function Stat({ n, label, tone, go, onGo }: { n: number; label: string; tone?: "warn" | "bad"; go?: TabKey; onGo: (t: TabKey) => void }) {
   const cls = `ov-stat ${n === 0 ? "zero" : tone || ""}`;
@@ -95,6 +98,7 @@ function OverviewTab({ onGo }: { onGo: (t: TabKey) => void }) {
         <Stat n={d.agents.blocked} label="Blocked on oath" tone="bad" go="agents" onGo={onGo} />
         <Stat n={d.agents.pending} label="Pending recruits" tone="warn" go="agents" onGo={onGo} />
         <Stat n={d.agents.inactive} label="Inactive 14d+" tone="warn" go="agents" onGo={onGo} />
+        <Stat n={d.onLeave} label="On leave" go="leave" onGo={onGo} />
         <Stat n={d.missions.active} label="Active missions" go="missions" onGo={onGo} />
         <Stat n={d.agents.active} label="Active agents" go="agents" onGo={onGo} />
       </div>
@@ -137,6 +141,82 @@ function OverviewTab({ onGo }: { onGo: (t: TabKey) => void }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </>
+  );
+}
+
+// ---------------- Leave of absence (officer control) ----------------
+type AdminLoa = { id: number; user_id: number; matricule: string; codename: string; division: string; start_date: string; end_date: string; reason: string | null; state: "current" | "upcoming" | "past" };
+
+function LoaTab() {
+  const [items, setItems] = useState<AdminLoa[]>([]);
+  const [matricule, setMatricule] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  async function load() {
+    const r = await fetch("/api/admin/loa");
+    if (r.ok) setItems(await r.json());
+  }
+  useEffect(() => { load(); }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    const res = await fetch("/api/admin/loa", { method: "POST", body: JSON.stringify({ matricule, start_date: start, end_date: end, reason }) });
+    const d = await res.json();
+    if (!res.ok) return setError(d.error);
+    setMatricule(""); setStart(""); setEnd(""); setReason("");
+    toast(`Leave registered for ${d.codename}.`, "success");
+    load();
+  }
+
+  async function cancel(l: AdminLoa) {
+    const ok = await confirmDialog({ title: `Cancel ${l.matricule}'s leave?`, message: `${l.start_date} → ${l.end_date}`, confirmLabel: "Cancel leave", danger: true });
+    if (!ok) return;
+    const res = await fetch(`/api/loa/${l.id}`, { method: "DELETE" });
+    if (!res.ok) return toast((await res.json()).error, "error");
+    toast("Leave cancelled.", "success");
+    load();
+  }
+
+  const current = items.filter((i) => i.state === "current");
+  const upcoming = items.filter((i) => i.state === "upcoming");
+
+  const Row = ({ l }: { l: AdminLoa }) => (
+    <div className="ov-row">
+      <span><span className="mono">{l.matricule}</span> · {l.codename}{l.division ? <span className="muted"> · {l.division}</span> : null}</span>
+      <span className="agent-spacer" />
+      <span className="mono muted" style={{ fontSize: ".8rem", whiteSpace: "nowrap" }}>{l.start_date} → {l.end_date}</span>
+      {l.reason && <span className="chip">{l.reason}</span>}
+      <button className="ghost small danger" onClick={() => cancel(l)}>Cancel</button>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="panel">
+        <h2>Register a leave for an agent</h2>
+        {error && <p className="error">⚠ {error}</p>}
+        <form onSubmit={create} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <input placeholder="BADGE (e.g. AG-4782)" value={matricule} onChange={(e) => setMatricule(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 150 }} />
+          <label style={{ fontSize: ".8rem", color: "var(--muted)" }}>From<br /><input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ marginBottom: 0, marginTop: 4 }} /></label>
+          <label style={{ fontSize: ".8rem", color: "var(--muted)" }}>To<br /><input type="date" value={end} onChange={(e) => setEnd(e.target.value)} style={{ marginBottom: 0, marginTop: 4 }} /></label>
+          <input placeholder="REASON (optional)" value={reason} onChange={(e) => setReason(e.target.value)} style={{ marginBottom: 0, flex: 1, minWidth: 150 }} />
+          <button>Register</button>
+        </form>
+      </div>
+
+      <div className="panel">
+        <h2>On leave now ({current.length})</h2>
+        {current.length === 0 ? <p className="muted">No agent on leave.</p> : current.map((l) => <Row key={l.id} l={l} />)}
+      </div>
+      <div className="panel">
+        <h2>Upcoming ({upcoming.length})</h2>
+        {upcoming.length === 0 ? <p className="muted">No upcoming leave.</p> : upcoming.map((l) => <Row key={l.id} l={l} />)}
       </div>
     </>
   );
@@ -1417,6 +1497,7 @@ const ACTION_LABELS: Record<string, string> = {
   personnel_file: "File regenerated",
   access_request: "Access requested", access_granted: "Access granted", access_denied: "Access denied",
   doc_blocked: "Restricted document reached",
+  loa_declare: "Leave declared", loa_set: "Leave set by officer", loa_cancel: "Leave cancelled",
 };
 
 function AuditTab() {
