@@ -88,7 +88,7 @@ export async function PATCH(req: Request) {
   }
   const pool = await db();
   const { rows: before } = await pool.query("SELECT status, clearance, matricule, codename FROM users WHERE id = $1", [id]);
-  if (!before[0]) return NextResponse.json({ error: "Agent inconnu." }, { status: 404 });
+  if (!before[0]) return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
   const level = Math.min(10, Math.max(1, clearance));
   // Officers can neither manage agents at/above their own clearance nor raise anyone to it.
   if (id !== admin.id && before[0].clearance >= admin.clearance) {
@@ -134,8 +134,16 @@ export async function PATCH(req: Request) {
     dmByUserId(id, "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your clearance has been **activated**. Welcome aboard, agent. Report in at https://shield.quentinthierry.fr");
   } else if (renamed) {
     // The badge/codename is embedded in the file (and its title). A rename re-issues the
-    // file for signature — requirePersonnelOath purge l'ancienne demande et en lève une seule.
+    // file for signature — requirePersonnelOath purges the old request and raises a single one.
     await requirePersonnelOath(id);
+  }
+  // Suspension: an active account was revoked. Tell the agent on every channel.
+  if (before[0].status === "active" && status !== "active") {
+    dmByUserId(
+      id,
+      "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your access has been **suspended** by command. Contact a senior officer.",
+      { title: "S.H.I.E.L.D. — Access suspended", body: "Your access has been suspended by command.", url: "/login", tag: "account-status" }
+    );
   }
   // The badge IS the sign-in name: changing it locks the agent out until they know.
   if (newBadge !== before[0].matricule) {
