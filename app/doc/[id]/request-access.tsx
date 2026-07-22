@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { toast } from "@/lib/ui-store";
+import { brand } from "@/lib/brand";
 
 export default function RequestAccess({
   id, title, classification, reason, alreadyRequested,
@@ -20,7 +21,7 @@ export default function RequestAccess({
     <div className="login-wrap">
       <div className="login-box" style={{ width: 460 }}>
         <h1 style={{ textAlign: "center", marginBottom: 4 }}>Restricted access</h1>
-        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>Protocol 7-Alpha</p>
+        <p className="muted" style={{ textAlign: "center", marginBottom: 20 }}>{brand.protocol}</p>
         <div className="panel">
           <div className="card-meta" style={{ marginBottom: 12 }}>
             <span className={`classif ${classification >= 7 ? "high" : classification >= 4 ? "mid" : "low"}`}>
