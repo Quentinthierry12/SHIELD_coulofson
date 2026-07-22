@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -34,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   for (const t of targets) {
     dmByUserId(
       t.user_id,
-      `${dmPrefix("REMINDER")} — Your signature is still required on **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
+      `🦅 **S.H.I.E.L.D. REMINDER** — Your signature is still required on **${request.title}**. ${process.env.PORTAL_URL}/inbox`,
       signatureRequestPush(request.title, id, "Signature reminder")
     );
   }

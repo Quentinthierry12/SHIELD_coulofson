@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { brand, dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -23,7 +22,7 @@ export async function POST() {
   // Same fan-out (Discord DM + Web Push) as every real notification. On y met des
   // boutons d'action pour que l'officier vérifie aussi Signer / Voir dans la bannière.
   const demoPush: PushPayload = {
-    title: `${brand.short} — Test`,
+    title: "S.H.I.E.L.D. — Test",
     body: "Test notification. The buttons below open Dispatch.",
     url: "/inbox",
     tag: "shield-test",
@@ -35,7 +34,7 @@ export async function POST() {
   };
   dmByUserId(
     s.id,
-    `${dmPrefix("TEST")} — Test notification. If you see this, the channel works. ${process.env.PORTAL_URL}/inbox`,
+    `🦅 **S.H.I.E.L.D. TEST** — Test notification. If you see this, the channel works. ${process.env.PORTAL_URL}/inbox`,
     demoPush
   );
   audit(s, "push_test", `push:${pushDevices} discord:${discordLinked ? "yes" : "no"}`);

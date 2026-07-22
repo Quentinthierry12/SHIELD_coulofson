@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { dmPrefix } from "@/lib/brand";
 import { db, audit, getAccessibleDoc } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -37,7 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   for (const uid of targets) {
     dmByUserId(
       uid,
-      `${dmPrefix("ACCESS REQUEST")} — Agent **${s.matricule} · ${s.codename}** is requesting access to **“${doc.title}”** (LVL.${doc.classification}).${reason ? ` Reason: ${reason}` : ""} Review: ${process.env.PORTAL_URL}/admin`
+      `🦅 **S.H.I.E.L.D. ACCESS REQUEST** — Agent **${s.matricule} · ${s.codename}** is requesting access to **“${doc.title}”** (LVL.${doc.classification}).${reason ? ` Reason: ${reason}` : ""} Review: ${process.env.PORTAL_URL}/admin`
     );
   }
   return NextResponse.json({ ok: true });

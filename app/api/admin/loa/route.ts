@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { brand, dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -45,8 +44,8 @@ export async function POST(req: Request) {
   audit(s, "loa_set", `${(matricule || "").trim().toUpperCase()} ${start_date} → ${end_date}`);
   dmByUserId(
     u[0].id,
-    `${dmPrefix()} — Command registered a **leave of absence** for you: ${start_date} → ${end_date}${reason ? ` (${reason})` : ""}.`,
-    { title: `${brand.short} — Leave of absence`, body: `Leave registered: ${start_date} → ${end_date}`, url: "/loa", tag: "loa" }
+    `🦅 **S.H.I.E.L.D. TRANSMISSION** — Command registered a **leave of absence** for you: ${start_date} → ${end_date}${reason ? ` (${reason})` : ""}.`,
+    { title: "S.H.I.E.L.D. — Leave of absence", body: `Leave registered: ${start_date} → ${end_date}`, url: "/loa", tag: "loa" }
   );
   return NextResponse.json({ id: rows[0].id, codename: u[0].codename });
 }

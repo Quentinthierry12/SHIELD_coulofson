@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { createSession } from "@/lib/session";
 import { exchangeCode, verifyState, sendDM } from "@/lib/discord";
@@ -28,8 +27,8 @@ export async function GET(req: Request) {
     sendDM(
       discordUser.id,
       state.pending
-        ? "${dmPrefix()} — Your Discord is linked to your enlistment request. You'll get account updates here (validation, clearance…)."
-        : "${dmPrefix()} — This Discord account is now linked to your agent credentials. You can sign in with Discord."
+        ? "🦅 **S.H.I.E.L.D. TRANSMISSION** — Your Discord is linked to your enlistment request. You'll get account updates here (validation, clearance…)."
+        : "🦅 **S.H.I.E.L.D. TRANSMISSION** — This Discord account is now linked to your agent credentials. You can sign in with Discord."
     ).catch(() => {});
     return NextResponse.redirect(`${home}/${back}?discord=linked`);
   }
