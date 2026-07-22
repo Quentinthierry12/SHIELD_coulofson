@@ -5,7 +5,7 @@ import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
 
 type User = { id: number; matricule: string; codename: string; clearance: number; role: string; status: string; division: string; discord_linked: boolean; moodle_synced: boolean; created_at: string; oath_state?: string | null };
 type TimelineEvent = { at: string; kind: string; label: string };
-type AgentHistory = { agent: { matricule: string; codename: string; status: string }; state: string; statusLabel: string; summary: { notifs: number; logins: number }; events: TimelineEvent[]; fileId: number | null };
+type AgentHistory = { agent: { matricule: string; codename: string; status: string }; state: string; statusLabel: string; summary: { notifs: number; logins: number; pushDevices: number }; events: TimelineEvent[]; fileId: number | null };
 
 // Badge de serment pour la ligne agent, dérivé de "reqStatus:myStatus".
 function oathBadge(state?: string | null): { label: string; cls: string; title: string } | null {
@@ -510,7 +510,7 @@ function AgentSheet({ u, maxLevel, onClose, onUpdate, onRename, onResetPassword,
                 ))}
               </ul>
               <p className="muted" style={{ fontSize: ".75rem", marginTop: 8 }}>
-                {hist.summary.notifs} oath notification(s) sent · {hist.summary.logins} sign-in(s)
+                {hist.summary.notifs} oath notification(s) sent · {hist.summary.logins} sign-in(s) · {hist.summary.pushDevices} push device{hist.summary.pushDevices === 1 ? "" : "s"}
               </p>
             </>
           )}
@@ -1229,7 +1229,7 @@ function FromTemplateModal({ template, folders, maxLevel, onClose }: { template:
 
 // ---------------- Settings ----------------
 type Integration = { configured: boolean; reachable: boolean; linked: number | null };
-type Integrations = { total: number; discord: Integration; academy: Integration; office: Integration };
+type Integrations = { total: number; discord: Integration; academy: Integration; office: Integration; push: Integration & { devices: number } };
 
 function IntegrationsPanel() {
   const [d, setD] = useState<Integrations | null>(null);
@@ -1280,6 +1280,7 @@ function IntegrationsPanel() {
             {row("DISCORD", d.discord, "OAuth sign-in and automatic DMs")}
             {row("ACADEMY", d.academy, "Moodle accounts, same badge and password")}
             {row("OFFICE", d.office, "Document server: editing and PDF export")}
+            {row("PUSH", d.push, `Web Push (PWA) — ${d.push.devices} device${d.push.devices === 1 ? "" : "s"} registered`)}
           </tbody>
         </table>
       )}

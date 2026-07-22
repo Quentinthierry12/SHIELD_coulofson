@@ -43,6 +43,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     "SELECT created_at FROM audit_log WHERE user_id = $1 AND action IN ('password_change','password_reset') ORDER BY created_at",
     [id]
   );
+  // Web Push devices this agent has registered (0 = push notifications off / not enabled).
+  const { rows: pd } = await pool.query("SELECT COUNT(*)::int AS n FROM push_subscriptions WHERE user_id = $1", [id]);
 
   const events: Ev[] = [];
   events.push({ at: u.created_at, kind: "created", label: "Account created" });
@@ -70,7 +72,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     agent: { matricule: u.matricule, codename: u.codename, status: u.status },
     state,
     statusLabel,
-    summary: { notifs: reqs.length, logins: logins.length },
+    summary: { notifs: reqs.length, logins: logins.length, pushDevices: pd[0].n },
     events,
     fileId,
   });
