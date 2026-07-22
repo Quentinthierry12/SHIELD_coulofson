@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { brand } from "@/lib/brand";
 
 type Agent = { matricule: string; codename: string; clearance: number; role: string; division: string };
 
@@ -29,7 +30,7 @@ export default function Roster({ isAdmin }: { isAdmin: boolean }) {
         <div className="logo">
           <a href="/dashboard"><button className="ghost small">← Archives</button></a>
           <h1>Roster</h1>
-          <span className="badge">S.H.I.E.L.D. PERSONNEL</span>
+          <span className="badge">{brand.name} PERSONNEL</span>
         </div>
         <span className="badge">{agents.length} active agents</span>
       </div>

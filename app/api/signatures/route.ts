@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { docHash, renderPendingSlots } from "@/lib/signatures";
@@ -117,7 +118,7 @@ export async function POST(req: Request) {
   // In a sequential circuit only the first signer is called up; the rest are told in turn.
   const toNotify = sequential ? resolved.slice(0, 1) : resolved;
   for (const a of toNotify) {
-    dmByUserId(a.id, `🦅 **S.H.I.E.L.D. SIGNATURE REQUEST** — Your signature is required on **${d[0].title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(d[0].title, docId));
+    dmByUserId(a.id, `${dmPrefix("SIGNATURE REQUEST")} — Your signature is required on **${d[0].title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(d[0].title, docId));
   }
   audit(s, "signature_request", `#${docId} ${d[0].title} -> ${resolved.map((a) => a.matricule).join(",")}`);
   return NextResponse.json({ id: reqId });

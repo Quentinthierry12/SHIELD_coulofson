@@ -36,6 +36,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Per-faction accent — overrides the --accent token from globals.css when set. */}
+        <style dangerouslySetInnerHTML={{ __html: `:root{--accent:${brand.accent};}` }} />
+      </head>
       <body>
         {children}
         <UiHost />

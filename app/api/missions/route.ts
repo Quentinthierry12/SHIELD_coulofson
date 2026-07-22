@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dmPrefix } from "@/lib/brand";
 import { db, audit, divisionIdByName } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { buildMissionOrder } from "@/lib/docxgen";
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
     await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [docId, a.id]);
     dmByUserId(
       a.id,
-      `🦅 **S.H.I.E.L.D. MISSION ORDER** — You are assigned to **${missionCode}**. Objective: ${objective.trim()}. Full order: ${process.env.PORTAL_URL}/doc/${docId}`
+      `${dmPrefix("MISSION ORDER")} — You are assigned to **${missionCode}**. Objective: ${objective.trim()}. Full order: ${process.env.PORTAL_URL}/doc/${docId}`
     );
   }
   audit(s, "mission_create", `${missionCode}${assigned.length ? " -> " + assigned.map((a) => a.matricule).join(",") : ""}`);

@@ -230,7 +230,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
         <a href="/loa"><button className="rail-btn"><span className="rail-label">Leave</span></button></a>
         {academyUrl && (
           // Separate system on its own domain — open it in a new tab rather than losing the Drive.
-          <a href={academyUrl} target="_blank" rel="noopener noreferrer" title="S.H.I.E.L.D. Academy — training">
+          <a href={academyUrl} target="_blank" rel="noopener noreferrer" title={`${brand.name} Academy — training`}>
             <button className="rail-btn"><span className="rail-label">Academy</span></button>
           </a>
         )}
