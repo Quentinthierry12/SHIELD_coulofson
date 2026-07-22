@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { brand } from "@/lib/brand";
 import { db, audit, accessibleFolderIds } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -34,7 +33,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     for (const v of voided) {
       const { rows: sg } = await pool.query("SELECT user_id FROM signature_signers WHERE request_id = $1", [v.id]);
       for (const x of sg) {
-        dmByUserId(x.user_id, `${brand.emoji} **${brand.name}** — **${cur[0].title}** was unsealed by an officer. Your signature is no longer valid.`);
+        dmByUserId(x.user_id, `🦅 **S.H.I.E.L.D.** — **${cur[0].title}** was unsealed by an officer. Your signature is no longer valid.`);
       }
     }
     audit(s, "doc_unseal", `#${id} ${cur[0].title} — ${voided.length} request(s) voided`);

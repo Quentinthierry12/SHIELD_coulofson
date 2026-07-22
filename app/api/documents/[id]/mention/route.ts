@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { brand } from "@/lib/brand";
 import { db, getAccessibleDoc, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -28,9 +27,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   for (const u of rows as { id: number }[]) {
     dmByUserId(
       u.id,
-      `${brand.emoji} **${brand.name}** — Agent **${s.codename}** mentioned you in **“${doc.title}”**${snippet ? `: ${snippet}` : ""}. ${process.env.PORTAL_URL}/doc/${id}`,
+      `🦅 **S.H.I.E.L.D.** — Agent **${s.codename}** mentioned you in **“${doc.title}”**${snippet ? `: ${snippet}` : ""}. ${process.env.PORTAL_URL}/doc/${id}`,
       {
-        title: `${brand.short} — Mention`,
+        title: "S.H.I.E.L.D. — Mention",
         body: `${s.codename} mentioned you in “${doc.title}”`,
         url: `/doc/${id}`,
         tag: `mention-${id}`,

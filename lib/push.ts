@@ -1,6 +1,5 @@
 import webpush from "web-push";
 import { db } from "./db";
-import { brand } from "./brand";
 
 // ---- Web Push (PWA) ------------------------------------------------------
 // Native browser push, no third party. We hold a VAPID key pair; the browser
@@ -51,7 +50,7 @@ export type PushPayload = {
 // locked out until they sign). Tap / Sign button → the mandatory onboarding screen.
 export function personnelFilePush(): PushPayload {
   return {
-    title: `${brand.short} — Personnel File`,
+    title: "S.H.I.E.L.D. — Personnel File",
     body: "Sign your oath of service to access the system.",
     url: "/onboarding",
     tag: "personnel-file",
@@ -64,7 +63,7 @@ export function personnelFilePush(): PushPayload {
 // opens Dispatch; View opens the document.
 export function signatureRequestPush(docTitle: string, docId: number, headline = "Signature required"): PushPayload {
   return {
-    title: `${brand.short} — ${headline}`,
+    title: `S.H.I.E.L.D. — ${headline}`,
     body: docTitle,
     url: "/inbox",
     tag: `sig-${docId}`,
@@ -136,10 +135,10 @@ export function pushFromDiscordContent(content: string): PushPayload {
   const urlMatch = content.match(/https?:\/\/\S+/);
   const url = urlMatch ? urlMatch[0] : undefined;
   let text = content.replace(/https?:\/\/\S+/g, "").replace(/\*\*/g, "").trim();
-  // Drop the leading brand emoji so the banner reads cleanly.
-  if (text.startsWith(brand.emoji)) text = text.slice(brand.emoji.length).trim();
+  // Drop the leading eagle so the banner reads cleanly.
+  text = text.replace(/^🦅\s*/, "");
   const dash = text.indexOf("—");
-  let title = brand.name;
+  let title = "S.H.I.E.L.D.";
   let body = text;
   if (dash !== -1) {
     title = text.slice(0, dash).trim() || title;

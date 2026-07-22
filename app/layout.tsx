@@ -1,14 +1,13 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { brand } from "@/lib/brand";
 import UiHost from "./ui-host";
 import PwaRegister from "./pwa-register";
 import NotifInvite from "./notif-invite";
 
 export const metadata: Metadata = {
-  title: `${brand.name} — ${brand.tagline}`,
-  description: `The ${brand.terms.division.toLowerCase()}'s classified document portal — reports, registries and signature workflows.`,
-  applicationName: brand.short,
+  title: "S.H.I.E.L.D. — Central Document System",
+  description: "The division's classified document portal — reports, registries and signature workflows.",
+  applicationName: "S.H.I.E.L.D.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -21,7 +20,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: brand.short,
+    title: "S.H.I.E.L.D.",
     statusBarStyle: "black-translucent",
   },
 };
@@ -36,10 +35,6 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        {/* Per-faction accent — overrides the --accent token from globals.css when set. */}
-        <style dangerouslySetInnerHTML={{ __html: `:root{--accent:${brand.accent};}` }} />
-      </head>
       <body>
         {children}
         <UiHost />

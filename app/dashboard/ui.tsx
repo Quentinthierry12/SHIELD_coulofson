@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
-import { brand } from "@/lib/brand";
 import NotifToggle from "../notif-toggle";
 
 type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean; sealed?: boolean; locked?: boolean; lock_reason?: string | null; request_status?: string | null };
@@ -100,7 +99,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
   }
 
   async function destroy(doc: Doc) {
-    const ok = await confirmDialog({ title: `Destroy “${doc.title}”?`, message: `${brand.destroyProtocol} — this is permanent.`, confirmLabel: "Destroy", danger: true });
+    const ok = await confirmDialog({ title: `Destroy “${doc.title}”?`, message: "Destruction Protocol 4-Delta — this is permanent.", confirmLabel: "Destroy", danger: true });
     if (!ok) return;
     const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
     if (!res.ok) return toast((await res.json()).error, "error");
@@ -230,7 +229,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
         <a href="/loa"><button className="rail-btn"><span className="rail-label">Leave</span></button></a>
         {academyUrl && (
           // Separate system on its own domain — open it in a new tab rather than losing the Drive.
-          <a href={academyUrl} target="_blank" rel="noopener noreferrer" title={`${brand.name} Academy — training`}>
+          <a href={academyUrl} target="_blank" rel="noopener noreferrer" title="S.H.I.E.L.D. Academy — training">
             <button className="rail-btn"><span className="rail-label">Academy</span></button>
           </a>
         )}

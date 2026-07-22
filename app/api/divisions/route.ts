@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -71,7 +70,7 @@ export async function PATCH(req: Request) {
       if (u[0].division_id !== id) {
         return NextResponse.json({ error: "The lead must be a member of this division." }, { status: 400 });
       }
-      dmByUserId(lead, `${dmPrefix()} — You are now the **division lead** of ${div.name}.`);
+      dmByUserId(lead, `🦅 **S.H.I.E.L.D. TRANSMISSION** — You are now the **division lead** of ${div.name}.`);
     }
     await pool.query("UPDATE divisions SET lead_id = $2 WHERE id = $1", [id, lead]);
     audit(s, "division_lead", `${div.name} -> ${lead ?? "none"}`);

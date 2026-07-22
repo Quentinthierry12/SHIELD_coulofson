@@ -1,5 +1,4 @@
 import JSZip from "jszip";
-import { brand } from "./brand";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -125,7 +124,7 @@ export async function buildMissionOrder(m: MissionOrder): Promise<Buffer> {
 
   const body = [
     centerPara(runXml(`CLASSIFIED — ${clsCls} — LEVEL ${m.classification || 1}`, { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
-    centerPara(runXml(brand.name, { b: true, sz: 44, color: "1C3A5E" }), { before: 200, after: 0 }),
+    centerPara(runXml("S.H.I.E.L.D.", { b: true, sz: 44, color: "1C3A5E" }), { before: 200, after: 0 }),
     centerPara(runXml("MISSION ORDER", { b: true, sz: 30 }), { after: 40 }),
     centerPara(runXml(m.code.toUpperCase(), { b: true, sz: 24, color: "4DA6FF" }), { after: 200 }),
 
@@ -151,7 +150,7 @@ export async function buildMissionOrder(m: MissionOrder): Promise<Buffer> {
     paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml(m.officer + "        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml(today, { sz: 20 })].join("")),
     paraXml([runXml("Agent acknowledgement:  ", { b: true, sz: 20 }), runXml("________________________", { sz: 20 })].join("")),
 
-    centerPara(runXml(`This order is the property of ${brand.name}. Compromise of this document is a Level-1 offense.`, { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
+    centerPara(runXml("This order is the property of S.H.I.E.L.D. Compromise of this document is a Level-1 offense.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
   ].join("\n");
 
   return packDocx(body);
@@ -168,8 +167,8 @@ export async function buildPersonnelFile(agent: AgentInfo): Promise<Buffer> {
 
   const body = [
     centerPara(runXml("CLASSIFIED — LEVEL 10 — EYES ONLY", { b: true, sz: 18, color: "FFFFFF" }), { shade: "7A1010", after: 0 }),
-    centerPara(runXml(brand.name, { b: true, sz: 48, color: "1C3A5E" }), { before: 240, after: 0 }),
-    centerPara(runXml(brand.full, { i: true, sz: 18, color: "555555" }), { after: 40 }),
+    centerPara(runXml("S.H.I.E.L.D.", { b: true, sz: 48, color: "1C3A5E" }), { before: 240, after: 0 }),
+    centerPara(runXml("Strategic Homeland Intervention, Enforcement and Logistics Division", { i: true, sz: 18, color: "555555" }), { after: 40 }),
     centerPara(runXml("AGENT PERSONNEL FILE", { b: true, sz: 28 }), { after: 240 }),
 
     heading("Section 1 — Identity"),
@@ -205,7 +204,7 @@ export async function buildPersonnelFile(agent: AgentInfo): Promise<Buffer> {
     paraXml([runXml("Agent signature:  ", { b: true, sz: 20 }), runXml(`[[SIGN:${agent.matricule}]]`, { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
     paraXml([runXml("Authorizing officer:  ", { b: true, sz: 20 }), runXml("[[SIGN:officer]]", { sz: 20 }), runXml("        ", { sz: 20 }), runXml("Date:  ", { b: true, sz: 20 }), runXml("[[DATE]]", { sz: 20 })].join("")),
 
-    centerPara(runXml(`Property of ${brand.name} — unauthorized possession, reproduction or disclosure is a Level-1 offense.`, { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
+    centerPara(runXml("Property of S.H.I.E.L.D. — unauthorized possession, reproduction or disclosure is a Level-1 offense.", { i: true, sz: 16, color: "7A1010" }), { before: 300 }),
   ].join("\n");
 
   return packDocx(body);

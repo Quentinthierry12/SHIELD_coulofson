@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { brand, dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { docHash, isMyTurn, hashContent } from "@/lib/signatures";
@@ -45,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // A refusal ends the circuit and releases the document so it can be corrected.
     await pool.query("UPDATE documents SET locked = false WHERE id = $1", [request.doc_id]);
     if (request.requested_by) {
-      dmByUserId(request.requested_by, `${brand.emoji} **${brand.name}** — ${s.codename} (${s.matricule}) **declined** to sign **${request.title}**.${reason ? ` Reason: ${reason}` : ""}`);
+      dmByUserId(request.requested_by, `🦅 **S.H.I.E.L.D.** — ${s.codename} (${s.matricule}) **declined** to sign **${request.title}**.${reason ? ` Reason: ${reason}` : ""}`);
     }
     audit(s, "signature_decline", `${request.title}${reason ? " — " + reason : ""}`);
     return NextResponse.json({ ok: true, declined: true });
@@ -143,7 +142,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { rows: all } = await pool.query("SELECT user_id FROM signature_signers WHERE request_id = $1", [id]);
     const notify = new Set<number>([...all.map((x: any) => x.user_id), request.requested_by].filter(Boolean));
     for (const uid of notify) {
-      dmByUserId(uid, `${brand.emoji} **${brand.name}** — **${request.title}** is fully signed and sealed. ${process.env.PORTAL_URL}/doc/${request.doc_id}`);
+      dmByUserId(uid, `🦅 **S.H.I.E.L.D.** — **${request.title}** is fully signed and sealed. ${process.env.PORTAL_URL}/doc/${request.doc_id}`);
     }
     audit(s, "signature_complete", `${request.title}`);
   } else if (request.sequential) {
@@ -153,7 +152,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       "SELECT user_id FROM signature_signers WHERE request_id = $1 AND position = $2", [id, next.position]
     );
     if (nu[0]) {
-      dmByUserId(nu[0].user_id, `${dmPrefix("SIGNATURE REQUEST")} — It's your turn to sign **${request.title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(request.title, request.doc_id, "Your turn to sign"));
+      dmByUserId(nu[0].user_id, `🦅 **S.H.I.E.L.D. SIGNATURE REQUEST** — It's your turn to sign **${request.title}**. ${process.env.PORTAL_URL}/inbox`, signatureRequestPush(request.title, request.doc_id, "Your turn to sign"));
     }
   }
 

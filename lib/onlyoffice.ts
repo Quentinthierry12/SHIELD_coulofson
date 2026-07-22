@@ -1,5 +1,4 @@
 import { SignJWT, jwtVerify } from "jose";
-import { brand } from "./brand";
 
 const ooSecret = () => new TextEncoder().encode(process.env.OO_JWT_SECRET!);
 
@@ -37,8 +36,8 @@ export const SHIELD_CUSTOMIZATION = {
     url: process.env.PORTAL_URL,
   },
   customer: {
-    name: brand.name,
-    info: `${brand.full} — ${brand.tagline}`,
+    name: "S.H.I.E.L.D.",
+    info: "Strategic Homeland Intervention, Enforcement and Logistics Division — Central Document System",
     logo: `${process.env.PORTAL_URL}/logo-white.png`,
     www: process.env.PORTAL_URL,
     mail: "",
