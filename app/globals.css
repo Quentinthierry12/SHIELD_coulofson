@@ -412,6 +412,14 @@ button.danger:hover { background: var(--danger); color: #1a0505; }
 .enlist-help .mono { background: #10233c; padding: 1px 6px; border-radius: 3px; }
 @media (max-width: 520px) { .lp-footer { flex-direction: column; } }
 
+/* ===== Legal / privacy page ===== */
+.legal { max-width: 760px; margin: 0 auto; padding: 30px 24px 50px; line-height: 1.7; }
+.legal h1 { color: var(--text); font-size: 1.6rem; margin: 6px 0 10px; }
+.legal h2 { color: var(--accent); font-size: 1.05rem; margin: 26px 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.legal p { color: var(--text); margin: 0 0 8px; }
+.legal ul { padding-left: 20px; display: flex; flex-direction: column; gap: 7px; margin: 0 0 8px; }
+.legal a { color: var(--accent); }
+
 /* ===== Officer overview (Command → Overview) ===== */
 .ov-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .ov-stat { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left;

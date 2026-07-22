@@ -143,7 +143,7 @@ export default async function Landing() {
 
       <footer className="lp-footer">
         <span>S.H.I.E.L.D. — Central Document System</span>
-        <span className="muted">Unauthorized access will be prosecuted — Protocol 7-Alpha</span>
+        <span className="muted"><a href="/privacy">Privacy &amp; Data</a> · Unauthorized access will be prosecuted — Protocol 7-Alpha</span>
       </footer>
     </div>
   );
