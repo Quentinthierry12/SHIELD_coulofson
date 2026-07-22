@@ -119,6 +119,9 @@ function LoginPage() {
         )}
 
         <a href="/"><button type="button" className="ghost small" style={{ marginTop: 14 }}>← Home</button></a>
+        <p className="muted" style={{ textAlign: "center", marginTop: 12, fontSize: ".8rem" }}>
+          <a href="/privacy" style={{ color: "var(--muted)" }}>Privacy &amp; Data</a>
+        </p>
       </div>
     </div>
   );
