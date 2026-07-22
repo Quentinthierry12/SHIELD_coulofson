@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { moodleEnabled } from "@/lib/moodle";
 import { DS_URL } from "@/lib/onlyoffice";
+import { pushEnabled } from "@/lib/push";
 
 // Live status of the external systems the portal talks to. Without this, an unconfigured
 // integration looks identical to "no agent has linked it yet" in the Agents table.
@@ -30,6 +31,12 @@ export async function GET() {
   );
   const counts = rows[0];
 
+  // Web Push adoption: how many agents have enabled it, and how many devices in total.
+  const { rows: pushRows } = await pool.query(
+    "SELECT COUNT(DISTINCT user_id)::int AS users, COUNT(*)::int AS devices FROM push_subscriptions"
+  );
+  const push = pushRows[0];
+
   const discordConfigured = !!(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_BOT_TOKEN);
   const moodleConfigured = moodleEnabled();
 
@@ -43,5 +50,6 @@ export async function GET() {
     discord: { configured: discordConfigured, reachable: discordConfigured, linked: counts.discord },
     academy: { configured: moodleConfigured, reachable: moodleUp, linked: counts.moodle },
     office: { configured: true, reachable: dsUp, linked: null },
+    push: { configured: pushEnabled(), reachable: pushEnabled(), linked: push.users, devices: push.devices },
   });
 }
