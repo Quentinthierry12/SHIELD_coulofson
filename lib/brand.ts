@@ -12,6 +12,7 @@ export const brand = {
   tagline: process.env.NEXT_PUBLIC_BRAND_TAGLINE || "Central Document System",
   full: process.env.NEXT_PUBLIC_BRAND_FULL || "Strategic Homeland Intervention, Enforcement and Logistics Division",
   emoji: process.env.NEXT_PUBLIC_BRAND_EMOJI || "🦅",
+  accent: process.env.NEXT_PUBLIC_BRAND_ACCENT || "#4da6ff",
   protocol: process.env.NEXT_PUBLIC_LORE_PROTOCOL || "Protocol 7-Alpha",
   destroyProtocol: process.env.NEXT_PUBLIC_LORE_DESTROY || "Destruction Protocol 4-Delta",
   discordCommandsUrl:

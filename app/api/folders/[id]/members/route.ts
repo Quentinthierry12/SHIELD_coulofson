@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -58,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     for (const m of mem) {
       dmByUserId(
         m.id,
-        `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your division **${dv[0].name}** was granted access (**${ROLE_FR[r]}**) to the restricted folder **${folderName}**. ${process.env.PORTAL_URL}/dashboard`
+        `${dmPrefix()} — Your division **${dv[0].name}** was granted access (**${ROLE_FR[r]}**) to the restricted folder **${folderName}**. ${process.env.PORTAL_URL}/dashboard`
       );
     }
     return NextResponse.json({ ok: true, name: dv[0].name, role: r, kind: "division" });
@@ -75,7 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   audit(s, "folder_invite", `${folderName} -> ${badge} (${r})`);
   dmByUserId(
     rows[0].id,
-    `🦅 **S.H.I.E.L.D. TRANSMISSION** — You were granted access (**${ROLE_FR[r]}**) to the restricted folder **${folderName}**. ${process.env.PORTAL_URL}/dashboard`
+    `${dmPrefix()} — You were granted access (**${ROLE_FR[r]}**) to the restricted folder **${folderName}**. ${process.env.PORTAL_URL}/dashboard`
   );
   return NextResponse.json({ ok: true, codename: rows[0].codename, role: r, kind: "user" });
 }

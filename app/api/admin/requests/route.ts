@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -42,9 +43,9 @@ export async function PATCH(req: Request) {
 
   if (approve) {
     await pool.query("INSERT INTO document_shares (doc_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [r.doc_id, r.user_id]);
-    dmByUserId(r.user_id, `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your access request for **“${r.title}”** was **approved**. ${process.env.PORTAL_URL}/doc/${r.doc_id}`);
+    dmByUserId(r.user_id, `${dmPrefix()} — Your access request for **“${r.title}”** was **approved**. ${process.env.PORTAL_URL}/doc/${r.doc_id}`);
   } else {
-    dmByUserId(r.user_id, `🦅 **S.H.I.E.L.D. TRANSMISSION** — Your access request for **“${r.title}”** was **denied**.`);
+    dmByUserId(r.user_id, `${dmPrefix()} — Your access request for **“${r.title}”** was **denied**.`);
   }
   await pool.query("UPDATE access_requests SET status = $2, decided_by = $3, decided_at = now() WHERE id = $1", [
     id, approve ? "approved" : "denied", s.id,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dmPrefix } from "@/lib/brand";
 import { db, audit } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { dmByUserId } from "@/lib/discord";
@@ -45,7 +46,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       const { rows: team } = await pool.query("SELECT user_id FROM mission_agents WHERE mission_id = $1", [id]);
       const verb = status === "completed" ? "**completed**" : "**aborted**";
       for (const t of team) {
-        dmByUserId(t.user_id, `🦅 **TRANSMISSION S.H.I.E.L.D.** — La mission **${m.code}** est ${verb}. Repos.`);
+        dmByUserId(t.user_id, `${dmPrefix()} — Mission **${m.code}** is ${verb}. Stand down.`);
       }
     }
   }
