@@ -1,0 +1,13 @@
+{
+  "_comment": "S.H.I.E.L.D. CDS — OnlyOffice Desktop Editors DMS provider registration. This file is consumed by a configured/self-built OnlyOffice desktop client (it is NOT read by the public installer). The `id` MUST match DESKTOP_PROVIDER in lib/desktop-portal.ts ('shield-cds'). Fields under `_pending` still need to be confirmed against the OnlyOffice 'Adding a DMS provider' + 'Opening documents' docs before this is complete.",
+  "id": "shield-cds",
+  "name": "S.H.I.E.L.D. — Central Document System",
+  "domain": "https://REPLACE_WITH_PORTAL_URL",
+  "uiTheme": "theme-dark",
+  "_pending": {
+    "note": "Confirm the exact keys/URLs the desktop app expects for browsing and opening a document.",
+    "entryUrl": "/dashboard",
+    "loginUrl": "/login",
+    "openDocumentEndpoint": "/api/desktop/open"
+  }
+}

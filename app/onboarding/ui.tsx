@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/ui-store";
+import { desktopLogout } from "@/lib/desktop-portal";
 import NotifToggle from "../notif-toggle";
 
 type Props = {
@@ -57,7 +58,10 @@ export default function OnboardingUI({ session, requestId, docId, title }: Props
   }
 
   function logout() {
-    fetch("/api/auth/logout", { method: "POST" }).finally(() => router.replace("/"));
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+      desktopLogout(); // no-op outside the OnlyOffice desktop app
+      router.replace("/");
+    });
   }
 
   return (

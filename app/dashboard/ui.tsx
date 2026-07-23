@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Session } from "@/lib/session";
 import { toast, confirmDialog, promptDialog } from "@/lib/ui-store";
+import { desktopLogout } from "@/lib/desktop-portal";
 import NotifToggle from "../notif-toggle";
 
 type Doc = { id: number; title: string; filetype: string; classification: number; folder_id: number | null; updated_at: string; owner: string; mine: boolean; sealed?: boolean; locked?: boolean; lock_reason?: string | null; request_status?: string | null };
@@ -176,6 +177,7 @@ export default function Dashboard({ session, academyUrl }: { session: Session; a
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    desktopLogout(); // no-op outside the OnlyOffice desktop app
     router.push("/");
   }
 
