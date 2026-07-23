@@ -14,11 +14,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { rows } = await pool.query(
     "SELECT id, matricule, codename FROM users WHERE status = 'active' ORDER BY codename"
   );
+  // The "email" field is the identifier the editor hands back on a mention. OnlyOffice can
+  // reject a value that doesn't look like an email, so we wrap the badge in a pseudo-address
+  // (never actually emailed) and unwrap it in the mention endpoint.
   return NextResponse.json(
     rows.map((u: { id: number; matricule: string; codename: string }) => ({
       id: String(u.id),
       name: `${u.matricule} · ${u.codename}`,
-      email: u.matricule,
+      email: `${u.matricule}@agents.shield`,
     }))
   );
 }

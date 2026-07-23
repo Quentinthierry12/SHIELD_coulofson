@@ -20,18 +20,26 @@ export default function Editor({ dsUrl, config, title, redacted, hideNav, docId 
           // Feeds the "@" autocomplete: the agents that can be mentioned in a comment.
           onRequestUsers: (event: any) => {
             if (!docId) return;
+            const c = event?.data?.c;
+            // Only the mention context needs the agent list; other contexts get an empty set.
+            if (c && c !== "mention") { editorRef.current?.setUsers?.({ c, users: [] }); return; }
             fetch(`/api/documents/${docId}/users`)
               .then((r) => (r.ok ? r.json() : []))
-              .then((users) => editorRef.current?.setUsers?.({ c: event?.data?.c, users }))
+              .then((users) => editorRef.current?.setUsers?.({ c, users }))
               .catch(() => {});
           },
           // Fired when someone is @mentioned in a comment — the portal pings them (push + DM).
+          // The payload shape varies across Document Server versions, so read it defensively.
           onRequestSendNotify: (event: any) => {
             if (!docId) return;
             const d = event?.data || {};
+            const emails = Array.isArray(d.emails) ? d.emails
+              : Array.isArray(d?.data?.emails) ? d.data.emails : [];
+            const comment = d.message ?? d.comment ?? d?.data?.message ?? "";
+            if (!emails.length) return;
             fetch(`/api/documents/${docId}/mention`, {
               method: "POST",
-              body: JSON.stringify({ emails: d.emails || [], comment: d.message ?? d.comment ?? "", link: d.actionLink }),
+              body: JSON.stringify({ emails, comment }),
             }).catch(() => {});
           },
         },

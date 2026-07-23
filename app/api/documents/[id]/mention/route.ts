@@ -13,8 +13,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!doc) return NextResponse.json({ error: "Access denied." }, { status: 403 });
 
   const { emails, comment } = await req.json().catch(() => ({}));
+  // Each value is a badge, possibly wrapped as "AG-1234@agents.shield" — take the part before
+  // the "@" (a raw badge without "@" is left as-is).
   const badges = (Array.isArray(emails) ? emails : [])
-    .map((e: unknown) => String(e).trim().toUpperCase())
+    .map((e: unknown) => String(e).split("@")[0].trim().toUpperCase())
     .filter(Boolean);
   if (!badges.length) return NextResponse.json({ ok: true, notified: 0 });
 
